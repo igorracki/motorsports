@@ -1,0 +1,18 @@
+services:
+
+  backend:
+    image: sledzior/f1/backend
+    environment:
+      - EXTERNAL_API_URL=http://fastf1_wrapper:8080
+      - SERVER_PORT=8081
+    build:
+      context: ./backend
+    ports:
+      - "8081:8081"
+
+  fastf1_wrapper:
+    image: sledzior/f1/fastf1_wrapper
+    build:
+      context: ./fastf1_wrapper
+    ports:
+      - "8080:8080"
