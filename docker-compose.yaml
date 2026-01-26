@@ -16,3 +16,10 @@ services:
       context: ./fastf1_wrapper
     ports:
       - "8080:8080"
+
+  frontend:
+    image: sledzior/f1/frontend
+    build:
+      context: ./frontend_remote/
+    ports:
+      - "3000:3000"
