@@ -19,12 +19,12 @@ func main() {
 	server.Use(middleware.RequestLogger())
 	server.Use(middleware.Recover())
 
-	externalClient := clients.NewExternalAPIClient(configuration.ExternalAPIURL)
-	eventsService := services.NewEventsService(externalClient)
-	eventsHandler := handlers.NewEventsHandler(eventsService)
+	f1Client := clients.NewF1DataClient(configuration.ExternalAPIURL)
+	f1Service := services.NewF1Service(f1Client)
+	f1Handler := handlers.NewF1Handler(f1Service)
 
 	api := server.Group("/api")
-	api.GET("/events", eventsHandler.GetEvents)
+	api.GET("/events", f1Handler.GetEvents)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})

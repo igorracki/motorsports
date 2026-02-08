@@ -11,17 +11,17 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 )
 
-type ExternalAPIClient interface {
+type F1DataClient interface {
 	GetEventsByYear(ctx context.Context, year int) ([]models.Event, error)
 }
 
-type externalAPIClient struct {
+type f1DataClient struct {
 	baseURL string
 	client  *http.Client
 }
 
-func NewExternalAPIClient(baseURL string) ExternalAPIClient {
-	return &externalAPIClient{
+func NewF1DataClient(baseURL string) F1DataClient {
+	return &f1DataClient{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -29,8 +29,8 @@ func NewExternalAPIClient(baseURL string) ExternalAPIClient {
 	}
 }
 
-func (client *externalAPIClient) GetEventsByYear(context context.Context, year int) ([]models.Event, error) {
-	url := fmt.Sprintf("%s/wrapper/events/%d", client.baseURL, year)
+func (client *f1DataClient) GetEventsByYear(context context.Context, year int) ([]models.Event, error) {
+	url := fmt.Sprintf("%s/events/%d", client.baseURL, year)
 
 	request, err := http.NewRequestWithContext(context, "GET", url, nil)
 	if err != nil {

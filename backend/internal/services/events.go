@@ -8,21 +8,21 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 )
 
-type EventsService interface {
+type F1Service interface {
 	GetEventsByYear(context context.Context, year int) ([]models.Event, error)
 }
 
-type eventsService struct {
-	client clients.ExternalAPIClient
+type f1Service struct {
+	client clients.F1DataClient
 }
 
-func NewEventsService(client clients.ExternalAPIClient) EventsService {
-	return &eventsService{
+func NewF1Service(client clients.F1DataClient) F1Service {
+	return &f1Service{
 		client: client,
 	}
 }
 
-func (service *eventsService) GetEventsByYear(context context.Context, year int) ([]models.Event, error) {
+func (service *f1Service) GetEventsByYear(context context.Context, year int) ([]models.Event, error) {
 	if year < 1900 || year > 2050 {
 		return nil, fmt.Errorf("year outside supported Formula 1 range")
 	}

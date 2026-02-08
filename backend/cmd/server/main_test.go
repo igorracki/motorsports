@@ -14,20 +14,20 @@ import (
 	"testing"
 )
 
-type mockExternalAPIClient struct {
+type mockF1DataClient struct {
 	response []models.Event
 	err      error
 }
 
-func (mock *mockExternalAPIClient) GetEventsByYear(ctx context.Context, year int) ([]models.Event, error) {
+func (mock *mockF1DataClient) GetEventsByYear(ctx context.Context, year int) ([]models.Event, error) {
 	return mock.response, mock.err
 }
 
-func setupTestServer(client clients.ExternalAPIClient) *echo.Echo {
+func setupTestServer(client clients.F1DataClient) *echo.Echo {
 	server := echo.New()
 
-	eventsService := services.NewEventsService(client)
-	eventsHandler := handlers.NewEventsHandler(eventsService)
+	eventsService := services.NewF1Service(client)
+	eventsHandler := handlers.NewF1Handler(eventsService)
 
 	api := server.Group("/api")
 	api.GET("/events", eventsHandler.GetEvents)
@@ -36,7 +36,7 @@ func setupTestServer(client clients.ExternalAPIClient) *echo.Echo {
 }
 
 func TestGetEvents_Success(t *testing.T) {
-	clientMock := &mockExternalAPIClient{
+	clientMock := &mockF1DataClient{
 		response: []models.Event{
 			{
 				Round:     1,
@@ -75,7 +75,7 @@ func TestGetEvents_Success(t *testing.T) {
 	assert.Equal(t, "Race", response.Events[0].Sessions[0].Type)
 }
 func TestGetEvents_MissingYear(t *testing.T) {
-	server := setupTestServer(&mockExternalAPIClient{})
+	server := setupTestServer(&mockF1DataClient{})
 
 	request := httptest.NewRequest(http.MethodGet, "/api/events", nil)
 	recorder := httptest.NewRecorder()
@@ -91,7 +91,7 @@ func TestGetEvents_MissingYear(t *testing.T) {
 	assert.Equal(t, "must provide a year", response.Message)
 }
 func TestGetEvents_InvalidYear(t *testing.T) {
-	server := setupTestServer(&mockExternalAPIClient{})
+	server := setupTestServer(&mockF1DataClient{})
 
 	request := httptest.NewRequest(http.MethodGet, "/api/events?year=invalid", nil)
 	recorder := httptest.NewRecorder()
@@ -106,7 +106,7 @@ func TestGetEvents_InvalidYear(t *testing.T) {
 	assert.Equal(t, "invalid_parameter", response.Error)
 }
 func TestGetEvents_NegativeYear(t *testing.T) {
-	server := setupTestServer(&mockExternalAPIClient{})
+	server := setupTestServer(&mockF1DataClient{})
 
 	request := httptest.NewRequest(http.MethodGet, "/api/events?year=-1", nil)
 	recorder := httptest.NewRecorder()
@@ -116,7 +116,7 @@ func TestGetEvents_NegativeYear(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 func TestGetEvents_ExternalAPIError(t *testing.T) {
-	clientMock := &mockExternalAPIClient{
+	clientMock := &mockF1DataClient{
 		response: nil,
 		err:      assert.AnError,
 	}
@@ -136,7 +136,7 @@ func TestGetEvents_ExternalAPIError(t *testing.T) {
 	assert.Equal(t, "internal_error", response.Error)
 }
 func TestGetEvents_MultipleEvents(t *testing.T) {
-	clientMock := &mockExternalAPIClient{
+	clientMock := &mockF1DataClient{
 		response: []models.Event{
 			{
 				Round:     1,

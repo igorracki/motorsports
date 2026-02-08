@@ -9,17 +9,17 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type EventsHandler struct {
-	service services.EventsService
+type F1Handler struct {
+	service services.F1Service
 }
 
-func NewEventsHandler(service services.EventsService) *EventsHandler {
-	return &EventsHandler{
+func NewF1Handler(service services.F1Service) *F1Handler {
+	return &F1Handler{
 		service: service,
 	}
 }
 
-func (handler *EventsHandler) GetEvents(context echo.Context) error {
+func (handler *F1Handler) GetEvents(context echo.Context) error {
 	yearParameter := context.QueryParam("year")
 	if yearParameter == "" {
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{

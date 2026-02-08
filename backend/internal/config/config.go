@@ -19,7 +19,7 @@ func Load() *Configuration {
 	}
 
 	serverPort := getEnvAsInt("SERVER_PORT", 8081)
-	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8080")
+	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8080/wrapper")
 
 	return &Configuration{
 		ServerPort:     serverPort,
