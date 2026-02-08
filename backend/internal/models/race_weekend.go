@@ -6,7 +6,7 @@ type Session struct {
 	TimeUTC   string `json:"time_utc"`
 }
 
-type Event struct {
+type RaceWeekend struct {
 	Round     int       `json:"round"`
 	FullName  string    `json:"full_name"`
 	Name      string    `json:"name"`
@@ -21,6 +21,6 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-type EventsResponse struct {
-	Events []Event `json:"events"`
+type RaceWeekendsResponse struct {
+	RaceWeekends []RaceWeekend `json:"race_weekends"`
 }
