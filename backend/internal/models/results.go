@@ -14,11 +14,11 @@ type RaceDetails struct {
 }
 
 type QualifyingDetails struct {
-	Q1MS int64  `json:"q1_ms,omitempty"`
+	Q1MS *int64 `json:"q1_ms,omitempty"`
 	Q1   string `json:"q1,omitempty"`
-	Q2MS int64  `json:"q2_ms,omitempty"`
+	Q2MS *int64 `json:"q2_ms,omitempty"`
 	Q2   string `json:"q2,omitempty"`
-	Q3MS int64  `json:"q3_ms,omitempty"`
+	Q3MS *int64 `json:"q3_ms,omitempty"`
 	Q3   string `json:"q3,omitempty"`
 }
 
@@ -27,11 +27,11 @@ type DriverResult struct {
 	Driver       DriverInfo         `json:"driver"`
 	Laps         int                `json:"laps"`
 	Status       string             `json:"status"`
-	TotalTimeMS  int64              `json:"total_time_ms,omitempty"`
+	TotalTimeMS  *int64             `json:"total_time_ms,omitempty"`
 	TotalTime    string             `json:"total_time,omitempty"`
-	GapMS        int64              `json:"gap_ms,omitempty"`
+	GapMS        *int64             `json:"gap_ms,omitempty"`
 	Gap          string             `json:"gap"`
-	FastestLapMS int64              `json:"fastest_lap_ms,omitempty"`
+	FastestLapMS *int64             `json:"fastest_lap_ms,omitempty"`
 	FastestLap   string             `json:"fastest_lap,omitempty"`
 	Race         *RaceDetails       `json:"race_details,omitempty"`
 	Qualifying   *QualifyingDetails `json:"qualifying_details,omitempty"`

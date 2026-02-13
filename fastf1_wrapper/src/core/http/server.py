@@ -1,8 +1,17 @@
 import uvicorn
+import logging
+import sys
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from ..services import F1Service
 from ..providers import FastF1Provider
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 server = FastAPI(title="FastF1 Wrapper API")
 server.add_middleware(
@@ -20,6 +29,7 @@ async def get_events(year: int):
         result = service.get_weekend_events(year)
         return result
     except Exception as e:
+        logging.error(f"Error fetching events for year {year}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -32,6 +42,7 @@ async def get_results(year: int, round: int, session_type: str):
             return {"year": year, "round": round, "session_type": session_type, "results": []}
         return result
     except Exception as e:
+        logging.error(f"Error fetching results for {year} round {round} {session_type}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':

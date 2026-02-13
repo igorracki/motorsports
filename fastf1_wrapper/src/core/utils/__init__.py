@@ -1,3 +1,3 @@
-from .converters import format_lap_time
+from .converters import to_datetime, to_milliseconds
 
-__all__ = ['format_lap_time']
+__all__ = ['to_datetime', 'to_milliseconds']
