@@ -24,7 +24,8 @@ func main() {
 	f1Handler := handlers.NewF1Handler(f1Service)
 
 	api := server.Group("/api")
-	api.GET("/events", f1Handler.GetEvents)
+	api.GET("/race-weekends/:year", f1Handler.GetRaceWeekends)
+	api.GET("/race-weekends/:year/:round/:session/results", f1Handler.GetSessionResults)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})

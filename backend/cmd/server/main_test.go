@@ -3,24 +3,30 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/igorracki/f1/backend/internal/clients"
 	"github.com/igorracki/f1/backend/internal/handlers"
 	"github.com/igorracki/f1/backend/internal/models"
 	"github.com/igorracki/f1/backend/internal/services"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 type mockF1DataClient struct {
-	response []models.Event
-	err      error
+	raceWeekendsResponse        []models.RaceWeekend
+	resultsResponse *models.SessionResults
+	err             error
 }
 
-func (mock *mockF1DataClient) GetEventsByYear(ctx context.Context, year int) ([]models.Event, error) {
-	return mock.response, mock.err
+func (mock *mockF1DataClient) GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+	return mock.raceWeekendsResponse, mock.err
+}
+
+func (mock *mockF1DataClient) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
+	return mock.resultsResponse, mock.err
 }
 
 func setupTestServer(client clients.F1DataClient) *echo.Echo {
@@ -30,14 +36,14 @@ func setupTestServer(client clients.F1DataClient) *echo.Echo {
 	eventsHandler := handlers.NewF1Handler(eventsService)
 
 	api := server.Group("/api")
-	api.GET("/events", eventsHandler.GetEvents)
+	api.GET("/race-weekends/:year", eventsHandler.GetRaceWeekends)
 
 	return server
 }
 
-func TestGetEvents_Success(t *testing.T) {
+func TestGetRaceWeekends_Success(t *testing.T) {
 	clientMock := &mockF1DataClient{
-		response: []models.Event{
+		raceWeekendsResponse: []models.RaceWeekend{
 			{
 				Round:     1,
 				FullName:  "FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026",
@@ -55,45 +61,29 @@ func TestGetEvents_Success(t *testing.T) {
 
 	server := setupTestServer(clientMock)
 
-	request := httptest.NewRequest(http.MethodGet, "/api/events?year=2026", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/race-weekends/2026", nil)
 	recorder := httptest.NewRecorder()
 
 	server.ServeHTTP(recorder, request)
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response models.EventsResponse
+	var response models.RaceWeekendsResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Len(t, response.Events, 1)
-	assert.Equal(t, 1, response.Events[0].Round)
-	assert.Equal(t, "Australian Grand Prix", response.Events[0].Name)
-	assert.Equal(t, "Melbourne", response.Events[0].Location)
-	assert.Equal(t, "Australia", response.Events[0].Country)
-	assert.Len(t, response.Events[0].Sessions, 1)
-	assert.Equal(t, "Race", response.Events[0].Sessions[0].Type)
+	assert.Len(t, response.RaceWeekends, 1)
+	assert.Equal(t, 1, response.RaceWeekends[0].Round)
+	assert.Equal(t, "Australian Grand Prix", response.RaceWeekends[0].Name)
+	assert.Equal(t, "Melbourne", response.RaceWeekends[0].Location)
+	assert.Equal(t, "Australia", response.RaceWeekends[0].Country)
+	assert.Len(t, response.RaceWeekends[0].Sessions, 1)
+	assert.Equal(t, "Race", response.RaceWeekends[0].Sessions[0].Type)
 }
-func TestGetEvents_MissingYear(t *testing.T) {
+func TestGetRaceWeekends_InvalidYear(t *testing.T) {
 	server := setupTestServer(&mockF1DataClient{})
 
-	request := httptest.NewRequest(http.MethodGet, "/api/events", nil)
-	recorder := httptest.NewRecorder()
-
-	server.ServeHTTP(recorder, request)
-
-	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-
-	var response models.ErrorResponse
-	err := json.Unmarshal(recorder.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, "missing_parameter", response.Error)
-	assert.Equal(t, "must provide a year", response.Message)
-}
-func TestGetEvents_InvalidYear(t *testing.T) {
-	server := setupTestServer(&mockF1DataClient{})
-
-	request := httptest.NewRequest(http.MethodGet, "/api/events?year=invalid", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/race-weekends/invalid", nil)
 	recorder := httptest.NewRecorder()
 
 	server.ServeHTTP(recorder, request)
@@ -105,25 +95,25 @@ func TestGetEvents_InvalidYear(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "invalid_parameter", response.Error)
 }
-func TestGetEvents_NegativeYear(t *testing.T) {
+func TestGetRaceWeekends_NegativeYear(t *testing.T) {
 	server := setupTestServer(&mockF1DataClient{})
 
-	request := httptest.NewRequest(http.MethodGet, "/api/events?year=-1", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/race-weekends/-1", nil)
 	recorder := httptest.NewRecorder()
 
 	server.ServeHTTP(recorder, request)
 
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 }
-func TestGetEvents_ExternalAPIError(t *testing.T) {
+func TestGetRaceWeekends_ExternalAPIError(t *testing.T) {
 	clientMock := &mockF1DataClient{
-		response: nil,
+		raceWeekendsResponse: nil,
 		err:      assert.AnError,
 	}
 
 	server := setupTestServer(clientMock)
 
-	request := httptest.NewRequest(http.MethodGet, "/api/events?year=2026", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/race-weekends/2026", nil)
 	recorder := httptest.NewRecorder()
 
 	server.ServeHTTP(recorder, request)
@@ -135,9 +125,9 @@ func TestGetEvents_ExternalAPIError(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "internal_error", response.Error)
 }
-func TestGetEvents_MultipleEvents(t *testing.T) {
+func TestGetRaceWeekends_MultipleEvents(t *testing.T) {
 	clientMock := &mockF1DataClient{
-		response: []models.Event{
+		raceWeekendsResponse: []models.RaceWeekend{
 			{
 				Round:     1,
 				Name:      "Australian Grand Prix",
@@ -159,18 +149,18 @@ func TestGetEvents_MultipleEvents(t *testing.T) {
 
 	server := setupTestServer(clientMock)
 
-	request := httptest.NewRequest(http.MethodGet, "/api/events?year=2026", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/race-weekends/2026", nil)
 	recorder := httptest.NewRecorder()
 
 	server.ServeHTTP(recorder, request)
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response models.EventsResponse
+	var response models.RaceWeekendsResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
-	assert.Len(t, response.Events, 2)
-	assert.Equal(t, "Australian Grand Prix", response.Events[0].Name)
-	assert.Equal(t, "Chinese Grand Prix", response.Events[1].Name)
+	assert.Len(t, response.RaceWeekends, 2)
+	assert.Equal(t, "Australian Grand Prix", response.RaceWeekends[0].Name)
+	assert.Equal(t, "Chinese Grand Prix", response.RaceWeekends[1].Name)
 }

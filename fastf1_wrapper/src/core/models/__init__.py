@@ -1,7 +1,13 @@
 from .session import Session
-from .event import Event
+from .race_weekend import RaceWeekend
+from .result import SessionResult, DriverResult, DriverInfo, RaceDetails, QualifyingDetails
 
 __all__ = [
     'Session',
-    'Event'
+    'RaceWeekend',
+    'SessionResult',
+    'DriverResult',
+    'DriverInfo',
+    'RaceDetails',
+    'QualifyingDetails'
 ]

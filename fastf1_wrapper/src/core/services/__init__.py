@@ -1,3 +1,3 @@
-from .events_service import EventService
+from .f1_service import F1Service
 
-__all__ = ['EventService']
+__all__ = ['F1Service']
