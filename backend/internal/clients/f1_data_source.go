@@ -14,7 +14,7 @@ import (
 )
 
 type F1DataClient interface {
-	GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
+	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
 	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
 }
 
@@ -32,8 +32,8 @@ func NewF1DataClient(baseURL string) F1DataClient {
 	}
 }
 
-func (client *f1DataClient) GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
-	slog.InfoContext(ctx, "Fetching race weekends", "year", year, "url", client.baseURL)
+func (client *f1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+	slog.InfoContext(ctx, "Fetching schedule", "year", year, "url", client.baseURL)
 	path, err := url.JoinPath(client.baseURL, "events", fmt.Sprintf("%d", year))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
@@ -65,14 +65,14 @@ func (client *f1DataClient) GetRaceWeekendsByYear(ctx context.Context, year int)
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var raceWeekends []models.RaceWeekend
-	if err := json.Unmarshal(body, &raceWeekends); err != nil {
+	var schedule []models.RaceWeekend
+	if err := json.Unmarshal(body, &schedule); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Successfully fetched race weekends", "count", len(raceWeekends))
-	return raceWeekends, nil
+	slog.InfoContext(ctx, "Successfully fetched schedule", "count", len(schedule))
+	return schedule, nil
 }
 
 func (client *f1DataClient) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {

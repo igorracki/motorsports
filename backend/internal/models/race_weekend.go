@@ -21,6 +21,6 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-type RaceWeekendsResponse struct {
-	RaceWeekends []RaceWeekend `json:"race_weekends"`
+type ScheduleResponse struct {
+	Schedule []RaceWeekend `json:"schedule"`
 }
