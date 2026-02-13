@@ -21,6 +21,9 @@ This document outlines the core principles, architecture decisions, and coding s
 *   **Composition over Inheritance:** Use composition for data models.
     *   Example: A `DriverResult` contains core fields and optional pointers to `RaceDetails` or `QualifyingDetails`.
     *   In Go, use pointers with `omitempty` tags to ensure clean JSON responses.
+*   **Schema Synchronization:**
+    *   Any change to the `fastf1_wrapper` output (e.g., nullable fields) **MUST** be immediately reflected in the `backend` models.
+    *   Failing to do so will cause JSON unmarshaling errors in the backend.
 
 ## 3. Coding Standards
 
@@ -29,12 +32,17 @@ This document outlines the core principles, architecture decisions, and coding s
 *   **Small Functions:** Prefer small, clear functions with a single responsibility. Avoid "mega-functions" with many operations.
 *   **Explicit Naming:** 
     *   Variables and functions must be descriptive. Use `RaceWeekend` instead of `Event`. Use `elapsed_duration` instead of `time`.
-    *   **Forbidden:** Single-letter variables (`s`, `i`), cryptic abbreviations (`ctx`, `td`, `s_type`), and vague terms (`data`, `obj`).
+    *   **Forbidden:** Single-letter variables (`s`, `x`), cryptic abbreviations (`td`, `s_type`), and vague terms (`data`, `obj`). **Exceptions:** `i` (loops), `ctx` (context), `ms` (milliseconds).
 *   **Extensibility:** Design features (like session types) so they can be easily extended without breaking existing logic.
+*   **Observability (Logging):**
+    *   **Traceability:** Add INFO logs at key entry and exit points (e.g., "Fetching session results...", "Found X drivers").
+    *   **Error Handling:** Always log full error details in the wrapper before returning safe fallbacks (like `None`). Do not swallow errors silently.
 
 ### Python Guidelines (`fastf1_wrapper`)
 *   **Models:** Always use `dataclasses`.
-*   **Isolation:** Keep the `FastF1Provider` clean. Move all Pandas/Numpy-specific extraction and type conversion logic into `src/core/utils/converters.py`.
+*   **Isolation:** Keep the `FastF1Provider` clean.
+    *   Move complex extraction logic to `src/core/utils/extractors.py`.
+    *   Keep simple type conversions in `src/core/utils/converters.py`.
 *   **Accuracy:** Always load sessions with `laps=True` to ensure aggregated statistics (Fastest Lap, Lap Counts) are correctly populated by the library.
 
 ### Go Guidelines (`backend`)
@@ -56,3 +64,7 @@ This document outlines the core principles, architecture decisions, and coding s
     2.  Run `go test ./...` in the `backend`.
     3.  Verify the project builds (`go build`).
     4.  Check Python syntax/imports.
+*   **Dependency Management:** NEVER install new libraries or modules (e.g., via `pip`, `go get`, `npm`) without first:
+    1.  Explaining **what** the library does.
+    2.  Explaining **why** it is strictly necessary.
+    3.  Receiving explicit **confirmation** from the user.

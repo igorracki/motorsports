@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/igorracki/f1/backend/internal/clients"
 	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/f1/backend/internal/utils"
 )
 
 type F1Service interface {
@@ -24,12 +26,15 @@ func NewF1Service(client clients.F1DataClient) F1Service {
 }
 
 func (service *f1Service) GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+	slog.InfoContext(ctx, "Processing race weekends request", "year", year)
 	if year < 1900 || year > 2050 {
+		slog.WarnContext(ctx, "Invalid year requested", "year", year)
 		return nil, fmt.Errorf("year outside supported Formula 1 range")
 	}
 
 	raceWeekends, err := service.client.GetRaceWeekendsByYear(ctx, year)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to fetch race weekends", "error", err)
 		return nil, fmt.Errorf("failed to fetch race weekends from external API: %w", err)
 	}
 
@@ -37,76 +42,56 @@ func (service *f1Service) GetRaceWeekendsByYear(ctx context.Context, year int) (
 }
 
 func (service *f1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
+	slog.InfoContext(ctx, "Processing session results request", "year", year, "round", round, "sessionType", sessionType)
 	results, err := service.client.GetSessionResults(ctx, year, round, sessionType)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to fetch session results", "error", err)
 		return nil, fmt.Errorf("failed to fetch results: %w", err)
 	}
 
 	if results == nil || len(results.Results) == 0 {
+		slog.WarnContext(ctx, "No results found", "year", year, "round", round)
 		return results, nil
 	}
 
+	slog.InfoContext(ctx, "Formatting driver results", "count", len(results.Results))
 	for i := range results.Results {
-		res := &results.Results[i]
+		result := &results.Results[i]
 
-		if res.TotalTimeMS > 0 {
-			res.TotalTime = formatDuration(res.TotalTimeMS, false)
+		if result.TotalTimeMS != nil {
+			result.TotalTime = utils.FormatDuration(*result.TotalTimeMS, false)
 		}
 
-		if res.FastestLapMS > 0 {
-			res.FastestLap = formatDuration(res.FastestLapMS, false)
+		if result.FastestLapMS != nil {
+			result.FastestLap = utils.FormatDuration(*result.FastestLapMS, false)
 		}
 
-		if sessionType == "R" || sessionType == "Race" {
-			if res.Position == 1 {
-				res.Gap = "+0.000"
-			} else if res.GapMS > 0 {
-				res.Gap = formatDuration(res.GapMS, true)
+		if sessionType == models.SessionTypeRaceShort || sessionType == models.SessionTypeRace {
+			if result.Position == 1 {
+				result.Gap = "+0.000"
+			} else if result.GapMS != nil {
+				result.Gap = utils.FormatDuration(*result.GapMS, true)
 			} else {
-				res.Gap = res.Status
+				result.Gap = result.Status
 			}
 		}
 
-		if res.Race != nil {
-			res.Race.PositionsChange = res.Race.GridPosition - res.Position
+		if result.Race != nil {
+			result.Race.PositionsChange = result.Race.GridPosition - result.Position
 		}
 
-		if res.Qualifying != nil {
-			if res.Qualifying.Q1MS > 0 {
-				res.Qualifying.Q1 = formatDuration(res.Qualifying.Q1MS, false)
+		if result.Qualifying != nil {
+			if result.Qualifying.Q1MS != nil {
+				result.Qualifying.Q1 = utils.FormatDuration(*result.Qualifying.Q1MS, false)
 			}
-			if res.Qualifying.Q2MS > 0 {
-				res.Qualifying.Q2 = formatDuration(res.Qualifying.Q2MS, false)
+			if result.Qualifying.Q2MS != nil {
+				result.Qualifying.Q2 = utils.FormatDuration(*result.Qualifying.Q2MS, false)
 			}
-			if res.Qualifying.Q3MS > 0 {
-				res.Qualifying.Q3 = formatDuration(res.Qualifying.Q3MS, false)
+			if result.Qualifying.Q3MS != nil {
+				result.Qualifying.Q3 = utils.FormatDuration(*result.Qualifying.Q3MS, false)
 			}
 		}
 	}
 
 	return results, nil
-}
-
-func formatDuration(ms int64, isGap bool) string {
-	prefix := ""
-	if isGap {
-		prefix = "+"
-	}
-
-	secondsTotal := float64(ms) / 1000.0
-
-	// For very small gaps
-	if secondsTotal < 60 && isGap {
-		return fmt.Sprintf("%s%.3f", prefix, secondsTotal)
-	}
-
-	hours := int(secondsTotal) / 3600
-	minutes := (int(secondsTotal) % 3600) / 60
-	seconds := secondsTotal - float64(hours*3600+minutes*60)
-
-	if hours > 0 {
-		return fmt.Sprintf("%s%d:%02d:%06.3f", prefix, hours, minutes, seconds)
-	}
-
-	return fmt.Sprintf("%s%d:%06.3f", prefix, minutes, seconds)
 }
