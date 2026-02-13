@@ -5,10 +5,10 @@ services:
       context: ./backend
       target: builder
     environment:
-      - EXTERNAL_API_URL=http://fastf1_wrapper:8080/wrapper
-      - SERVER_PORT=8081
+      - EXTERNAL_API_URL=http://fastf1_wrapper:8081/wrapper
+      - SERVER_PORT=8080
     ports:
-      - "8081:8081"
+      - "8080:8080"
     volumes:
       - ./backend:/app
     working_dir: /app
@@ -19,11 +19,11 @@ services:
     build:
       context: ./fastf1_wrapper
     ports:
-      - "8080:8080"
+      - "8081:8081"
     volumes:
       - ./fastf1_wrapper:/app
     working_dir: /app
-    command: uvicorn src.core.http.server:server --host 0.0.0.0 --port 8080 --reload
+    command: uvicorn src.core.http.server:server --host 0.0.0.0 --port 8081 --reload
 
   frontend:
     image: f1-frontend:dev

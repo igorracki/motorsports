@@ -11,7 +11,7 @@ import (
 )
 
 type F1Service interface {
-	GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
+	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
 	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
 }
 
@@ -25,20 +25,20 @@ func NewF1Service(client clients.F1DataClient) F1Service {
 	}
 }
 
-func (service *f1Service) GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
-	slog.InfoContext(ctx, "Processing race weekends request", "year", year)
+func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+	slog.InfoContext(ctx, "Processing schedule request", "year", year)
 	if year < 1900 || year > 2050 {
 		slog.WarnContext(ctx, "Invalid year requested", "year", year)
 		return nil, fmt.Errorf("year outside supported Formula 1 range")
 	}
 
-	raceWeekends, err := service.client.GetRaceWeekendsByYear(ctx, year)
+	schedule, err := service.client.GetScheduleByYear(ctx, year)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch race weekends", "error", err)
-		return nil, fmt.Errorf("failed to fetch race weekends from external API: %w", err)
+		slog.ErrorContext(ctx, "Failed to fetch schedule", "error", err)
+		return nil, fmt.Errorf("failed to fetch schedule from external API: %w", err)
 	}
 
-	return raceWeekends, nil
+	return schedule, nil
 }
 
 func (service *f1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
@@ -67,9 +67,7 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 		}
 
 		if sessionType == models.SessionTypeRaceShort || sessionType == models.SessionTypeRace {
-			if result.Position == 1 {
-				result.Gap = "+0.000"
-			} else if result.GapMS != nil {
+			if result.GapMS != nil {
 				result.Gap = utils.FormatDuration(*result.GapMS, true)
 			} else {
 				result.Gap = result.Status

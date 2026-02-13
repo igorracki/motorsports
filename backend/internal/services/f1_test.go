@@ -13,7 +13,7 @@ type MockF1DataClient struct {
 	mock.Mock
 }
 
-func (m *MockF1DataClient) GetRaceWeekendsByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+func (m *MockF1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
 	args := m.Called(ctx, year)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

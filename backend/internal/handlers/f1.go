@@ -19,7 +19,7 @@ func NewF1Handler(service services.F1Service) *F1Handler {
 	}
 }
 
-func (handler *F1Handler) GetRaceWeekends(context echo.Context) error {
+func (handler *F1Handler) GetSchedule(context echo.Context) error {
 	yearParameter := context.Param("year")
 	if yearParameter == "" {
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
@@ -43,16 +43,16 @@ func (handler *F1Handler) GetRaceWeekends(context echo.Context) error {
 		})
 	}
 
-	raceWeekends, err := handler.service.GetRaceWeekendsByYear(context.Request().Context(), year)
+	schedule, err := handler.service.GetScheduleByYear(context.Request().Context(), year)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "internal_error",
-			Message: "failed to fetch race weekends",
+			Message: "failed to fetch schedule",
 		})
 	}
 
-	response := models.RaceWeekendsResponse{
-		RaceWeekends: raceWeekends,
+	response := models.ScheduleResponse{
+		Schedule: schedule,
 	}
 
 	return context.JSON(http.StatusOK, response)

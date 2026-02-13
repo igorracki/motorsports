@@ -62,8 +62,8 @@ This document outlines the core principles, architecture decisions, and coding s
 *   **Verification Workflow:** 
     1.  Perform changes.
     2.  Run `go test ./...` in the `backend`.
-    3.  Verify the project builds (`go build`).
-    4.  Check Python syntax/imports.
+    3.  Run `python3 -m unittest discover fastf1_wrapper/tests` (if Python code changed).
+    4.  Verify the project builds (`go build`).
 *   **Dependency Management:** NEVER install new libraries or modules (e.g., via `pip`, `go get`, `npm`) without first:
     1.  Explaining **what** the library does.
     2.  Explaining **why** it is strictly necessary.
