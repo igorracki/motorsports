@@ -42,6 +42,7 @@ func setupTestServer(client clients.F1DataClient) *echo.Echo {
 	api := server.Group("/api")
 	api.GET("/schedule/:year", eventsHandler.GetSchedule)
 	api.GET("/schedule/:year/:round/:session/results", eventsHandler.GetSessionResults)
+	api.GET("/schedule/:year/:round/circuit", eventsHandler.GetCircuit)
 
 	return server
 }
@@ -50,14 +51,14 @@ func TestGetSchedule_Success(t *testing.T) {
 	clientMock := &mockF1DataClient{
 		scheduleResponse: []models.RaceWeekend{
 			{
-				Round:     1,
-				FullName:  "FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026",
-				Name:      "Australian Grand Prix",
-				Location:  "Melbourne",
-				Country:   "Australia",
-				StartDate: "2026-03-08T00:00:00",
+				Round:       1,
+				FullName:    "FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026",
+				Name:        "Australian Grand Prix",
+				Location:    "Melbourne",
+				Country:     "Australia",
+				StartDateMS: 1772928000000,
 				Sessions: []models.Session{
-					{Type: "Race", TimeLocal: "2026-03-08T15:00:00+11:00", TimeUTC: "2026-03-08T04:00:00"},
+					{Type: "Race", TimeLocalMS: 1772982000000, TimeUTCMS: 1772942400000},
 				},
 			},
 		},
@@ -134,20 +135,20 @@ func TestGetSchedule_MultipleEvents(t *testing.T) {
 	clientMock := &mockF1DataClient{
 		scheduleResponse: []models.RaceWeekend{
 			{
-				Round:     1,
-				Name:      "Australian Grand Prix",
-				Location:  "Melbourne",
-				Country:   "Australia",
-				StartDate: "2026-03-08T00:00:00",
-				Sessions:  []models.Session{},
+				Round:       1,
+				Name:        "Australian Grand Prix",
+				Location:    "Melbourne",
+				Country:     "Australia",
+				StartDateMS: 1772928000000,
+				Sessions:    []models.Session{},
 			},
 			{
-				Round:     2,
-				Name:      "Chinese Grand Prix",
-				Location:  "Shanghai",
-				Country:   "China",
-				StartDate: "2026-03-15T00:00:00",
-				Sessions:  []models.Session{},
+				Round:       2,
+				Name:        "Chinese Grand Prix",
+				Location:    "Shanghai",
+				Country:     "China",
+				StartDateMS: 1773532800000,
+				Sessions:    []models.Session{},
 			},
 		},
 	}

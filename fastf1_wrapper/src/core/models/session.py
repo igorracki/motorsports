@@ -5,5 +5,5 @@ from datetime import datetime
 @dataclass
 class Session:
     type: str
-    time_local: datetime
-    time_utc: datetime
+    time_local_ms: int
+    time_utc_ms: int

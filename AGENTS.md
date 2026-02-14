@@ -1,70 +1,77 @@
-# Project Guidelines & Standards
+# [CRITICAL] PROJECT STANDARDS & ENFORCEMENT GUIDE
 
-This document outlines the core principles, architecture decisions, and coding standards for the F1 Data platform. All agents and developers must strictly adhere to these guidelines to ensure the project remains clean, maintainable, and extensible.
+> **ATTENTION AGENT:** You are an automated contributor to the F1 Data platform. This file is your PRIMARY CONSTRAINT. Before every response, verify your plan against these rules.
 
-## 1. Project Scope
-*   **Active Projects:** 
-    *   `backend` (Go): The main business logic and API gateway.
-    *   `fastf1_wrapper` (Python): A specialized adapter for the FastF1 library.
-*   **Strictly Ignore:** `frontend_remote`. Do not read, modify, or reference this directory.
+---
 
-## 2. Architecture Decisions
+## 1. PROJECT SCOPE & BOUNDARIES
+* **ACTIVE:** `backend/` (Go), `fastf1_wrapper/` (Python).
+* **STRICTLY IGNORE:** `frontend_remote/`. (Do not read, modify, or reference).
+* **EXEMPT ZONES:** `/examples/` and `/scratch/`.
+  - **Rule:** These folders are for experiments and prototypes. 
+  - **Exemption:** Sections 2, 3, and 4 do NOT apply here. Prioritize speed/working code over standards in these paths.
 
+---
+
+## 2. ARCHITECTURE DECISIONS
 ### Service Roles
-*   **The Brain (`backend`):** Responsible for orchestration, business logic, validation, and final data presentation (formatting).
-*   **The Adapter (`fastf1_wrapper`):** Exists solely to bridge the Python-exclusive FastF1 library. Its job is to fetch raw data, normalize types, and pass them to the backend. It should **not** perform complex domain calculations.
+* **The Brain (`backend`):** Sole source of truth for orchestration, business logic, and **Data Formatting** (converting ms to human-readable strings).
+* **The Adapter (`fastf1_wrapper`):** Fetch raw data -> Normalize types -> Pass to Go. **ZERO** complex domain calculations allowed here.
 
 ### Data Strategy
-*   **Internal Transport:** All durations and times must be transported between services as **milliseconds** (`int64`). This maintains precision and simplifies cross-language communication.
-*   **Formatting:** The **Go Backend** is the single source of truth for data formatting. It converts milliseconds into human-readable strings (e.g., `"1:12.345"` or `"+5.230"`).
-*   **Gap Handling ("Pass-Through"):** Trust the data source. If FastF1 provides a gap to the winner, pass it through to the backend as a dedicated field (`gap_ms`). Avoid fragile reconstruction logic unless the source data is missing.
-*   **Composition over Inheritance:** Use composition for data models.
-    *   Example: A `DriverResult` contains core fields and optional pointers to `RaceDetails` or `QualifyingDetails`.
-    *   In Go, use pointers with `omitempty` tags to ensure clean JSON responses.
-*   **Schema Synchronization:**
-    *   Any change to the `fastf1_wrapper` output (e.g., nullable fields) **MUST** be immediately reflected in the `backend` models.
-    *   Failing to do so will cause JSON unmarshaling errors in the backend.
+* **TIME TRANSPORT:** All durations/times between `fastf1_wrapper` and `backend` MUST be `int64` milliseconds (`ms`). 
+* **DATA FORMATTING:** The backend MUST provide human-readable string versions of these `ms` values (e.g., `start_date` alongside `start_date_ms`) for consumer consumption.
+* **COMPOSITION:** Use pointers with `omitempty` (Go) and `Optional[]` (Python) for clean, optional data structures.
+* **SYNC REQUIREMENT:** Changes to Python dataclass outputs **MUST** be reflected in Go models immediately to prevent unmarshaling errors.
 
-## 3. Coding Standards
+---
 
-### General Principles
-*   **Readability First:** Code must be clean and neat. If a design looks "weird" or cluttered, refactor it.
-*   **Small Functions:** Prefer small, clear functions with a single responsibility. Avoid "mega-functions" with many operations.
-*   **Explicit Naming:** 
-    *   Variables and functions must be descriptive. Use `RaceWeekend` instead of `Event`. Use `elapsed_duration` instead of `time`.
-    *   **Forbidden:** Single-letter variables (`s`, `x`), cryptic abbreviations (`td`, `s_type`), and vague terms (`data`, `obj`). **Exceptions:** `i` (loops), `ctx` (context), `ms` (milliseconds).
-*   **Extensibility:** Design features (like session types) so they can be easily extended without breaking existing logic.
-*   **Observability (Logging):**
-    *   **Traceability:** Add INFO logs at key entry and exit points (e.g., "Fetching session results...", "Found X drivers").
-    *   **Error Handling:** Always log full error details in the wrapper before returning safe fallbacks (like `None`). Do not swallow errors silently.
+## 3. CODING STANDARDS (STRICT ENFORCEMENT)
+*Applies to `backend/` and `fastf1_wrapper/` only.*
 
-### Python Guidelines (`fastf1_wrapper`)
-*   **Models:** Always use `dataclasses`.
-*   **Isolation:** Keep the `FastF1Provider` clean.
-    *   Move complex extraction logic to `src/core/utils/extractors.py`.
-    *   Keep simple type conversions in `src/core/utils/converters.py`.
-*   **Accuracy:** Always load sessions with `laps=True` to ensure aggregated statistics (Fastest Lap, Lap Counts) are correctly populated by the library.
+### Naming Conventions
+* **FORBIDDEN:** Single-letter variables (`s`, `v`), cryptic abbreviations (`td`, `s_type`), and vague terms (`data`, `obj`).
+* **REQUIRED:** Explicit names: `RaceWeekend`, `elapsed_duration`, `lap_time_ms`.
+* **EXCEPTIONS:** `i` (loops), `ctx` (context), `err` (Go), `ms` (millisecond suffix), `t` and `tt` (testing), `x` and `y` (coordinates).
 
-### Go Guidelines (`backend`)
-*   **Layout:** Follow standard Go project structure (`cmd/` for entry points, `internal/` for private logic).
-*   **Pointers:** Use pointers for optional nested data structures to allow for `nil` values and clean JSON output.
+### Implementation
+* **Logical Cohesion:** Functions MUST follow the Single Responsibility Principle. Do not create "mega-functions" that handle multiple logical steps (e.g., fetch, transform, and format in one block).
+* **Decomposition:** Extract complex sub-steps into helper functions to keep the main flow readable. 
+* **Organization:** - Move logic into specialized scripts (e.g., `extractors.py`, `converters.py`).
+    - **Avoid "Junk Drawers":** Do not create a single `utils.py` with dozens of unrelated functions. 
+    - **Grouping:** Group related helper functions into context-specific scripts (e.g., `lap_timing_utils.py`, `session_parsing.py`) to maintain a clean directory structure.* **Python Models:** Use `dataclasses` only. Always load sessions with `laps=True`.
+* **Go Layout:** Follow standard `cmd/` and `internal/` structure.
 
-## 4. Testing Strategy
-*   **Behavioral Testing:** Focus on **Use-Cases** and system behavior rather than strictly unit testing every individual function.
-*   **Structure:** Adopt a **Given/When/Then** approach for test clarity.
-*   **Mocking Policy:** 
-    *   Mock only at the boundaries (e.g., the HTTP call to the Python wrapper).
-    *   Prefer real implementations where feasible (e.g., using an in-memory SQLite database instead of mocking a repository) to ensure logic is truly verified.
+### Comments
+* **PURPOSE:** Only use comments to explain the 'why' behind non-obvious logic or specific domain requirements (e.g., coordinate system conversions, specific racing rules).
+* **FORBIDDEN:** Do not use comments to describe 'what' the code is doing if it is self-evident. Avoid 'step-by-step' numbering comments for standard flows.
 
-## 5. Agent Instructions & Safety
-*   **Graceful Fallbacks:** Handle "Future Events" (sessions that haven't happened yet) by returning a `200 OK` with an empty results list, allowing the frontend to handle it gracefully.
-*   **Defensive Programming:** Always check for `NaN`, `None`, or `NaT` when dealing with external data sources like FastF1.
-*   **Verification Workflow:** 
-    1.  Perform changes.
-    2.  Run `go test ./...` in the `backend`.
-    3.  Run `python3 -m unittest discover fastf1_wrapper/tests` (if Python code changed).
-    4.  Verify the project builds (`go build`).
-*   **Dependency Management:** NEVER install new libraries or modules (e.g., via `pip`, `go get`, `npm`) without first:
-    1.  Explaining **what** the library does.
-    2.  Explaining **why** it is strictly necessary.
-    3.  Receiving explicit **confirmation** from the user.
+### Observability & Logging
+* **The "Log Sandwich" Pattern:** Every primary function must have an INFO log at the entry (input parameters) and the exit (result summary).
+* **Traceability Requirements:**
+    - **Context:** Always include identifiers (e.g., `driver_id`, `session_type`, `year`) in the log message.
+    - **Counts:** When processing collections, log the count (e.g., "Processed 22 laps for Driver 44").
+* **Error Handling:** - **Wrapper (Python):** Log the *original* exception and stack trace before returning a fallback value (`None`/`Empty`).
+    - **Backend (Go):** Wrap errors with context: `fmt.Errorf("fetching weather for session %s: %w", sessionID, err)`.
+* **FORBIDDEN:** Vague logs like "Done," "Error occurred," or "Success."
+
+---
+
+## 4. TESTING & VERIFICATION
+* **POLICY:** Behavioral testing (Given/When/Then). Mock only at boundaries (e.g., HTTP calls).
+* **MANDATORY WORKFLOW:** After changes, you MUST verify:
+  1. `go test ./...`
+  2. `python3 -m unittest discover`
+
+---
+
+## 5. AGENT MAINTENANCE (THE SCRIBE RULE)
+* **SELF-UPDATE:** You are responsible for this file. When new architectural decisions are made or patterns established, you MUST update Section 2 or 3 before concluding the session.
+* **DEPENDENCIES:** NEVER install new libraries (pip/go get) without explaining the necessity and receiving explicit user confirmation.
+
+---
+
+## 6. SELF-CORRECTION PROTOCOL
+If the user reports a "Standard Violation," you must:
+1. Identify the specific rule in this file you breached.
+2. Explain the error and refactor the code to 100% compliance immediately.

@@ -17,8 +17,31 @@ def to_milliseconds(delta: Any) -> Optional[int]:
 
 
 def to_datetime(value: Any) -> Optional[datetime]:
-    if value is not None and hasattr(value, 'to_pydatetime'):
-        return value.to_pydatetime()
+    if value is None:
+        return None
+    
+    # Handle pandas NaT
+    if pd.isna(value):
+        return None
+        
+    if hasattr(value, 'to_pydatetime'):
+        dt = value.to_pydatetime()
+        if dt is None or pd.isna(dt):
+            return None
+        return dt
+        
     if isinstance(value, datetime):
         return value
     return None
+
+
+def datetime_to_ms(date_time: Optional[datetime]) -> Optional[int]:
+    if date_time is None:
+        return None
+    
+    try:
+        # pd.NaT is an instance of datetime but raises ValueError on timestamp()
+        return int(date_time.timestamp() * 1000)
+    except (ValueError, AttributeError):
+        return None
+

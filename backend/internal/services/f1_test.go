@@ -41,12 +41,19 @@ func int64Ptr(v int64) *int64 {
 	return &v
 }
 
+func float64Ptr(v float64) *float64 {
+	return &v
+}
+
+func intPtr(v int) *int {
+	return &v
+}
+
 func TestGetSessionResults_Formatting(t *testing.T) {
 	mockClient := new(MockF1DataClient)
 	service := NewF1Service(mockClient)
 	ctx := context.Background()
 
-	// Scenario: Winner and 2nd Place
 	mockResults := &models.SessionResults{
 		Year:        2023,
 		Round:       1,
@@ -54,20 +61,20 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 		Results: []models.DriverResult{
 			{
 				Position:    1,
-				TotalTimeMS: int64Ptr(5400000), // 1:30:00.000
+				TotalTimeMS: int64Ptr(5400000),
 				GapMS:       int64Ptr(0),
 				Status:      "Finished",
 			},
 			{
 				Position:    2,
-				TotalTimeMS: nil,             // Should be nil for non-winner per new rules
-				GapMS:       int64Ptr(12345), // +12.345s
+				TotalTimeMS: nil,
+				GapMS:       int64Ptr(12345),
 				Status:      "Finished",
 			},
 			{
 				Position:    3,
 				TotalTimeMS: nil,
-				GapMS:       int64Ptr(65432), // +1:05.432
+				GapMS:       int64Ptr(65432),
 				Status:      "Finished",
 			},
 		},
@@ -79,17 +86,14 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 
-	// Verify Winner
 	winner := result.Results[0]
 	assert.Equal(t, "1:30:00.000", winner.TotalTime)
 	assert.Equal(t, "+0.000", winner.Gap)
 
-	// Verify 2nd Place
 	second := result.Results[1]
-	assert.Empty(t, second.TotalTime) // Should be empty string as pointer was nil
+	assert.Empty(t, second.TotalTime)
 	assert.Equal(t, "+12.345", second.Gap)
 
-	// Verify 3rd Place (Gap > 1 minute)
 	third := result.Results[2]
 	assert.Equal(t, "+1:05.432", third.Gap)
 }
@@ -107,16 +111,16 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 			{
 				Position: 1,
 				Qualifying: &models.QualifyingDetails{
-					Q1MS: int64Ptr(90123), // 1:30.123
-					Q2MS: int64Ptr(89456), // 1:29.456
-					Q3MS: int64Ptr(88789), // 1:28.789
+					Q1MS: int64Ptr(90123),
+					Q2MS: int64Ptr(89456),
+					Q3MS: int64Ptr(88789),
 				},
 			},
 			{
 				Position: 15,
 				Qualifying: &models.QualifyingDetails{
-					Q1MS: int64Ptr(91000), // 1:31.000
-					Q2MS: nil,             // Knocked out
+					Q1MS: int64Ptr(91000),
+					Q2MS: nil,
 					Q3MS: nil,
 				},
 			},
@@ -128,13 +132,11 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
 	assert.NoError(t, err)
 
-	// Verify Pole Position
 	pole := result.Results[0]
 	assert.Equal(t, "1:30.123", pole.Qualifying.Q1)
 	assert.Equal(t, "1:29.456", pole.Qualifying.Q2)
 	assert.Equal(t, "1:28.789", pole.Qualifying.Q3)
 
-	// Verify Q2 Knockout
 	q2out := result.Results[1]
 	assert.Equal(t, "1:31.000", q2out.Qualifying.Q1)
 	assert.Empty(t, q2out.Qualifying.Q2)
@@ -146,7 +148,6 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 	service := NewF1Service(mockClient)
 	ctx := context.Background()
 
-	// Scenario: Driver with no time data (e.g., DNF on lap 1)
 	mockResults := &models.SessionResults{
 		Results: []models.DriverResult{
 			{
@@ -164,7 +165,7 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 	assert.NoError(t, err)
 
 	dnf := result.Results[0]
-	assert.Equal(t, "Collision", dnf.Gap) // Should fallback to status
+	assert.Equal(t, "Collision", dnf.Gap)
 	assert.Empty(t, dnf.TotalTime)
 }
 
@@ -177,10 +178,10 @@ func TestGetCircuit(t *testing.T) {
 		CircuitName: "Silverstone Circuit",
 		Location:    "Silverstone",
 		Country:     "UK",
-		Latitude:    52.0786,
-		Longitude:   -1.01694,
-		LengthKm:    5.891,
-		Corners:     18,
+		Latitude:    float64Ptr(52.0786),
+		Longitude:   float64Ptr(-1.01694),
+		LengthKm:    float64Ptr(5.891),
+		Corners:     intPtr(18),
 		Layout: []models.CircuitLayoutPoint{
 			{X: 100, Y: 200},
 			{X: 150, Y: 250},
@@ -193,7 +194,7 @@ func TestGetCircuit(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "Silverstone Circuit", result.CircuitName)
-	assert.Equal(t, 52.0786, result.Latitude)
-	assert.Equal(t, -1.01694, result.Longitude)
+	assert.Equal(t, 52.0786, *result.Latitude)
+	assert.Equal(t, -1.01694, *result.Longitude)
 	assert.Len(t, result.Layout, 2)
 }

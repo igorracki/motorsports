@@ -2,7 +2,7 @@
 import unittest
 import pandas as pd
 from datetime import datetime, timedelta
-from src.core.utils.converters import to_milliseconds, to_datetime, get_scalar_value
+from src.core.utils.converters import to_milliseconds, to_datetime, get_scalar_value, datetime_to_ms
 
 class TestConverters(unittest.TestCase):
 
@@ -24,6 +24,15 @@ class TestConverters(unittest.TestCase):
         self.assertEqual(to_datetime(ts), dt)
 
         self.assertIsNone(to_datetime(None))
+        self.assertIsNone(to_datetime(pd.NaT))
+
+    def test_datetime_to_ms(self):
+        dt = datetime(2023, 1, 1, 12, 0, 0)
+        expected_ms = int(dt.timestamp() * 1000)
+        self.assertEqual(datetime_to_ms(dt), expected_ms)
+        
+        self.assertIsNone(datetime_to_ms(None))
+        self.assertIsNone(datetime_to_ms(pd.NaT))
 
     def test_get_scalar_value(self):
         series = pd.Series({'a': 1, 'b': 2})

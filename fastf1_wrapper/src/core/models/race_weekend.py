@@ -12,7 +12,7 @@ class RaceWeekend:
     name: str
     location: str
     country: str
-    start_date: datetime
+    start_date_ms: int
     sessions: List[Session]
 
     def json(self) -> str:

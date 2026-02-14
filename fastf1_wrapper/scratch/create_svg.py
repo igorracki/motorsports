@@ -3,7 +3,7 @@ import requests
 
 
 def create_svg(year=2025, round_num=1):
-    url = f"http://localhost:8080/api/races/{year}/{round_num}/circuit"
+    url = f"http://localhost:8080/api/schedule/{year}/{round_num}/circuit"
     print(f"Fetching data from {url}...")
 
     try:

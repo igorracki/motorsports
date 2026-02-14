@@ -3,8 +3,10 @@ import unittest
 from unittest.mock import MagicMock
 import pandas as pd
 from datetime import timedelta
-from src.core.utils.extractors import extract_driver_result, extract_circuit_location, extract_circuit_metrics, extract_circuit_layout
-from src.core.models import DriverResult
+from src.core.utils.result_extractors import extract_driver_result
+from src.core.utils.session_extractors import extract_race_weekend
+from src.core.utils.circuit_extractors import extract_circuit_location, extract_circuit_metrics, extract_circuit_layout
+from src.core.models import DriverResult, RaceWeekend
 from src.core.models.circuit import CircuitLayoutPoint
 
 class TestExtractors(unittest.TestCase):
@@ -131,11 +133,33 @@ class TestExtractors(unittest.TestCase):
         mock_lap.get_telemetry.return_value = mock_telemetry
         mock_session.laps.pick_fastest.return_value = mock_lap
         
-        # Rotation 0 means rx=x, ry=y. Points returned are (rx, -ry)
-        result = extract_circuit_layout(mock_session, rotation=0)
+        result = extract_circuit_layout(mock_session)
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].x, 100.0)
-        self.assertEqual(result[0].y, -300.0)
+        self.assertEqual(result[0].y, 300.0)
+
+    def test_extract_race_weekend(self):
+        weekend_data = pd.Series({
+            'RoundNumber': 1.0,
+            'OfficialEventName': 'Australian Grand Prix',
+            'EventName': 'Australian GP',
+            'Location': 'Melbourne',
+            'Country': 'Australia',
+            'EventDate': pd.Timestamp('2026-03-08'),
+            'Session1': 'Practice 1',
+            'Session1Date': pd.Timestamp('2026-03-06 13:00:00'),
+            'Session1DateUtc': pd.Timestamp('2026-03-06 02:00:00'),
+        })
+        
+        result = extract_race_weekend(weekend_data)
+        self.assertIsInstance(result, RaceWeekend)
+        self.assertEqual(result.round, 1)
+        self.assertEqual(result.name, 'Australian GP')
+        # 2026-03-08 00:00:00 UTC is 1772928000000
+        self.assertEqual(result.start_date_ms, 1772928000000)
+        self.assertEqual(len(result.sessions), 1)
+        self.assertEqual(result.sessions[0].type, 'Practice 1')
+        self.assertEqual(result.sessions[0].time_utc_ms, 1772762400000)
 
 
 if __name__ == '__main__':

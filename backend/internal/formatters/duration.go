@@ -1,14 +1,17 @@
-package utils
+package formatters
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
-func FormatDuration(ms int64, isGap bool) string {
+func FormatDuration(durationMS int64, isGap bool) string {
 	prefix := ""
 	if isGap {
 		prefix = "+"
 	}
 
-	secondsTotal := float64(ms) / 1000.0
+	secondsTotal := float64(durationMS) / 1000.0
 
 	if secondsTotal < 60 && isGap {
 		return fmt.Sprintf("%s%.3f", prefix, secondsTotal)
@@ -23,4 +26,9 @@ func FormatDuration(ms int64, isGap bool) string {
 	}
 
 	return fmt.Sprintf("%s%d:%06.3f", prefix, minutes, seconds)
+}
+
+func FormatTimestamp(ms int64) string {
+	timestamp := time.UnixMilli(ms).UTC()
+	return timestamp.Format("2006-01-02T15:04:05")
 }

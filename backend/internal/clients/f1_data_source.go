@@ -34,130 +34,130 @@ func NewF1DataClient(baseURL string) F1DataClient {
 }
 
 func (client *f1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
-	slog.InfoContext(ctx, "Fetching schedule", "year", year, "url", client.baseURL)
+	slog.InfoContext(ctx, "Entry: GetScheduleByYear", "year", year, "url", client.baseURL)
 	path, err := url.JoinPath(client.baseURL, "events", fmt.Sprintf("%d", year))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
-		return nil, fmt.Errorf("failed to construct URL: %w", err)
+		return nil, fmt.Errorf("failed to construct URL for year %d: %w", year, err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create request", "error", err)
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request for year %d: %w", year, err)
 	}
 
 	response, err := client.client.Do(request)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to execute request", "error", err)
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request for year %d: %w", year, err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
 		slog.ErrorContext(ctx, "API returned error status", "status", response.StatusCode, "body", string(body))
-		return nil, fmt.Errorf("API returned status %d: %s", response.StatusCode, string(body))
+		return nil, fmt.Errorf("API returned status %d for year %d: %s", response.StatusCode, year, string(body))
 	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to read response body", "error", err)
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body for year %d: %w", year, err)
 	}
 
 	var schedule []models.RaceWeekend
 	if err := json.Unmarshal(body, &schedule); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response for year %d: %w", year, err)
 	}
 
-	slog.InfoContext(ctx, "Successfully fetched schedule", "count", len(schedule))
+	slog.InfoContext(ctx, "Exit: GetScheduleByYear", "year", year, "count", len(schedule))
 	return schedule, nil
 }
 
 func (client *f1DataClient) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
-	slog.InfoContext(ctx, "Fetching session results", "year", year, "round", round, "sessionType", sessionType)
+	slog.InfoContext(ctx, "Entry: GetSessionResults", "year", year, "round", round, "sessionType", sessionType)
 	path, err := url.JoinPath(client.baseURL, "results", fmt.Sprintf("%d", year), fmt.Sprintf("%d", round), sessionType)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
-		return nil, fmt.Errorf("failed to construct URL: %w", err)
+		return nil, fmt.Errorf("failed to construct URL for %d round %d (%s): %w", year, round, sessionType, err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create request", "error", err)
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request for %d round %d (%s): %w", year, round, sessionType, err)
 	}
 
 	response, err := client.client.Do(request)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to execute request", "error", err)
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request for %d round %d (%s): %w", year, round, sessionType, err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
 		slog.ErrorContext(ctx, "API returned error status", "status", response.StatusCode, "body", string(body))
-		return nil, fmt.Errorf("API returned status %d: %s", response.StatusCode, string(body))
+		return nil, fmt.Errorf("API returned status %d for %d round %d (%s): %s", response.StatusCode, year, round, sessionType, string(body))
 	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to read response body", "error", err)
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body for %d round %d (%s): %w", year, round, sessionType, err)
 	}
 
 	var results models.SessionResults
 	if err := json.Unmarshal(body, &results); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response for %d round %d (%s): %w", year, round, sessionType, err)
 	}
 
-	slog.InfoContext(ctx, "Successfully fetched session results", "drivers", len(results.Results))
+	slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "sessionType", sessionType, "drivers", len(results.Results))
 	return &results, nil
 }
 
 func (client *f1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
-	slog.InfoContext(ctx, "Fetching circuit", "year", year, "round", round)
+	slog.InfoContext(ctx, "Entry: GetCircuit", "year", year, "round", round)
 	path, err := url.JoinPath(client.baseURL, "circuits", fmt.Sprintf("%d", year), fmt.Sprintf("%d", round))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
-		return nil, fmt.Errorf("failed to construct URL: %w", err)
+		return nil, fmt.Errorf("failed to construct URL for circuit %d (%d): %w", round, year, err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create request", "error", err)
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request for circuit %d (%d): %w", round, year, err)
 	}
 
 	response, err := client.client.Do(request)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to execute request", "error", err)
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request for circuit %d (%d): %w", round, year, err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
 		slog.ErrorContext(ctx, "API returned error status", "status", response.StatusCode, "body", string(body))
-		return nil, fmt.Errorf("API returned status %d: %s", response.StatusCode, string(body))
+		return nil, fmt.Errorf("API returned status %d for circuit %d (%d): %s", response.StatusCode, round, year, string(body))
 	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to read response body", "error", err)
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body for circuit %d (%d): %w", round, year, err)
 	}
 
 	var circuit models.Circuit
 	if err := json.Unmarshal(body, &circuit); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response for circuit %d (%d): %w", round, year, err)
 	}
 
-	slog.InfoContext(ctx, "Successfully fetched circuit", "name", circuit.CircuitName, "location", circuit.Location)
+	slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "name", circuit.CircuitName)
 	return &circuit, nil
 }

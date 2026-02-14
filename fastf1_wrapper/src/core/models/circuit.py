@@ -17,5 +17,6 @@ class Circuit:
     corners: int
     layout: List[CircuitLayoutPoint]
     event_name: str
-    event_date: str
+    event_date_ms: int
+    rotation: float = 0.0
     # lap_record: Optional[LapRecord] = None
