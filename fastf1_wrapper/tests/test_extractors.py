@@ -3,8 +3,9 @@ import unittest
 from unittest.mock import MagicMock
 import pandas as pd
 from datetime import timedelta
-from src.core.utils.extractors import extract_driver_result
+from src.core.utils.extractors import extract_driver_result, extract_circuit_location, extract_circuit_metrics, extract_circuit_layout
 from src.core.models import DriverResult
+from src.core.models.circuit import CircuitLayoutPoint
 
 class TestExtractors(unittest.TestCase):
 
@@ -90,6 +91,51 @@ class TestExtractors(unittest.TestCase):
         if result.qualifying_details:
             self.assertEqual(result.qualifying_details.q1_ms, 90000)
             self.assertEqual(result.qualifying_details.q3_ms, 88000)
+
+    def test_extract_circuit_location(self):
+        df = pd.DataFrame([{
+            'circuitName': 'Monaco',
+            'locality': 'Monte Carlo',
+            'country': 'Monaco',
+            'lat': 43.7347,
+            'long': 7.42056
+        }])
+        result = extract_circuit_location(df)
+        self.assertEqual(result['circuit_name'], 'Monaco')
+        self.assertEqual(result['latitude'], 43.7347)
+        self.assertEqual(result['longitude'], 7.42056)
+
+    def test_extract_circuit_metrics(self):
+        mock_session = MagicMock()
+        mock_ci = MagicMock()
+        mock_ci.corners = [1, 2, 3]
+        mock_session.get_circuit_info.return_value = mock_ci
+        
+        mock_lap = MagicMock()
+        mock_telemetry = pd.DataFrame({'Distance': [0, 1000, 2000]})
+        mock_lap.get_telemetry.return_value = mock_telemetry
+        mock_session.laps.pick_fastest.return_value = mock_lap
+        
+        result = extract_circuit_metrics(mock_session)
+        self.assertEqual(result['corners'], 3)
+        self.assertEqual(result['length_km'], 2.0)
+
+    def test_extract_circuit_layout(self):
+        mock_session = MagicMock()
+        mock_lap = MagicMock()
+        # Mock telemetry with X, Y coordinates
+        mock_telemetry = pd.DataFrame({
+            'X': [100.0, 200.0],
+            'Y': [300.0, 400.0]
+        })
+        mock_lap.get_telemetry.return_value = mock_telemetry
+        mock_session.laps.pick_fastest.return_value = mock_lap
+        
+        # Rotation 0 means rx=x, ry=y. Points returned are (rx, -ry)
+        result = extract_circuit_layout(mock_session, rotation=0)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].x, 100.0)
+        self.assertEqual(result[0].y, -300.0)
 
 
 if __name__ == '__main__':

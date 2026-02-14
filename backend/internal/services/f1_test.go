@@ -29,6 +29,14 @@ func (m *MockF1DataClient) GetSessionResults(ctx context.Context, year int, roun
 	return args.Get(0).(*models.SessionResults), args.Error(1)
 }
 
+func (m *MockF1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	args := m.Called(ctx, year, round)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Circuit), args.Error(1)
+}
+
 func int64Ptr(v int64) *int64 {
 	return &v
 }
@@ -158,4 +166,34 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 	dnf := result.Results[0]
 	assert.Equal(t, "Collision", dnf.Gap) // Should fallback to status
 	assert.Empty(t, dnf.TotalTime)
+}
+
+func TestGetCircuit(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient)
+	ctx := context.Background()
+
+	mockCircuit := &models.Circuit{
+		CircuitName: "Silverstone Circuit",
+		Location:    "Silverstone",
+		Country:     "UK",
+		Latitude:    52.0786,
+		Longitude:   -1.01694,
+		LengthKm:    5.891,
+		Corners:     18,
+		Layout: []models.CircuitLayoutPoint{
+			{X: 100, Y: 200},
+			{X: 150, Y: 250},
+		},
+	}
+
+	mockClient.On("GetCircuit", ctx, 2023, 10).Return(mockCircuit, nil)
+
+	result, err := service.GetCircuit(ctx, 2023, 10)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "Silverstone Circuit", result.CircuitName)
+	assert.Equal(t, 52.0786, result.Latitude)
+	assert.Equal(t, -1.01694, result.Longitude)
+	assert.Len(t, result.Layout, 2)
 }

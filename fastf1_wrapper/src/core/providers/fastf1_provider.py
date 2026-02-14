@@ -1,4 +1,5 @@
 import fastf1
+from fastf1.ergast import Ergast
 import os
 import logging
 from typing import List, Optional
@@ -6,7 +7,11 @@ from .provider import Provider
 from ..models import (
     RaceWeekend, SessionResult
 )
-from ..utils.extractors import extract_race_weekend, extract_driver_result
+from ..models.circuit import Circuit, CircuitLayoutPoint
+from ..utils.extractors import (
+    extract_race_weekend, extract_driver_result, 
+    extract_circuit_layout, extract_circuit_location, extract_circuit_metrics
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,4 +63,48 @@ class FastF1Provider(Provider):
             )
         except Exception as e:
             logger.error(f"Error fetching session results for {year} round {round_number} {session_type}: {e}")
+            return None
+
+    def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
+        logger.info(f"Fetching circuit data for {year} Round {round_number}")
+        try:
+            # 1. Fetch Location Data from Ergast
+            ergast = Ergast()
+            ergast_circuits = ergast.get_circuits(season=year, round=round_number)
+            location_info = extract_circuit_location(ergast_circuits)
+
+            # 2. Fetch Session Data (Qualifying for best layout)
+            logger.info("Loading Qualifying session for layout extraction...")
+            session = fastf1.get_session(year, round_number, 'Q')
+            session.load(telemetry=True, laps=True, weather=False, messages=False)
+            
+            # 3. Extract Circuit Metrics (Corners, Length)
+            metrics = extract_circuit_metrics(session)
+            
+            # 4. Extract Layout with Rotation
+            rotation = 0.0
+            try:
+                circuit_info = session.get_circuit_info()
+                if circuit_info is not None:
+                    rotation = circuit_info.rotation
+            except Exception:
+                pass # Ignore if circuit info not available yet
+
+            layout = extract_circuit_layout(session, rotation=rotation)
+            
+            return Circuit(
+                circuit_name=location_info["circuit_name"],
+                location=location_info["location"],
+                country=location_info["country"],
+                latitude=location_info["latitude"],
+                longitude=location_info["longitude"],
+                length_km=metrics["length_km"],
+                corners=metrics["corners"],
+                layout=layout,
+                event_name=str(session.event.EventName),
+                event_date=str(session.event.EventDate)
+            )
+
+        except Exception as e:
+            logger.error(f"Error fetching circuit data: {e}")
             return None

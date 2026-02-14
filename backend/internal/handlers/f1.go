@@ -83,3 +83,35 @@ func (handler *F1Handler) GetSessionResults(context echo.Context) error {
 
 	return context.JSON(http.StatusOK, results)
 }
+
+func (handler *F1Handler) GetCircuit(context echo.Context) error {
+	yearStr := context.Param("year")
+	roundStr := context.Param("round")
+
+	year, err := strconv.Atoi(yearStr)
+	if err != nil {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_year"})
+	}
+
+	round, err := strconv.Atoi(roundStr)
+	if err != nil {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_round"})
+	}
+
+	circuit, err := handler.service.GetCircuit(context.Request().Context(), year, round)
+	if err != nil {
+		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	if circuit == nil {
+		return context.JSON(http.StatusNotFound, models.ErrorResponse{
+			Error:   "not_found",
+			Message: "circuit not found",
+		})
+	}
+
+	return context.JSON(http.StatusOK, circuit)
+}

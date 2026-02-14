@@ -1,5 +1,6 @@
 from ..providers import Provider
 from ..models import RaceWeekend, SessionResult
+from ..models.circuit import Circuit
 from typing import List, Optional
 
 
@@ -12,3 +13,6 @@ class F1Service:
 
     def get_session_results(self, year: int, round_number: int, session_type: str) -> Optional[SessionResult]:
         return self.provider.get_session_results(year, round_number, session_type)
+
+    def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
+        return self.provider.get_circuit_data(year, round_number)
