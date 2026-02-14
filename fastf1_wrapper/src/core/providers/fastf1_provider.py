@@ -8,10 +8,13 @@ from ..models import (
     RaceWeekend, SessionResult
 )
 from ..models.circuit import Circuit, CircuitLayoutPoint
-from ..utils.extractors import (
-    extract_race_weekend, extract_driver_result, 
+from ..utils.session_extractors import extract_race_weekend
+from ..utils.result_extractors import extract_driver_result
+from ..utils.circuit_extractors import (
     extract_circuit_layout, extract_circuit_location, extract_circuit_metrics
 )
+
+from ..utils.converters import datetime_to_ms, to_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class FastF1Provider(Provider):
         fastf1.Cache.enable_cache(cache_directory)
 
     def get_weekend_events(self, year: int) -> List[RaceWeekend]:
-        logger.info(f"Fetching event schedule for year {year}")
+        logger.info(f"Entry: get_weekend_events(year={year})")
         try:
             schedule = fastf1.get_event_schedule(year)
             race_weekends = []
@@ -32,14 +35,14 @@ class FastF1Provider(Provider):
                 race_weekend = extract_race_weekend(weekend)
                 if race_weekend:
                     race_weekends.append(race_weekend)
-            logger.info(f"Found {len(race_weekends)} race weekends for {year}")
+            logger.info(f"Exit: get_weekend_events(year={year}) - Found {len(race_weekends)} race weekends")
             return race_weekends
-        except Exception as e:
-            logger.error(f"Error fetching weekend events for year {year}: {e}")
+        except Exception:
+            logger.exception(f"Error fetching weekend events for year {year}")
             return []
 
     def get_session_results(self, year: int, round_number: int, session_type: str) -> Optional[SessionResult]:
-        logger.info(f"Fetching session results: {year} Round {round_number} ({session_type})")
+        logger.info(f"Entry: get_session_results(year={year}, round={round_number}, session={session_type})")
         try:
             session = fastf1.get_session(year, round_number, session_type)
             session.load(laps=True, telemetry=False,
@@ -54,45 +57,45 @@ class FastF1Provider(Provider):
                 driver_result = extract_driver_result(row, session, session_type)
                 results.append(driver_result)
 
-            logger.info(f"Session loaded. Processing {len(results)} drivers.")
+            logger.info(f"Exit: get_session_results(year={year}, round={round_number}, session={session_type}) - Found {len(results)} drivers")
             return SessionResult(
                 year=year,
                 round=round_number,
                 session_type=session_type,
                 results=results
             )
-        except Exception as e:
-            logger.error(f"Error fetching session results for {year} round {round_number} {session_type}: {e}")
+        except Exception:
+            logger.exception(f"Error fetching session results for {year} round {round_number} {session_type}")
             return None
 
     def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
-        logger.info(f"Fetching circuit data for {year} Round {round_number}")
+        logger.info(f"Entry: get_circuit_data(year={year}, round={round_number})")
         try:
-            # 1. Fetch Location Data from Ergast
             ergast = Ergast()
             ergast_circuits = ergast.get_circuits(season=year, round=round_number)
             location_info = extract_circuit_location(ergast_circuits)
 
-            # 2. Fetch Session Data (Qualifying for best layout)
-            logger.info("Loading Qualifying session for layout extraction...")
             session = fastf1.get_session(year, round_number, 'Q')
             session.load(telemetry=True, laps=True, weather=False, messages=False)
             
-            # 3. Extract Circuit Metrics (Corners, Length)
             metrics = extract_circuit_metrics(session)
             
-            # 4. Extract Layout with Rotation
             rotation = 0.0
             try:
                 circuit_info = session.get_circuit_info()
                 if circuit_info is not None:
                     rotation = circuit_info.rotation
             except Exception:
-                pass # Ignore if circuit info not available yet
+                pass 
 
-            layout = extract_circuit_layout(session, rotation=rotation)
+            layout = extract_circuit_layout(session)
             
-            return Circuit(
+            event_date = to_datetime(session.event.EventDate)
+            event_date_ms = datetime_to_ms(event_date)
+            if event_date_ms is None:
+                event_date_ms = 0
+
+            circuit = Circuit(
                 circuit_name=location_info["circuit_name"],
                 location=location_info["location"],
                 country=location_info["country"],
@@ -102,9 +105,12 @@ class FastF1Provider(Provider):
                 corners=metrics["corners"],
                 layout=layout,
                 event_name=str(session.event.EventName),
-                event_date=str(session.event.EventDate)
+                event_date_ms=event_date_ms,
+                rotation=rotation
             )
+            logger.info(f"Exit: get_circuit_data(year={year}, round={round_number}) - Success for {circuit.circuit_name}")
+            return circuit
 
-        except Exception as e:
-            logger.error(f"Error fetching circuit data: {e}")
+        except Exception:
+            logger.exception(f"Error fetching circuit data for {year} Round {round_number}")
             return None

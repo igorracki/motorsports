@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -20,8 +21,12 @@ func NewF1Handler(service services.F1Service) *F1Handler {
 }
 
 func (handler *F1Handler) GetSchedule(context echo.Context) error {
+	ctx := context.Request().Context()
 	yearParameter := context.Param("year")
+	slog.InfoContext(ctx, "Entry: GetSchedule", "year_param", yearParameter)
+
 	if yearParameter == "" {
+		slog.WarnContext(ctx, "Missing year parameter")
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "missing_parameter",
 			Message: "must provide a year",
@@ -30,6 +35,7 @@ func (handler *F1Handler) GetSchedule(context echo.Context) error {
 
 	year, err := strconv.Atoi(yearParameter)
 	if err != nil {
+		slog.WarnContext(ctx, "Invalid year parameter", "year_param", yearParameter)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_parameter",
 			Message: "year must be a valid integer",
@@ -37,14 +43,16 @@ func (handler *F1Handler) GetSchedule(context echo.Context) error {
 	}
 
 	if year <= 0 {
+		slog.WarnContext(ctx, "Non-positive year parameter", "year", year)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_parameter",
 			Message: "year must be a positive integer",
 		})
 	}
 
-	schedule, err := handler.service.GetScheduleByYear(context.Request().Context(), year)
+	schedule, err := handler.service.GetScheduleByYear(ctx, year)
 	if err != nil {
+		slog.ErrorContext(ctx, "Service error fetching schedule", "year", year, "error", err)
 		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "internal_error",
 			Message: "failed to fetch schedule",
@@ -55,51 +63,70 @@ func (handler *F1Handler) GetSchedule(context echo.Context) error {
 		Schedule: schedule,
 	}
 
+	slog.InfoContext(ctx, "Exit: GetSchedule", "year", year, "count", len(schedule))
 	return context.JSON(http.StatusOK, response)
 }
 
 func (handler *F1Handler) GetSessionResults(context echo.Context) error {
+	ctx := context.Request().Context()
 	yearStr := context.Param("year")
 	roundStr := context.Param("round")
 	sessionType := context.Param("session")
 
+	slog.InfoContext(ctx, "Entry: GetSessionResults", "year", yearStr, "round", roundStr, "session", sessionType)
+
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
+		slog.WarnContext(ctx, "Invalid year parameter", "year", yearStr)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_year"})
 	}
 
 	round, err := strconv.Atoi(roundStr)
 	if err != nil {
+		slog.WarnContext(ctx, "Invalid round parameter", "round", roundStr)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_round"})
 	}
 
-	results, err := handler.service.GetSessionResults(context.Request().Context(), year, round, sessionType)
+	results, err := handler.service.GetSessionResults(ctx, year, round, sessionType)
 	if err != nil {
+		slog.ErrorContext(ctx, "Service error fetching session results", "year", year, "round", round, "session", sessionType, "error", err)
 		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "internal_error",
 			Message: err.Error(),
 		})
 	}
 
+	count := 0
+	if results != nil {
+		count = len(results.Results)
+	}
+
+	slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "session", sessionType, "count", count)
 	return context.JSON(http.StatusOK, results)
 }
 
 func (handler *F1Handler) GetCircuit(context echo.Context) error {
+	ctx := context.Request().Context()
 	yearStr := context.Param("year")
 	roundStr := context.Param("round")
 
+	slog.InfoContext(ctx, "Entry: GetCircuit", "year", yearStr, "round", roundStr)
+
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
+		slog.WarnContext(ctx, "Invalid year parameter", "year", yearStr)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_year"})
 	}
 
 	round, err := strconv.Atoi(roundStr)
 	if err != nil {
+		slog.WarnContext(ctx, "Invalid round parameter", "round", roundStr)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_round"})
 	}
 
-	circuit, err := handler.service.GetCircuit(context.Request().Context(), year, round)
+	circuit, err := handler.service.GetCircuit(ctx, year, round)
 	if err != nil {
+		slog.ErrorContext(ctx, "Service error fetching circuit", "year", year, "round", round, "error", err)
 		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "internal_error",
 			Message: err.Error(),
@@ -107,11 +134,13 @@ func (handler *F1Handler) GetCircuit(context echo.Context) error {
 	}
 
 	if circuit == nil {
+		slog.WarnContext(ctx, "Circuit not found", "year", year, "round", round)
 		return context.JSON(http.StatusNotFound, models.ErrorResponse{
 			Error:   "not_found",
 			Message: "circuit not found",
 		})
 	}
 
+	slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
 	return context.JSON(http.StatusOK, circuit)
 }
