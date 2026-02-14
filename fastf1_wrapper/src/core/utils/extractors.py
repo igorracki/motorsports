@@ -1,11 +1,12 @@
 import pandas as pd
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, List
 from ..models import (
     DriverResult, DriverInfo, RaceDetails, QualifyingDetails,
     RaceWeekend, Session
 )
+from ..models.circuit import CircuitLayoutPoint
 from .converters import get_scalar_value, to_milliseconds, to_datetime
 
 logger = logging.getLogger(__name__)
@@ -131,3 +132,93 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
         )
 
     return driver_result
+
+
+import math
+
+def extract_circuit_location(ergast_circuits: pd.DataFrame) -> dict:
+    """Extracts circuit location info from Ergast data."""
+    location_info = {
+        "circuit_name": "Unknown Circuit",
+        "location": "Unknown",
+        "country": "Unknown",
+        "latitude": 0.0,
+        "longitude": 0.0
+    }
+
+    if not ergast_circuits.empty:
+        circuit_row = ergast_circuits.iloc[0]
+        location_info["circuit_name"] = str(circuit_row.get('circuitName', "Unknown Circuit"))
+        location_info["location"] = str(circuit_row.get('locality', "Unknown"))
+        location_info["country"] = str(circuit_row.get('country', "Unknown"))
+        location_info["latitude"] = float(circuit_row.get('lat', 0.0))
+        location_info["longitude"] = float(circuit_row.get('long', 0.0))
+    
+    return location_info
+
+def extract_circuit_metrics(session: Any) -> dict:
+    """Extracts corners and length from session data."""
+    metrics = {
+        "corners": 0,
+        "length_km": 0.0
+    }
+
+    try:
+        circuit_info = session.get_circuit_info()
+        if circuit_info is not None:
+            metrics["corners"] = len(circuit_info.corners)
+    except Exception as e:
+        logger.warning(f"Could not get circuit info (corners): {e}")
+
+    try:
+        fastest_lap = session.laps.pick_fastest()
+        telemetry = fastest_lap.get_telemetry()
+        if not telemetry.empty:
+            max_distance = telemetry['Distance'].max()
+            metrics["length_km"] = round(float(max_distance) / 1000.0, 3)
+    except Exception as e:
+        logger.warning(f"Could not calculate circuit length: {e}")
+
+    return metrics
+
+def extract_circuit_layout(session: Any, rotation: float = 0.0) -> List[CircuitLayoutPoint]:
+    """Extracts and rotates circuit layout points from telemetry."""
+    try:
+        if not hasattr(session, 'laps'):
+            return []
+            
+        fastest_lap = session.laps.pick_fastest()
+        telemetry = fastest_lap.get_telemetry()
+        
+        if telemetry.empty:
+            return []
+
+        # Downsample to approx 500 points
+        total_points = len(telemetry)
+        target_points = 500
+        step = max(1, total_points // target_points)
+        
+        # Prepare rotation
+        theta_rad = math.radians(rotation)
+        cos_theta = math.cos(theta_rad)
+        sin_theta = math.sin(theta_rad)
+
+        layout_points = []
+        for i in range(0, total_points, step):
+            telemetry_row = telemetry.iloc[i]
+            coord_x = float(telemetry_row['X'])
+            coord_y = float(telemetry_row['Y'])
+            
+            # Apply rotation
+            rotated_x = coord_x * cos_theta - coord_y * sin_theta
+            rotated_y = coord_x * sin_theta + coord_y * cos_theta
+
+            layout_points.append(CircuitLayoutPoint(
+                x=rotated_x,
+                y=-rotated_y # Invert Y for screen coordinates
+            ))
+            
+        return layout_points
+    except Exception as e:
+        logger.error(f"Failed to extract circuit layout: {e}")
+        return []

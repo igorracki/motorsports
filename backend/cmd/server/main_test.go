@@ -29,6 +29,10 @@ func (mock *mockF1DataClient) GetSessionResults(ctx context.Context, year int, r
 	return mock.resultsResponse, mock.err
 }
 
+func (mock *mockF1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	return nil, mock.err
+}
+
 func setupTestServer(client clients.F1DataClient) *echo.Echo {
 	server := echo.New()
 

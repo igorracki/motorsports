@@ -16,6 +16,7 @@ import (
 type F1DataClient interface {
 	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
 	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
+	GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error)
 }
 
 type f1DataClient struct {
@@ -116,4 +117,47 @@ func (client *f1DataClient) GetSessionResults(ctx context.Context, year int, rou
 
 	slog.InfoContext(ctx, "Successfully fetched session results", "drivers", len(results.Results))
 	return &results, nil
+}
+
+func (client *f1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	slog.InfoContext(ctx, "Fetching circuit", "year", year, "round", round)
+	path, err := url.JoinPath(client.baseURL, "circuits", fmt.Sprintf("%d", year), fmt.Sprintf("%d", round))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
+		return nil, fmt.Errorf("failed to construct URL: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "GET", path, nil)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to create request", "error", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	response, err := client.client.Do(request)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to execute request", "error", err)
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		slog.ErrorContext(ctx, "API returned error status", "status", response.StatusCode, "body", string(body))
+		return nil, fmt.Errorf("API returned status %d: %s", response.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to read response body", "error", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var circuit models.Circuit
+	if err := json.Unmarshal(body, &circuit); err != nil {
+		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	slog.InfoContext(ctx, "Successfully fetched circuit", "name", circuit.CircuitName, "location", circuit.Location)
+	return &circuit, nil
 }

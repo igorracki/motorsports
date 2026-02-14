@@ -45,5 +45,21 @@ async def get_results(year: int, round: int, session_type: str):
         logging.error(f"Error fetching results for {year} round {round} {session_type}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@server.get('/wrapper/circuits/{year}/{round}')
+async def get_circuit(year: int, round: int):
+    try:
+        service = F1Service(FastF1Provider())
+        result = service.get_circuit_data(year, round)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Circuit not found")
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logging.error(f"Error fetching circuit for {year} round {round}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == '__main__':
     uvicorn.run(server, host='0.0.0.0', port=8080)

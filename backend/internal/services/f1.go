@@ -13,6 +13,7 @@ import (
 type F1Service interface {
 	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
 	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
+	GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error)
 }
 
 type f1Service struct {
@@ -92,4 +93,16 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 	}
 
 	return results, nil
+}
+
+func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	slog.InfoContext(ctx, "Processing circuit request", "year", year, "round", round)
+
+	circuit, err := service.client.GetCircuit(ctx, year, round)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to fetch circuit", "error", err)
+		return nil, fmt.Errorf("failed to fetch circuit: %w", err)
+	}
+
+	return circuit, nil
 }
