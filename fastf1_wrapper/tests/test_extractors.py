@@ -19,6 +19,7 @@ class TestExtractors(unittest.TestCase):
     def test_extract_driver_result_race_winner(self):
         row = pd.Series({
             'Abbreviation': 'VER',
+            'DriverNumber': '1',
             'FullName': 'Max Verstappen',
             'CountryCode': 'NED',
             'TeamName': 'Red Bull Racing',
@@ -37,6 +38,8 @@ class TestExtractors(unittest.TestCase):
         result = extract_driver_result(row, self.mock_session, 'R')
 
         self.assertIsInstance(result, DriverResult)
+        self.assertEqual(result.driver.id, 'VER')
+        self.assertEqual(result.driver.number, '1')
         self.assertEqual(result.position, 1)
         self.assertEqual(result.gap_ms, 0)
         self.assertEqual(result.total_time_ms, 5400000)
@@ -47,6 +50,7 @@ class TestExtractors(unittest.TestCase):
     def test_extract_driver_result_race_second_place(self):
         row = pd.Series({
             'Abbreviation': 'HAM',
+            'DriverNumber': '44',
             'FullName': 'Lewis Hamilton',
             'CountryCode': 'GBR',
             'TeamName': 'Mercedes',
@@ -65,6 +69,8 @@ class TestExtractors(unittest.TestCase):
 
         result = extract_driver_result(row, self.mock_session, 'R')
 
+        self.assertEqual(result.driver.id, 'HAM')
+        self.assertEqual(result.driver.number, '44')
         self.assertEqual(result.position, 2)
         self.assertEqual(result.gap_ms, 10000)
         self.assertIsNone(result.total_time_ms)
@@ -75,6 +81,7 @@ class TestExtractors(unittest.TestCase):
     def test_extract_driver_result_qualifying(self):
         row = pd.Series({
             'Abbreviation': 'LEC',
+            'DriverNumber': '16',
             'FullName': 'Charles Leclerc',
             'CountryCode': 'MON',
             'TeamName': 'Ferrari',
@@ -88,6 +95,8 @@ class TestExtractors(unittest.TestCase):
 
         result = extract_driver_result(row, self.mock_session, 'Q')
 
+        self.assertEqual(result.driver.id, 'LEC')
+        self.assertEqual(result.driver.number, '16')
         self.assertEqual(result.position, 1)
         self.assertIsNotNone(result.qualifying_details)
         if result.qualifying_details:

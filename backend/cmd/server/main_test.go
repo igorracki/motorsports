@@ -180,6 +180,7 @@ func TestGetSessionResults_Success(t *testing.T) {
 			{
 				Position: 1,
 				Driver: models.DriverInfo{
+					ID:     "VER",
 					Number: "1",
 				},
 				Status: "Finished",
@@ -210,4 +211,6 @@ func TestGetSessionResults_Success(t *testing.T) {
 	assert.Equal(t, "Race", response.SessionType)
 	assert.Len(t, response.Results, 1)
 	assert.Equal(t, 1, response.Results[0].Position)
+	assert.Equal(t, "VER", response.Results[0].Driver.ID)
+	assert.Equal(t, "1", response.Results[0].Driver.Number)
 }

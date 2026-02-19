@@ -4,6 +4,7 @@ from typing import List, Optional
 
 @dataclass
 class DriverInfo:
+    id: str
     number: str
     full_name: str
     country_code: str

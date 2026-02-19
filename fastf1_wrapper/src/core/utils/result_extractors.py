@@ -20,10 +20,11 @@ QUALIFYING_SESSION_TYPES = {
 }
 
 def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> DriverResult:
-    driver_code = str(get_scalar_value(row, 'Abbreviation') or "")
-    logger.info(f"Extracting result for driver: {driver_code}")
+    id = str(get_scalar_value(row, 'Abbreviation') or "")
+    logger.info(f"Extracting result for driver: {id}")
     driver_info = DriverInfo(
-        number=driver_code,
+        id=id,
+        number=str(get_scalar_value(row, 'DriverNumber') or ""),
         full_name=str(get_scalar_value(row, 'FullName') or ""),
         country_code=str(get_scalar_value(row, 'CountryCode') or ""),
         team_name=str(get_scalar_value(row, 'TeamName') or "")
@@ -58,13 +59,13 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
     fastest_lap_ms = None
     if hasattr(session, 'laps'):
         try:
-            driver_laps_any: Any = session.laps.pick_drivers(driver_code)
+            driver_laps_any: Any = session.laps.pick_drivers(id)
             if hasattr(driver_laps_any, 'empty') and not driver_laps_any.empty:
                 fastest_lap = driver_laps_any.pick_fastest()
                 if fastest_lap is not None and not pd.isna(fastest_lap['LapTime']):
                     fastest_lap_ms = to_milliseconds(fastest_lap['LapTime'])
         except Exception:
-            logger.exception(f"Could not extract fastest lap for driver {driver_code}")
+            logger.exception(f"Could not extract fastest lap for driver {id}")
 
     driver_result = DriverResult(
         position=finish_position,
@@ -92,5 +93,5 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
             q3_ms=to_milliseconds(get_scalar_value(row, 'Q3'))
         )
 
-    logger.info(f"Successfully extracted result for driver: {driver_code} (Pos: {finish_position})")
+    logger.info(f"Successfully extracted result for driver: {id} (Pos: {finish_position})")
     return driver_result

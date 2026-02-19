@@ -1,6 +1,7 @@
 package models
 
 type DriverInfo struct {
+	ID          string `json:"id"`
 	Number      string `json:"number"`
 	FullName    string `json:"full_name"`
 	CountryCode string `json:"country_code"`
