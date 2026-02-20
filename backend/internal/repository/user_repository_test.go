@@ -1,0 +1,101 @@
+package repository
+
+import (
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/igorracki/f1/backend/internal/database"
+	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestUserRepository(t *testing.T) {
+	databaseManager, err := database.NewManager(":memory:")
+	require.NoError(t, err)
+	defer databaseManager.Close()
+
+	userRepo := NewUserRepository(databaseManager.DB())
+
+	t.Run("Create and Get User", func(tt *testing.T) {
+		// Given
+		userID := uuid.New().String()
+		user := &models.User{
+			ID:        userID,
+			Username:  "lewis44",
+			Email:     "lewis@mercedes.com",
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+		}
+		profile := &models.Profile{
+			UserID:      userID,
+			DisplayName: "Sir Lewis",
+		}
+
+		// When
+		err := userRepo.CreateUser(user, profile)
+		require.NoError(tt, err)
+
+		fetchedUser, err := userRepo.GetUserByID(userID)
+		require.NoError(tt, err)
+
+		// Then
+		assert.NotNil(tt, fetchedUser)
+		assert.Equal(tt, user.Username, fetchedUser.Username)
+		assert.Equal(tt, user.Email, fetchedUser.Email)
+		assert.True(tt, user.CreatedAt.Equal(fetchedUser.CreatedAt))
+	})
+
+	t.Run("Get Non-Existent User", func(tt *testing.T) {
+		// When
+		fetchedUser, err := userRepo.GetUserByID("non-existent")
+
+		// Then
+		require.NoError(tt, err)
+		assert.Nil(tt, fetchedUser)
+	})
+
+	t.Run("Duplicate Constraints", func(tt *testing.T) {
+		// Given: First user
+		userID1 := uuid.New().String()
+		user1 := &models.User{
+			ID:        userID1,
+			Username:  "charles16",
+			Email:     "charles@ferrari.com",
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+		}
+		profile1 := &models.Profile{UserID: userID1, DisplayName: "Charles"}
+		err := userRepo.CreateUser(user1, profile1)
+		require.NoError(tt, err)
+
+		// When: Duplicate username
+		userID2 := uuid.New().String()
+		user2 := &models.User{
+			ID:        userID2,
+			Username:  "charles16", // Duplicate
+			Email:     "other@ferrari.com",
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+		}
+		profile2 := &models.Profile{UserID: userID2, DisplayName: "Other"}
+		err = userRepo.CreateUser(user2, profile2)
+
+		// Then: Should fail
+		assert.Error(tt, err)
+		assert.Contains(tt, err.Error(), "UNIQUE constraint failed: users.username")
+
+		// When: Duplicate email
+		userID3 := uuid.New().String()
+		user3 := &models.User{
+			ID:        userID3,
+			Username:  "carlos55",
+			Email:     "charles@ferrari.com", // Duplicate
+			CreatedAt: time.Now().UTC().Truncate(time.Second),
+		}
+		profile3 := &models.Profile{UserID: userID3, DisplayName: "Carlos"}
+		err = userRepo.CreateUser(user3, profile3)
+
+		// Then: Should fail
+		assert.Error(tt, err)
+		assert.Contains(tt, err.Error(), "UNIQUE constraint failed: users.email")
+	})
+}

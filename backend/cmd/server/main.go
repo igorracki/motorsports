@@ -6,6 +6,7 @@ import (
 
 	"github.com/igorracki/f1/backend/internal/clients"
 	"github.com/igorracki/f1/backend/internal/config"
+	"github.com/igorracki/f1/backend/internal/database"
 	"github.com/igorracki/f1/backend/internal/handlers"
 	"github.com/igorracki/f1/backend/internal/services"
 	"github.com/labstack/echo/v4"
@@ -14,19 +15,26 @@ import (
 
 func main() {
 	configuration := config.Load()
+
+	databaseManager, err := database.NewManager(configuration.DatabasePath)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer databaseManager.Close()
+
 	server := echo.New()
 
 	server.Use(middleware.RequestLogger())
 	server.Use(middleware.Recover())
 
-	f1Client := clients.NewF1DataClient(configuration.ExternalAPIURL)
-	f1Service := services.NewF1Service(f1Client)
-	f1Handler := handlers.NewF1Handler(f1Service)
+	f1DataClient := clients.NewF1DataClient(configuration.ExternalAPIURL)
+	f1DataService := services.NewF1Service(f1DataClient)
+	f1DataHandler := handlers.NewF1Handler(f1DataService)
 
-	api := server.Group("/api")
-	api.GET("/schedule/:year", f1Handler.GetSchedule)
-	api.GET("/schedule/:year/:round/:session/results", f1Handler.GetSessionResults)
-	api.GET("/schedule/:year/:round/circuit", f1Handler.GetCircuit)
+	apiGroup := server.Group("/api")
+	apiGroup.GET("/schedule/:year", f1DataHandler.GetSchedule)
+	apiGroup.GET("/schedule/:year/:round/:session/results", f1DataHandler.GetSessionResults)
+	apiGroup.GET("/schedule/:year/:round/circuit", f1DataHandler.GetCircuit)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})

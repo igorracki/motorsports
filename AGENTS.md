@@ -23,6 +23,12 @@
 * **DATA FORMATTING:** The backend MUST provide human-readable string versions of these `ms` values (e.g., `start_date` alongside `start_date_ms`) for consumer consumption.
 * **COMPOSITION:** Use pointers with `omitempty` (Go) and `Optional[]` (Python) for clean, optional data structures.
 * **SYNC REQUIREMENT:** Changes to Python dataclass outputs **MUST** be reflected in Go models immediately to prevent unmarshaling errors.
+* **PERSISTENCE:** Use SQLite for dev/prod. SQLite driver: `modernc.org/sqlite` (CGO-free).
+* **SCHEMA CONVENTIONS:** 
+    - Use UUIDs (strings) for Primary Keys (except where composite keys make sense).
+    - Enable WAL mode and Foreign Key constraints in SQLite.
+    - Do NOT ever deviate from current schema without first explicitly confirming any changes.
+    - NEVER change the schema SQL string without updating the relevant structs in `models`.
 
 ---
 
