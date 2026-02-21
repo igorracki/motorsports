@@ -12,9 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/igorracki/f1/backend/internal/models"
 	"github.com/igorracki/f1/backend/internal/repository"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 var usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,20}$`)
+var sanitizer = bluemonday.StrictPolicy()
 
 type UserService interface {
 	RegisterUser(ctx context.Context, request models.RegisterUserRequest) (*models.User, error)
@@ -53,6 +55,7 @@ func (service *userService) RegisterUser(ctx context.Context, request models.Reg
 	if strings.TrimSpace(displayName) == "" {
 		displayName = request.Username
 	}
+	displayName = sanitizer.Sanitize(displayName)
 
 	profile := &models.Profile{
 		UserID:      userID,

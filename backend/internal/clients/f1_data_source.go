@@ -35,6 +35,11 @@ func NewF1DataClient(baseURL string) F1DataClient {
 
 func (client *f1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
 	slog.InfoContext(ctx, "Entry: GetScheduleByYear", "year", year, "url", client.baseURL)
+
+	if year < 1950 || year > 2100 {
+		return nil, fmt.Errorf("invalid year parameter: %d", year)
+	}
+
 	path, err := url.JoinPath(client.baseURL, "events", fmt.Sprintf("%d", year))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
@@ -78,6 +83,11 @@ func (client *f1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]
 
 func (client *f1DataClient) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
 	slog.InfoContext(ctx, "Entry: GetSessionResults", "year", year, "round", round, "sessionType", sessionType)
+
+	if year < 1950 || year > 2100 || round < 1 || round > 50 {
+		return nil, fmt.Errorf("invalid year or round parameter")
+	}
+
 	path, err := url.JoinPath(client.baseURL, "results", fmt.Sprintf("%d", year), fmt.Sprintf("%d", round), sessionType)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)
@@ -121,6 +131,11 @@ func (client *f1DataClient) GetSessionResults(ctx context.Context, year int, rou
 
 func (client *f1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
 	slog.InfoContext(ctx, "Entry: GetCircuit", "year", year, "round", round)
+
+	if year < 1950 || year > 2100 || round < 1 || round > 50 {
+		return nil, fmt.Errorf("invalid year or round parameter")
+	}
+
 	path, err := url.JoinPath(client.baseURL, "circuits", fmt.Sprintf("%d", year), fmt.Sprintf("%d", round))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to construct URL", "error", err)

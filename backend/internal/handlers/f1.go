@@ -42,11 +42,11 @@ func (handler *F1Handler) GetSchedule(context echo.Context) error {
 		})
 	}
 
-	if year <= 0 {
-		slog.WarnContext(ctx, "Non-positive year parameter", "year", year)
+	if year < 1950 || year > 2100 {
+		slog.WarnContext(ctx, "Year parameter out of bounds", "year", year)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_parameter",
-			Message: "year must be a positive integer",
+			Message: "year must be between 1950 and 2100",
 		})
 	}
 
@@ -81,10 +81,18 @@ func (handler *F1Handler) GetSessionResults(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_year"})
 	}
 
+	if year < 1950 || year > 2100 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "year_out_of_bounds"})
+	}
+
 	round, err := strconv.Atoi(roundStr)
 	if err != nil {
 		slog.WarnContext(ctx, "Invalid round parameter", "round", roundStr)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_round"})
+	}
+
+	if round < 1 || round > 50 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "round_out_of_bounds"})
 	}
 
 	results, err := handler.service.GetSessionResults(ctx, year, round, sessionType)
@@ -118,10 +126,18 @@ func (handler *F1Handler) GetCircuit(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_year"})
 	}
 
+	if year < 1950 || year > 2100 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "year_out_of_bounds"})
+	}
+
 	round, err := strconv.Atoi(roundStr)
 	if err != nil {
 		slog.WarnContext(ctx, "Invalid round parameter", "round", roundStr)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_round"})
+	}
+
+	if round < 1 || round > 50 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "round_out_of_bounds"})
 	}
 
 	circuit, err := handler.service.GetCircuit(ctx, year, round)

@@ -53,7 +53,7 @@ func TestScoreRepository(t *testing.T) {
 		err = scoreRepo.UpdateScore(ctx, score)
 		require.NoError(tt, err)
 
-		// Then: Value should be updated (Upsert)
+		// Then
 		scores, err = scoreRepo.GetUserScores(ctx, userID)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(scores))

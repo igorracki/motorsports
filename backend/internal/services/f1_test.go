@@ -82,7 +82,10 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 
 	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeRaceShort).Return(mockResults, nil)
 
+	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeRaceShort)
+
+	// Then
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 
@@ -129,7 +132,10 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 
 	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
 
+	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
+
+	// Then
 	assert.NoError(t, err)
 
 	pole := result.Results[0]
@@ -161,7 +167,10 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 
 	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeRaceShort).Return(mockResults, nil)
 
+	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeRaceShort)
+
+	// Then
 	assert.NoError(t, err)
 
 	dnf := result.Results[0]
@@ -190,7 +199,10 @@ func TestGetCircuit(t *testing.T) {
 
 	mockClient.On("GetCircuit", ctx, 2023, 10).Return(mockCircuit, nil)
 
+	// When
 	result, err := service.GetCircuit(ctx, 2023, 10)
+
+	// Then
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "Silverstone Circuit", result.CircuitName)

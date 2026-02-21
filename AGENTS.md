@@ -18,6 +18,14 @@
 * **The Brain (`backend`):** Sole source of truth for orchestration, business logic, and **Data Formatting** (converting ms to human-readable strings).
 * **The Adapter (`fastf1_wrapper`):** Fetch raw data -> Normalize types -> Pass to Go. **ZERO** complex domain calculations allowed here.
 
+### Security Standards (CRITICAL)
+* **SQL INJECTION:** Always use parameterized queries (placeholders like `?`). Never use string concatenation for SQL.
+* **XSS PROTECTION:** Sanitize all user-provided strings (e.g., `DisplayName`) before storage using `bluemonday`.
+* **INPUT VALIDATION:** Implement strict allow-lists and bounds for all numeric parameters (e.g., years 1950-2100).
+* **BODY LIMITS:** Enforce a maximum request body size (e.g., 1MB) to prevent DoS.
+* **SECURE HEADERS:** Always enable secure HTTP headers (XSS Filter, Nosniff, etc.).
+* **URL CONSTRUCTION:** Use proper URL builders (`url.JoinPath`, `url.URL`) and strictly validate path segments to prevent injection.
+
 ### Data Strategy
 * **TIME TRANSPORT:** All durations/times between `fastf1_wrapper` and `backend` MUST be `int64` milliseconds (`ms`). 
 * **DATA FORMATTING:** The backend MUST provide human-readable string versions of these `ms` values (e.g., `start_date` alongside `start_date_ms`) for consumer consumption.
@@ -50,6 +58,7 @@
 
 ### Comments
 * **PURPOSE:** Only use comments to explain the 'why' behind non-obvious logic or specific domain requirements (e.g., coordinate system conversions, specific racing rules).
+* **TESTING:** Always use "Given/When/Then" comments in behavioral tests.
 * **FORBIDDEN:** Do not use comments to describe 'what' the code is doing if it is self-evident. Avoid 'step-by-step' numbering comments for standard flows.
 
 ### Observability & Logging
@@ -65,6 +74,7 @@
 
 ## 4. TESTING & VERIFICATION
 * **POLICY:** Behavioral testing (Given/When/Then). Mock only at boundaries (e.g., HTTP calls).
+* **COMMENTS:** Use "Given/When/Then" comments in all behavioral tests to clearly define the setup, action, and expected outcome.
 * **MANDATORY WORKFLOW:** After changes, you MUST verify:
   1. `go test ./...`
   2. `python3 -m unittest discover`

@@ -27,6 +27,8 @@ func main() {
 
 	server.Use(middleware.RequestLogger())
 	server.Use(middleware.Recover())
+	server.Use(middleware.Secure())
+	server.Use(middleware.BodyLimit("1M"))
 
 	f1DataClient := clients.NewF1DataClient(configuration.ExternalAPIURL)
 	f1DataService := services.NewF1Service(f1DataClient)

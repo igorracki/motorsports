@@ -58,7 +58,7 @@ func TestUserRepository(t *testing.T) {
 	})
 
 	t.Run("Duplicate Constraints", func(tt *testing.T) {
-		// Given: First user
+		// Given
 		userID1 := uuid.New().String()
 		user1 := &models.User{
 			ID:        userID1,
@@ -81,7 +81,7 @@ func TestUserRepository(t *testing.T) {
 		profile2 := &models.Profile{UserID: userID2, DisplayName: "Other"}
 		err = userRepo.CreateUser(ctx, user2, profile2)
 
-		// Then: Should fail
+		// Then
 		assert.Error(tt, err)
 		assert.Contains(tt, err.Error(), "UNIQUE constraint failed: users.username")
 
@@ -96,7 +96,7 @@ func TestUserRepository(t *testing.T) {
 		profile3 := &models.Profile{UserID: userID3, DisplayName: "Carlos"}
 		err = userRepo.CreateUser(ctx, user3, profile3)
 
-		// Then: Should fail
+		// Then
 		assert.Error(tt, err)
 		assert.Contains(tt, err.Error(), "UNIQUE constraint failed: users.email")
 	})

@@ -122,4 +122,23 @@ func TestUserService(t *testing.T) {
 		// Then
 		assert.Equal(tt, "nico27", profile.Profile.DisplayName)
 	})
+
+	t.Run("Register User - HTML Sanitization", func(tt *testing.T) {
+		// Given
+		request := models.RegisterUserRequest{
+			Username:    "hack_erman",
+			Email:       "hacker@evil.com",
+			DisplayName: "<script>alert('XSS')</script>Hacker",
+		}
+
+		// When
+		user, err := userService.RegisterUser(ctx, request)
+		require.NoError(tt, err)
+
+		profile, err := userService.GetFullProfile(ctx, user.ID)
+		require.NoError(tt, err)
+
+		// Then
+		assert.Equal(tt, "Hacker", profile.Profile.DisplayName)
+	})
 }
