@@ -71,7 +71,7 @@ func (client *f1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]
 		return nil, fmt.Errorf("failed to read response body for year %d: %w", year, err)
 	}
 
-	var schedule []models.RaceWeekend
+	schedule := []models.RaceWeekend{}
 	if err := json.Unmarshal(body, &schedule); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal response for year %d: %w", year, err)
@@ -119,7 +119,9 @@ func (client *f1DataClient) GetSessionResults(ctx context.Context, year int, rou
 		return nil, fmt.Errorf("failed to read response body for %d round %d (%s): %w", year, round, sessionType, err)
 	}
 
-	var results models.SessionResults
+	results := models.SessionResults{
+		Results: []models.DriverResult{},
+	}
 	if err := json.Unmarshal(body, &results); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal response for %d round %d (%s): %w", year, round, sessionType, err)
@@ -167,7 +169,9 @@ func (client *f1DataClient) GetCircuit(ctx context.Context, year int, round int)
 		return nil, fmt.Errorf("failed to read response body for circuit %d (%d): %w", round, year, err)
 	}
 
-	var circuit models.Circuit
+	circuit := models.Circuit{
+		Layout: []models.CircuitLayoutPoint{},
+	}
 	if err := json.Unmarshal(body, &circuit); err != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal response", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal response for circuit %d (%d): %w", round, year, err)

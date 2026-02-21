@@ -62,6 +62,14 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 	if results == nil || len(results.Results) == 0 {
 		slog.WarnContext(ctx, "No results found", "year", year, "round", round)
 		slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "sessionType", sessionType, "count", 0)
+		if results == nil {
+			return &models.SessionResults{
+				Year:        year,
+				Round:       round,
+				SessionType: sessionType,
+				Results:     []models.DriverResult{},
+			}, nil
+		}
 		return results, nil
 	}
 

@@ -38,6 +38,11 @@
     - Do NOT ever deviate from current schema without first explicitly confirming any changes.
     - NEVER change the schema SQL string without updating the relevant structs in `models`.
 
+### API Standards
+* **COLLECTION CONSISTENCY:** Endpoints returning lists MUST return an empty array `[]` (never `null`) when no matches are found, accompanied by a `200 OK` status.
+* **RESOURCE CONSISTENCY:** Endpoints fetching a single resource by identifier (e.g., `/users/:id`, `/circuits/:year/:round`) MUST return `404 Not Found` if the primary entity does not exist.
+* **GO INITIALIZATION:** Always initialize slices in Go (e.g., `items := []models.Item{}`) before returning them in JSON responses to ensure `[]` marshaling.
+
 ---
 
 ## 3. CODING STANDARDS (STRICT ENFORCEMENT)

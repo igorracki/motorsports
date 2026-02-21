@@ -61,7 +61,7 @@ func (scoreRepo *scoreRepository) GetUserScores(ctx context.Context, userID stri
 	}
 	defer rows.Close()
 
-	var scores []models.UserScore
+	scores := []models.UserScore{}
 	for rows.Next() {
 		var score models.UserScore
 		if err := rows.Scan(&score.UserID, &score.ScoreType, &score.Season, &score.Value, &score.UpdatedAt); err != nil {

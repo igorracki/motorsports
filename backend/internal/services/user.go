@@ -104,6 +104,10 @@ func (service *userService) GetFullProfile(ctx context.Context, userID string) (
 		return nil, fmt.Errorf("fetching scores for user %s: %w", userID, err)
 	}
 
+	if scores == nil {
+		scores = []models.UserScore{}
+	}
+
 	response := &models.UserProfileResponse{
 		User:    *user,
 		Profile: *profile,
