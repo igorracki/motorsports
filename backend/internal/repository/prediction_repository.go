@@ -45,17 +45,17 @@ func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, 
 		return fmt.Errorf("upserting prediction header: %w", err)
 	}
 
-	var actualID string
+	// Fetch the final ID and CreatedAt (handles retrieving original values if it was an update)
 	err = transaction.QueryRowContext(ctx, `
-		SELECT id FROM predictions 
+		SELECT id, created_at FROM predictions 
 		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`,
 		prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType,
-	).Scan(&actualID)
+	).Scan(&prediction.ID, &prediction.CreatedAt)
 	if err != nil {
-		return fmt.Errorf("retrieving prediction ID: %w", err)
+		return fmt.Errorf("retrieving prediction metadata: %w", err)
 	}
 
-	_, err = transaction.ExecContext(ctx, "DELETE FROM prediction_entries WHERE prediction_id = ?", actualID)
+	_, err = transaction.ExecContext(ctx, "DELETE FROM prediction_entries WHERE prediction_id = ?", prediction.ID)
 	if err != nil {
 		return fmt.Errorf("clearing old prediction entries: %w", err)
 	}
@@ -63,7 +63,7 @@ func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, 
 	for _, entry := range prediction.Entries {
 		_, err = transaction.ExecContext(ctx,
 			"INSERT INTO prediction_entries (prediction_id, position, driver_id) VALUES (?, ?, ?)",
-			actualID, entry.Position, entry.DriverID,
+			prediction.ID, entry.Position, entry.DriverID,
 		)
 		if err != nil {
 			return fmt.Errorf("inserting prediction entry [pos: %d, driver: %s]: %w", entry.Position, entry.DriverID, err)
@@ -71,10 +71,10 @@ func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, 
 	}
 
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("committing prediction [id: %s]: %w", actualID, err)
+		return fmt.Errorf("committing prediction [id: %s]: %w", prediction.ID, err)
 	}
 
-	log.Printf("INFO: Successfully saved prediction [id: %s, entries: %d]", actualID, len(prediction.Entries))
+	log.Printf("INFO: Successfully saved prediction [id: %s, entries: %d]", prediction.ID, len(prediction.Entries))
 	return nil
 }
 

@@ -39,6 +39,10 @@ func main() {
 	userService := services.NewUserService(userRepository, scoreRepository)
 	userHandler := handlers.NewUserHandler(userService)
 
+	predictionRepository := repository.NewPredictionRepository(databaseManager.DB())
+	predictionService := services.NewPredictionService(predictionRepository)
+	predictionHandler := handlers.NewPredictionHandler(predictionService)
+
 	apiGroup := server.Group("/api")
 	apiGroup.GET("/schedule/:year", f1DataHandler.GetSchedule)
 	apiGroup.GET("/schedule/:year/:round/:session/results", f1DataHandler.GetSessionResults)
@@ -46,6 +50,7 @@ func main() {
 
 	apiGroup.POST("/users", userHandler.RegisterUser)
 	apiGroup.GET("/users/:id", userHandler.GetUserProfile)
+	apiGroup.POST("/users/:id/predictions", predictionHandler.SubmitPrediction)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})
