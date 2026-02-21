@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -57,4 +58,74 @@ func (handler *PredictionHandler) SubmitPrediction(context echo.Context) error {
 		"user_id", prediction.UserID,
 		"prediction_id", prediction.ID)
 	return context.JSON(http.StatusCreated, prediction)
+}
+
+func (handler *PredictionHandler) GetUserPredictions(context echo.Context) error {
+	ctx := context.Request().Context()
+	userID := context.Param("id")
+	slog.InfoContext(ctx, "Entry: GetUserPredictions", "user_id", userID)
+
+	if userID == "" {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "missing_parameter",
+			Message: "must provide a user id in the path",
+		})
+	}
+
+	predictions, err := handler.predictionService.GetUserPredictions(ctx, userID)
+	if err != nil {
+		slog.WarnContext(ctx, "Failed to fetch user predictions", "user_id", userID, "error", err)
+		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error:   "fetch_failed",
+			Message: "failed to retrieve predictions",
+		})
+	}
+
+	slog.InfoContext(ctx, "Exit: GetUserPredictions", "user_id", userID, "count", len(predictions))
+	return context.JSON(http.StatusOK, predictions)
+}
+
+func (handler *PredictionHandler) GetRoundPredictions(context echo.Context) error {
+	ctx := context.Request().Context()
+	userID := context.Param("id")
+	yearParam := context.Param("year")
+	roundParam := context.Param("round")
+
+	slog.InfoContext(ctx, "Entry: GetRoundPredictions",
+		"user_id", userID, "year", yearParam, "round", roundParam)
+
+	if userID == "" || yearParam == "" || roundParam == "" {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "missing_parameter",
+			Message: "must provide user id, year, and round",
+		})
+	}
+
+	var year, round int
+	if _, err := fmt.Sscanf(yearParam, "%d", &year); err != nil {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_parameter",
+			Message: "year must be an integer",
+		})
+	}
+	if _, err := fmt.Sscanf(roundParam, "%d", &round); err != nil {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_parameter",
+			Message: "round must be an integer",
+		})
+	}
+
+	predictions, err := handler.predictionService.GetRoundPredictions(ctx, userID, year, round)
+	if err != nil {
+		slog.WarnContext(ctx, "Failed to fetch round predictions",
+			"user_id", userID, "year", year, "round", round, "error", err)
+		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error:   "fetch_failed",
+			Message: "failed to retrieve predictions",
+		})
+	}
+
+	slog.InfoContext(ctx, "Exit: GetRoundPredictions",
+		"user_id", userID, "year", year, "round", round, "count", len(predictions))
+	return context.JSON(http.StatusOK, predictions)
 }

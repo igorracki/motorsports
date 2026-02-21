@@ -13,6 +13,8 @@ import (
 
 type PredictionService interface {
 	SubmitPrediction(ctx context.Context, prediction *models.Prediction) error
+	GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error)
+	GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error)
 }
 
 type predictionService struct {
@@ -51,6 +53,30 @@ func (service *predictionService) SubmitPrediction(ctx context.Context, predicti
 		"user_id", prediction.UserID,
 		"prediction_id", prediction.ID)
 	return nil
+}
+
+func (service *predictionService) GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error) {
+	slog.InfoContext(ctx, "Entry: GetUserPredictions", "user_id", userID)
+
+	predictions, err := service.predictionRepository.GetUserPredictions(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "Exit: GetUserPredictions", "user_id", userID, "count", len(predictions))
+	return predictions, nil
+}
+
+func (service *predictionService) GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error) {
+	slog.InfoContext(ctx, "Entry: GetRoundPredictions", "user_id", userID, "year", year, "round", round)
+
+	predictions, err := service.predictionRepository.GetRoundPredictions(ctx, userID, year, round)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "Exit: GetRoundPredictions", "user_id", userID, "year", year, "round", round, "count", len(predictions))
+	return predictions, nil
 }
 
 func (service *predictionService) validatePrediction(prediction *models.Prediction) error {

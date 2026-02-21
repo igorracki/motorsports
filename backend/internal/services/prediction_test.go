@@ -208,4 +208,25 @@ func TestPredictionService(t *testing.T) {
 		require.NoError(tt, err)
 		assert.Equal(tt, "LEC", saved.Entries[0].DriverID)
 	})
+
+	t.Run("Get Predictions", func(tt *testing.T) {
+		userID := "user-789"
+		createUser(userID)
+		p1 := &models.Prediction{
+			UserID: userID, Year: 2024, Round: 1, SessionType: "Race",
+			Entries: []models.PredictionEntry{{Position: 1, DriverID: "VER"}, {Position: 2, DriverID: "PER"}, {Position: 3, DriverID: "ALO"}},
+		}
+		require.NoError(tt, predictionService.SubmitPrediction(ctx, p1))
+
+		// Get all
+		all, err := predictionService.GetUserPredictions(ctx, userID)
+		require.NoError(tt, err)
+		assert.Len(tt, all, 1)
+
+		// Get round
+		round, err := predictionService.GetRoundPredictions(ctx, userID, 2024, 1)
+		require.NoError(tt, err)
+		assert.Len(tt, round, 1)
+		assert.Equal(tt, "Race", round[0].SessionType)
+	})
 }

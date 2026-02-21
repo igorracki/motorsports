@@ -51,6 +51,8 @@ func main() {
 	apiGroup.POST("/users", userHandler.RegisterUser)
 	apiGroup.GET("/users/:id", userHandler.GetUserProfile)
 	apiGroup.POST("/users/:id/predictions", predictionHandler.SubmitPrediction)
+	apiGroup.GET("/users/:id/predictions", predictionHandler.GetUserPredictions)
+	apiGroup.GET("/users/:id/predictions/:year/:round", predictionHandler.GetRoundPredictions)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})

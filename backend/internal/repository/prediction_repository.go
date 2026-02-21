@@ -12,6 +12,8 @@ import (
 type PredictionRepository interface {
 	SavePrediction(ctx context.Context, prediction *models.Prediction) error
 	GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error)
+	GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error)
+	GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error)
 }
 
 type predictionRepository struct {
@@ -87,6 +89,7 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 		Year:        year,
 		Round:       round,
 		SessionType: sessionType,
+		Entries:     []models.PredictionEntry{},
 	}
 
 	err := predictionRepo.database.QueryRowContext(ctx, `
@@ -127,4 +130,105 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 
 	log.Printf("INFO: Successfully fetched prediction [id: %s, entries: %d]", prediction.ID, len(prediction.Entries))
 	return prediction, nil
+}
+
+func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error) {
+	log.Printf("INFO: Fetching all predictions for user [user_id: %s]", userID)
+
+	rows, err := predictionRepo.database.QueryContext(ctx, `
+		SELECT id, year, round, session_type, score, created_at, updated_at 
+		FROM predictions 
+		WHERE user_id = ?
+		ORDER BY year DESC, round DESC, session_type ASC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying user predictions: %w", err)
+	}
+	defer rows.Close()
+
+	predictions := []models.Prediction{}
+	for rows.Next() {
+		var p models.Prediction
+		p.UserID = userID
+		p.Entries = []models.PredictionEntry{}
+		if err := rows.Scan(&p.ID, &p.Year, &p.Round, &p.SessionType, &p.Score, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning prediction: %w", err)
+		}
+		predictions = append(predictions, p)
+	}
+
+	if err := predictionRepo.fetchEntriesForPredictions(ctx, predictions); err != nil {
+		return nil, err
+	}
+
+	log.Printf("INFO: Successfully fetched %d predictions for user [user_id: %s]", len(predictions), userID)
+	return predictions, nil
+}
+
+func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error) {
+	log.Printf("INFO: Fetching round predictions [user_id: %s, year: %d, round: %d]", userID, year, round)
+
+	rows, err := predictionRepo.database.QueryContext(ctx, `
+		SELECT id, session_type, score, created_at, updated_at 
+		FROM predictions 
+		WHERE user_id = ? AND year = ? AND round = ?
+		ORDER BY session_type ASC`,
+		userID, year, round,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying round predictions: %w", err)
+	}
+	defer rows.Close()
+
+	predictions := []models.Prediction{}
+	for rows.Next() {
+		var p models.Prediction
+		p.UserID = userID
+		p.Year = year
+		p.Round = round
+		p.Entries = []models.PredictionEntry{}
+		if err := rows.Scan(&p.ID, &p.SessionType, &p.Score, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning round prediction: %w", err)
+		}
+		predictions = append(predictions, p)
+	}
+
+	if err := predictionRepo.fetchEntriesForPredictions(ctx, predictions); err != nil {
+		return nil, err
+	}
+
+	log.Printf("INFO: Successfully fetched %d round predictions [user_id: %s, year: %d, round: %d]",
+		len(predictions), userID, year, round)
+	return predictions, nil
+}
+
+func (predictionRepo *predictionRepository) fetchEntriesForPredictions(ctx context.Context, predictions []models.Prediction) error {
+	if len(predictions) == 0 {
+		return nil
+	}
+
+	for i := range predictions {
+		rows, err := predictionRepo.database.QueryContext(ctx, `
+			SELECT position, driver_id 
+			FROM prediction_entries 
+			WHERE prediction_id = ? 
+			ORDER BY position ASC`,
+			predictions[i].ID,
+		)
+		if err != nil {
+			return fmt.Errorf("querying entries for prediction %s: %w", predictions[i].ID, err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var entry models.PredictionEntry
+			entry.PredictionID = predictions[i].ID
+			if err := rows.Scan(&entry.Position, &entry.DriverID); err != nil {
+				return fmt.Errorf("scanning entry for prediction %s: %w", predictions[i].ID, err)
+			}
+			predictions[i].Entries = append(predictions[i].Entries, entry)
+		}
+	}
+	return nil
 }
