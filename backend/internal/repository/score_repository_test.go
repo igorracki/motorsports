@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,9 +19,10 @@ func TestScoreRepository(t *testing.T) {
 
 	userRepo := NewUserRepository(databaseManager.DB())
 	scoreRepo := NewScoreRepository(databaseManager.DB())
+	ctx := context.Background()
 
 	userID := uuid.New().String()
-	err = userRepo.CreateUser(&models.User{
+	err = userRepo.CreateUser(ctx, &models.User{
 		ID: userID, Username: "lando4", Email: "lando@mclaren.com", CreatedAt: time.Now(),
 	}, &models.Profile{UserID: userID, DisplayName: "Lando"})
 	require.NoError(t, err)
@@ -37,22 +39,22 @@ func TestScoreRepository(t *testing.T) {
 		}
 
 		// When
-		err := scoreRepo.UpdateScore(score)
+		err := scoreRepo.UpdateScore(ctx, score)
 		require.NoError(tt, err)
 
 		// Then
-		scores, err := scoreRepo.GetUserScores(userID)
+		scores, err := scoreRepo.GetUserScores(ctx, userID)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(scores))
 		assert.Equal(tt, 150, scores[0].Value)
 
 		// When: Update value
 		score.Value = 200
-		err = scoreRepo.UpdateScore(score)
+		err = scoreRepo.UpdateScore(ctx, score)
 		require.NoError(tt, err)
 
 		// Then: Value should be updated (Upsert)
-		scores, err = scoreRepo.GetUserScores(userID)
+		scores, err = scoreRepo.GetUserScores(ctx, userID)
 		require.NoError(tt, err)
 		assert.Equal(tt, 1, len(scores))
 		assert.Equal(tt, 200, scores[0].Value)

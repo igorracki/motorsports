@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,10 +19,11 @@ func TestPredictionRepository(t *testing.T) {
 
 	userRepo := NewUserRepository(databaseManager.DB())
 	predictionRepo := NewPredictionRepository(databaseManager.DB())
+	ctx := context.Background()
 
 	// Create a user first for FK constraints
 	userID := uuid.New().String()
-	err = userRepo.CreateUser(&models.User{
+	err = userRepo.CreateUser(ctx, &models.User{
 		ID: userID, Username: "max33", Email: "max@redbull.com", CreatedAt: time.Now(),
 	}, &models.Profile{UserID: userID, DisplayName: "Max"})
 	require.NoError(t, err)
@@ -44,10 +46,10 @@ func TestPredictionRepository(t *testing.T) {
 		}
 
 		// When
-		err := predictionRepo.SavePrediction(prediction)
+		err := predictionRepo.SavePrediction(ctx, prediction)
 		require.NoError(tt, err)
 
-		fetched, err := predictionRepo.GetPrediction(userID, 2024, 1, "race")
+		fetched, err := predictionRepo.GetPrediction(ctx, userID, 2024, 1, "race")
 		require.NoError(tt, err)
 
 		// Then
@@ -74,10 +76,10 @@ func TestPredictionRepository(t *testing.T) {
 		}
 
 		// When
-		err := predictionRepo.SavePrediction(updatedPrediction)
+		err := predictionRepo.SavePrediction(ctx, updatedPrediction)
 		require.NoError(tt, err)
 
-		fetched, err := predictionRepo.GetPrediction(userID, 2024, 1, "race")
+		fetched, err := predictionRepo.GetPrediction(ctx, userID, 2024, 1, "race")
 		require.NoError(tt, err)
 
 		// Then

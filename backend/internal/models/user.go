@@ -21,3 +21,19 @@ type UserScore struct {
 	Value     int       `json:"value"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+type RegisterUserRequest struct {
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+}
+
+type UpdateProfileRequest struct {
+	DisplayName string `json:"display_name"`
+}
+
+type UserProfileResponse struct {
+	User    User        `json:"user"`
+	Profile Profile     `json:"profile"`
+	Scores  []UserScore `json:"scores"`
+}

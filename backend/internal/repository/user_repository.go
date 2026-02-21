@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,24 +9,30 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 )
 
-type UserRepository struct {
+type UserRepository interface {
+	CreateUser(ctx context.Context, user *models.User, profile *models.Profile) error
+	GetUserByID(ctx context.Context, id string) (*models.User, error)
+	GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error)
+}
+
+type userRepository struct {
 	database *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{database: db}
+func NewUserRepository(db *sql.DB) UserRepository {
+	return &userRepository{database: db}
 }
 
-func (userRepo *UserRepository) CreateUser(user *models.User, profile *models.Profile) error {
+func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.User, profile *models.Profile) error {
 	log.Printf("INFO: Attempting to create user [username: %s, email: %s]", user.Username, user.Email)
 
-	transaction, err := userRepo.database.Begin()
+	transaction, err := userRepo.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction for user creation: %w", err)
 	}
 	defer transaction.Rollback()
 
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(ctx,
 		"INSERT INTO users (id, username, email, created_at) VALUES (?, ?, ?, ?)",
 		user.ID, user.Username, user.Email, user.CreatedAt,
 	)
@@ -33,7 +40,7 @@ func (userRepo *UserRepository) CreateUser(user *models.User, profile *models.Pr
 		return fmt.Errorf("inserting user %s: %w", user.ID, err)
 	}
 
-	_, err = transaction.Exec(
+	_, err = transaction.ExecContext(ctx,
 		"INSERT INTO profiles (user_id, display_name) VALUES (?, ?)",
 		profile.UserID, profile.DisplayName,
 	)
@@ -49,11 +56,11 @@ func (userRepo *UserRepository) CreateUser(user *models.User, profile *models.Pr
 	return nil
 }
 
-func (userRepo *UserRepository) GetUserByID(id string) (*models.User, error) {
+func (userRepo *userRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	log.Printf("INFO: Fetching user [id: %s]", id)
 
 	user := &models.User{}
-	err := userRepo.database.QueryRow(
+	err := userRepo.database.QueryRowContext(ctx,
 		"SELECT id, username, email, created_at FROM users WHERE id = ?",
 		id,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt)
@@ -68,4 +75,25 @@ func (userRepo *UserRepository) GetUserByID(id string) (*models.User, error) {
 
 	log.Printf("INFO: Successfully fetched user [id: %s]", id)
 	return user, nil
+}
+
+func (userRepo *userRepository) GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error) {
+	log.Printf("INFO: Fetching profile [user_id: %s]", userID)
+
+	profile := &models.Profile{}
+	err := userRepo.database.QueryRowContext(ctx,
+		"SELECT user_id, display_name FROM profiles WHERE user_id = ?",
+		userID,
+	).Scan(&profile.UserID, &profile.DisplayName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("INFO: Profile not found [user_id: %s]", userID)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("querying profile for user %s: %w", userID, err)
+	}
+
+	log.Printf("INFO: Successfully fetched profile [user_id: %s]", userID)
+	return profile, nil
 }

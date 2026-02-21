@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,25 +9,30 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 )
 
-type PredictionRepository struct {
+type PredictionRepository interface {
+	SavePrediction(ctx context.Context, prediction *models.Prediction) error
+	GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error)
+}
+
+type predictionRepository struct {
 	database *sql.DB
 }
 
-func NewPredictionRepository(db *sql.DB) *PredictionRepository {
-	return &PredictionRepository{database: db}
+func NewPredictionRepository(db *sql.DB) PredictionRepository {
+	return &predictionRepository{database: db}
 }
 
-func (predictionRepo *PredictionRepository) SavePrediction(prediction *models.Prediction) error {
+func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, prediction *models.Prediction) error {
 	log.Printf("INFO: Attempting to save prediction [user_id: %s, year: %d, round: %d, session: %s]",
 		prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType)
 
-	transaction, err := predictionRepo.database.Begin()
+	transaction, err := predictionRepo.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction for prediction: %w", err)
 	}
 	defer transaction.Rollback()
 
-	_, err = transaction.Exec(`
+	_, err = transaction.ExecContext(ctx, `
 		INSERT INTO predictions (id, user_id, year, round, session_type, score, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, year, round, session_type) DO UPDATE SET
@@ -40,7 +46,7 @@ func (predictionRepo *PredictionRepository) SavePrediction(prediction *models.Pr
 	}
 
 	var actualID string
-	err = transaction.QueryRow(`
+	err = transaction.QueryRowContext(ctx, `
 		SELECT id FROM predictions 
 		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`,
 		prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType,
@@ -49,13 +55,13 @@ func (predictionRepo *PredictionRepository) SavePrediction(prediction *models.Pr
 		return fmt.Errorf("retrieving prediction ID: %w", err)
 	}
 
-	_, err = transaction.Exec("DELETE FROM prediction_entries WHERE prediction_id = ?", actualID)
+	_, err = transaction.ExecContext(ctx, "DELETE FROM prediction_entries WHERE prediction_id = ?", actualID)
 	if err != nil {
 		return fmt.Errorf("clearing old prediction entries: %w", err)
 	}
 
 	for _, entry := range prediction.Entries {
-		_, err = transaction.Exec(
+		_, err = transaction.ExecContext(ctx,
 			"INSERT INTO prediction_entries (prediction_id, position, driver_id) VALUES (?, ?, ?)",
 			actualID, entry.Position, entry.DriverID,
 		)
@@ -72,7 +78,7 @@ func (predictionRepo *PredictionRepository) SavePrediction(prediction *models.Pr
 	return nil
 }
 
-func (predictionRepo *PredictionRepository) GetPrediction(userID string, year, round int, sessionType string) (*models.Prediction, error) {
+func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error) {
 	log.Printf("INFO: Fetching prediction [user_id: %s, year: %d, round: %d, session: %s]",
 		userID, year, round, sessionType)
 
@@ -83,7 +89,7 @@ func (predictionRepo *PredictionRepository) GetPrediction(userID string, year, r
 		SessionType: sessionType,
 	}
 
-	err := predictionRepo.database.QueryRow(`
+	err := predictionRepo.database.QueryRowContext(ctx, `
 		SELECT id, score, created_at, updated_at 
 		FROM predictions 
 		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`,
@@ -98,7 +104,7 @@ func (predictionRepo *PredictionRepository) GetPrediction(userID string, year, r
 		return nil, fmt.Errorf("querying prediction: %w", err)
 	}
 
-	rows, err := predictionRepo.database.Query(`
+	rows, err := predictionRepo.database.QueryContext(ctx, `
 		SELECT position, driver_id 
 		FROM prediction_entries 
 		WHERE prediction_id = ? 

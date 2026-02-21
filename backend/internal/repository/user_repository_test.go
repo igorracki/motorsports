@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ func TestUserRepository(t *testing.T) {
 	defer databaseManager.Close()
 
 	userRepo := NewUserRepository(databaseManager.DB())
+	ctx := context.Background()
 
 	t.Run("Create and Get User", func(tt *testing.T) {
 		// Given
@@ -33,10 +35,10 @@ func TestUserRepository(t *testing.T) {
 		}
 
 		// When
-		err := userRepo.CreateUser(user, profile)
+		err := userRepo.CreateUser(ctx, user, profile)
 		require.NoError(tt, err)
 
-		fetchedUser, err := userRepo.GetUserByID(userID)
+		fetchedUser, err := userRepo.GetUserByID(ctx, userID)
 		require.NoError(tt, err)
 
 		// Then
@@ -48,7 +50,7 @@ func TestUserRepository(t *testing.T) {
 
 	t.Run("Get Non-Existent User", func(tt *testing.T) {
 		// When
-		fetchedUser, err := userRepo.GetUserByID("non-existent")
+		fetchedUser, err := userRepo.GetUserByID(ctx, "non-existent")
 
 		// Then
 		require.NoError(tt, err)
@@ -65,7 +67,7 @@ func TestUserRepository(t *testing.T) {
 			CreatedAt: time.Now().UTC().Truncate(time.Second),
 		}
 		profile1 := &models.Profile{UserID: userID1, DisplayName: "Charles"}
-		err := userRepo.CreateUser(user1, profile1)
+		err := userRepo.CreateUser(ctx, user1, profile1)
 		require.NoError(tt, err)
 
 		// When: Duplicate username
@@ -77,7 +79,7 @@ func TestUserRepository(t *testing.T) {
 			CreatedAt: time.Now().UTC().Truncate(time.Second),
 		}
 		profile2 := &models.Profile{UserID: userID2, DisplayName: "Other"}
-		err = userRepo.CreateUser(user2, profile2)
+		err = userRepo.CreateUser(ctx, user2, profile2)
 
 		// Then: Should fail
 		assert.Error(tt, err)
@@ -92,7 +94,7 @@ func TestUserRepository(t *testing.T) {
 			CreatedAt: time.Now().UTC().Truncate(time.Second),
 		}
 		profile3 := &models.Profile{UserID: userID3, DisplayName: "Carlos"}
-		err = userRepo.CreateUser(user3, profile3)
+		err = userRepo.CreateUser(ctx, user3, profile3)
 
 		// Then: Should fail
 		assert.Error(tt, err)

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,15 +9,20 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 )
 
-type ScoreRepository struct {
+type ScoreRepository interface {
+	UpdateScore(ctx context.Context, score *models.UserScore) error
+	GetUserScores(ctx context.Context, userID string) ([]models.UserScore, error)
+}
+
+type scoreRepository struct {
 	database *sql.DB
 }
 
-func NewScoreRepository(db *sql.DB) *ScoreRepository {
-	return &ScoreRepository{database: db}
+func NewScoreRepository(db *sql.DB) ScoreRepository {
+	return &scoreRepository{database: db}
 }
 
-func (scoreRepo *ScoreRepository) UpdateScore(score *models.UserScore) error {
+func (scoreRepo *scoreRepository) UpdateScore(ctx context.Context, score *models.UserScore) error {
 	seasonValue := "NULL"
 	if score.Season != nil {
 		seasonValue = fmt.Sprintf("%d", *score.Season)
@@ -24,7 +30,7 @@ func (scoreRepo *ScoreRepository) UpdateScore(score *models.UserScore) error {
 	log.Printf("INFO: Attempting to update score [user_id: %s, type: %s, season: %s]",
 		score.UserID, score.ScoreType, seasonValue)
 
-	_, err := scoreRepo.database.Exec(`
+	_, err := scoreRepo.database.ExecContext(ctx, `
 		INSERT INTO user_scores (user_id, score_type, season, value, updated_at)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, score_type, season) DO UPDATE SET
@@ -41,10 +47,10 @@ func (scoreRepo *ScoreRepository) UpdateScore(score *models.UserScore) error {
 	return nil
 }
 
-func (scoreRepo *ScoreRepository) GetUserScores(userID string) ([]models.UserScore, error) {
+func (scoreRepo *scoreRepository) GetUserScores(ctx context.Context, userID string) ([]models.UserScore, error) {
 	log.Printf("INFO: Fetching all scores for user [id: %s]", userID)
 
-	rows, err := scoreRepo.database.Query(`
+	rows, err := scoreRepo.database.QueryContext(ctx, `
 		SELECT user_id, score_type, season, value, updated_at 
 		FROM user_scores 
 		WHERE user_id = ?`,

@@ -8,6 +8,7 @@ import (
 	"github.com/igorracki/f1/backend/internal/config"
 	"github.com/igorracki/f1/backend/internal/database"
 	"github.com/igorracki/f1/backend/internal/handlers"
+	"github.com/igorracki/f1/backend/internal/repository"
 	"github.com/igorracki/f1/backend/internal/services"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -31,10 +32,18 @@ func main() {
 	f1DataService := services.NewF1Service(f1DataClient)
 	f1DataHandler := handlers.NewF1Handler(f1DataService)
 
+	userRepository := repository.NewUserRepository(databaseManager.DB())
+	scoreRepository := repository.NewScoreRepository(databaseManager.DB())
+	userService := services.NewUserService(userRepository, scoreRepository)
+	userHandler := handlers.NewUserHandler(userService)
+
 	apiGroup := server.Group("/api")
 	apiGroup.GET("/schedule/:year", f1DataHandler.GetSchedule)
 	apiGroup.GET("/schedule/:year/:round/:session/results", f1DataHandler.GetSessionResults)
 	apiGroup.GET("/schedule/:year/:round/circuit", f1DataHandler.GetCircuit)
+
+	apiGroup.POST("/users", userHandler.RegisterUser)
+	apiGroup.GET("/users/:id", userHandler.GetUserProfile)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})
