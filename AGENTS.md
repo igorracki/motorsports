@@ -42,6 +42,7 @@
 * **COLLECTION CONSISTENCY:** Endpoints returning lists MUST return an empty array `[]` (never `null`) when no matches are found, accompanied by a `200 OK` status.
 * **RESOURCE CONSISTENCY:** Endpoints fetching a single resource by identifier (e.g., `/users/:id`, `/circuits/:year/:round`) MUST return `404 Not Found` if the primary entity does not exist.
 * **GO INITIALIZATION:** Always initialize slices in Go (e.g., `items := []models.Item{}`) before returning them in JSON responses to ensure `[]` marshaling.
+* **DOCUMENTATION:** The OpenAPI specification (`backend/docs/openapi.yaml`) MUST be updated immediately after any change to API routes, request payloads, or response models.
 
 ---
 
