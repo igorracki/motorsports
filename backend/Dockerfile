@@ -9,5 +9,5 @@ RUN CGO_ENABLED=0 go build -o server ./cmd/server
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=builder /app/server .
-EXPOSE 8081
+EXPOSE 8080
 CMD ["./server"]
