@@ -5,7 +5,7 @@
 ---
 
 ## 1. PROJECT SCOPE & BOUNDARIES
-* **ACTIVE:** `backend/` (Go), `fastf1_wrapper/` (Python).
+* **ACTIVE:** `backend/` (Go), `fastf1_wrapper/` (Python), `frontend/` (Next.js).
 * **STRICTLY IGNORE:** `frontend_remote/`. (Do not read, modify, or reference).
 * **EXEMPT ZONES:** `/examples/` and `/scratch/`.
   - **Rule:** These folders are for experiments and prototypes. 
@@ -44,14 +44,25 @@
 * **GO INITIALIZATION:** Always initialize slices in Go (e.g., `items := []models.Item{}`) before returning them in JSON responses to ensure `[]` marshaling.
 * **DOCUMENTATION:** The OpenAPI specification (`backend/docs/openapi.yaml`) MUST be updated immediately after any change to API routes, request payloads, or response models.
 
+### Frontend Architecture (Next.js)
+* **SERVER FIRST:** Use Server Components for data fetching by default. Use Client Components only for interactivity.
+* **RESTFUL ROUTING:** Follow the established path-segment pattern: `/race-weekend/[year]/[round]`. Do not use query parameters for primary resource identification.
+* **DIRECTORY STRUCTURE:** 
+    - `features/`: Complex, domain-specific dashboards and views.
+    - `ui/`: Reusable, atomic UI primitives (Table, Skeleton, Badge).
+    - `services/`: Dedicated API communication layer (`f1-api.ts`).
+    - `hooks/`: Isolated client-side logic and global context (`SeasonContext`).
+* **TYPE MIRRORING:** Frontend interfaces in `types/f1.ts` MUST mirror Go models exactly.
+* **VALIDATION:** Use Zod schemas to validate all API responses at the service boundary.
+
 ---
 
 ## 3. CODING STANDARDS (STRICT ENFORCEMENT)
-*Applies to `backend/` and `fastf1_wrapper/` only.*
+*Applies to `backend/`, `fastf1_wrapper/`, and `frontend/`.*
 
 ### Naming Conventions
-* **FORBIDDEN:** Single-letter variables (`s`, `v`), cryptic abbreviations (`td`, `s_type`), and vague terms (`data`, `obj`).
-* **REQUIRED:** Explicit names: `RaceWeekend`, `elapsed_duration`, `lap_time_ms`.
+* **FORBIDDEN:** Single-letter variables (`s`, `v`), cryptic abbreviations (`td`, `s_type`), and vague terms (`data`, `obj`, `event`).
+* **REQUIRED:** Explicit names: `RaceWeekend`, `raceWeekend`, `lapTimeMs`.
 * **EXCEPTIONS:** `i` (loops), `ctx` (context), `err` (Go), `ms` (millisecond suffix), `t` and `tt` (testing), `x` and `y` (coordinates).
 
 ### Implementation
@@ -59,8 +70,13 @@
 * **Decomposition:** Extract complex sub-steps into helper functions to keep the main flow readable. 
 * **Organization:** - Move logic into specialized scripts (e.g., `extractors.py`, `converters.py`).
     - **Avoid "Junk Drawers":** Do not create a single `utils.py` with dozens of unrelated functions. 
-    - **Grouping:** Group related helper functions into context-specific scripts (e.g., `lap_timing_utils.py`, `session_parsing.py`) to maintain a clean directory structure.* **Python Models:** Use `dataclasses` only. Always load sessions with `laps=True`.
+    - **Grouping:** Group related helper functions into context-specific scripts (e.g., `lap_timing_utils.py`, `session_parsing.py`) to maintain a clean directory structure.
+* **Python Models:** Use `dataclasses` only. Always load sessions with `laps=True`.
 * **Go Layout:** Follow standard `cmd/` and `internal/` structure.
+* **Frontend UI:** 
+    - **Optimization:** Always use the Next.js `<Image />` component for visual assets.
+    - **UX:** Implement `loading.tsx` with custom `Skeleton` components for all dynamic routes.
+    - **Consistency:** Use Tailwind classes only; avoid inline styles. Standardize colors via the project's design tokens.
 
 ### Comments
 * **PURPOSE:** Only use comments to explain the 'why' behind non-obvious logic or specific domain requirements (e.g., coordinate system conversions, specific racing rules).
@@ -84,6 +100,7 @@
 * **MANDATORY WORKFLOW:** After changes, you MUST verify:
   1. `go test ./...`
   2. `python3 -m unittest discover`
+  3. `cd frontend && npm run build && npx tsc --noEmit`
 
 ---
 

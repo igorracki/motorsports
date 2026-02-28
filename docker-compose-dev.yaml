@@ -28,12 +28,12 @@ services:
   frontend:
     image: f1-frontend:dev
     build:
-      context: ./frontend_remote/
+      context: ./frontend/
     environment:
       - BACKEND_URL=http://backend:8080
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend_remote/v0-motorsport-event-landing-page:/app
+      - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- -H 0.0.0.0
