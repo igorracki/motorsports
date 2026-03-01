@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def get_scalar_value(series: pd.Series, key: str) -> Any:

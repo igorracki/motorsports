@@ -51,14 +51,13 @@ func TestGetSchedule_Success(t *testing.T) {
 	clientMock := &mockF1DataClient{
 		scheduleResponse: []models.RaceWeekend{
 			{
-				Round:       1,
-				FullName:    "FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026",
-				Name:        "Australian Grand Prix",
-				Location:    "Melbourne",
-				Country:     "Australia",
-				StartDateMS: 1772928000000,
+				Round:    1,
+				FullName: "FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026",
+				Name:     "Australian Grand Prix",
+				Location: "Melbourne",
+				Country:  "Australia",
 				Sessions: []models.Session{
-					{Type: "Race", TimeLocalMS: 1772982000000, TimeUTCMS: 1772942400000},
+					{Type: "Race", TimeUTCMS: 1772942400000, UTCOffsetMS: 39600000},
 				},
 			},
 		},
@@ -135,20 +134,18 @@ func TestGetSchedule_MultipleEvents(t *testing.T) {
 	clientMock := &mockF1DataClient{
 		scheduleResponse: []models.RaceWeekend{
 			{
-				Round:       1,
-				Name:        "Australian Grand Prix",
-				Location:    "Melbourne",
-				Country:     "Australia",
-				StartDateMS: 1772928000000,
-				Sessions:    []models.Session{},
+				Round:    1,
+				Name:     "Australian Grand Prix",
+				Location: "Melbourne",
+				Country:  "Australia",
+				Sessions: []models.Session{},
 			},
 			{
-				Round:       2,
-				Name:        "Chinese Grand Prix",
-				Location:    "Shanghai",
-				Country:     "China",
-				StartDateMS: 1773532800000,
-				Sessions:    []models.Session{},
+				Round:    2,
+				Name:     "Chinese Grand Prix",
+				Location: "Shanghai",
+				Country:  "China",
+				Sessions: []models.Session{},
 			},
 		},
 	}

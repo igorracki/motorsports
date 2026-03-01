@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from .session import Session
 
 
@@ -12,12 +12,11 @@ class RaceWeekend:
     name: str
     location: str
     country: str
-    start_date_ms: int
     sessions: List[Session]
 
     def json(self) -> str:
         def convert_datetime(original):
-            if isinstance(original, datetime):
+            if isinstance(original, datetime) :
                 return original.isoformat()
             return original
 

@@ -39,12 +39,9 @@ func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]mo
 		return nil, fmt.Errorf("failed to fetch schedule from external API: %w", err)
 	}
 
-	for weekendIndex := range schedule {
-		schedule[weekendIndex].StartDate = formatters.FormatTimestamp(schedule[weekendIndex].StartDateMS)
-		for sessionIndex := range schedule[weekendIndex].Sessions {
-			schedule[weekendIndex].Sessions[sessionIndex].TimeLocal = formatters.FormatTimestamp(schedule[weekendIndex].Sessions[sessionIndex].TimeLocalMS)
-			schedule[weekendIndex].Sessions[sessionIndex].TimeUTC = formatters.FormatTimestamp(schedule[weekendIndex].Sessions[sessionIndex].TimeUTCMS)
-		}
+	for i := range schedule {
+		calculateWeekendBoundaries(&schedule[i])
+		formatRaceWeekend(&schedule[i])
 	}
 
 	slog.InfoContext(ctx, "Exit: GetScheduleByYear", "year", year, "count", len(schedule))
@@ -73,41 +70,7 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 		return results, nil
 	}
 
-	for resultIndex := range results.Results {
-		result := &results.Results[resultIndex]
-
-		if result.TotalTimeMS != nil {
-			result.TotalTime = formatters.FormatDuration(*result.TotalTimeMS, false)
-		}
-
-		if result.FastestLapMS != nil {
-			result.FastestLap = formatters.FormatDuration(*result.FastestLapMS, false)
-		}
-
-		if sessionType == models.SessionTypeRaceShort || sessionType == models.SessionTypeRace {
-			if result.GapMS != nil {
-				result.Gap = formatters.FormatDuration(*result.GapMS, true)
-			} else {
-				result.Gap = result.Status
-			}
-		}
-
-		if result.Race != nil {
-			result.Race.PositionsChange = result.Race.GridPosition - result.Position
-		}
-
-		if result.Qualifying != nil {
-			if result.Qualifying.Q1MS != nil {
-				result.Qualifying.Q1 = formatters.FormatDuration(*result.Qualifying.Q1MS, false)
-			}
-			if result.Qualifying.Q2MS != nil {
-				result.Qualifying.Q2 = formatters.FormatDuration(*result.Qualifying.Q2MS, false)
-			}
-			if result.Qualifying.Q3MS != nil {
-				result.Qualifying.Q3 = formatters.FormatDuration(*result.Qualifying.Q3MS, false)
-			}
-		}
-	}
+	formatSessionResults(results)
 
 	slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "sessionType", sessionType, "count", len(results.Results))
 	return results, nil

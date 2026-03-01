@@ -330,9 +330,6 @@ components:
       properties:
         type:
           type: string
-        time_local_ms:
-          type: integer
-          format: int64
         time_local:
           type: string
         time_utc_ms:
@@ -340,6 +337,9 @@ components:
           format: int64
         time_utc:
           type: string
+        utc_offset_ms:
+          type: integer
+          format: int64
 
     RaceWeekend:
       type: object
@@ -354,10 +354,25 @@ components:
           type: string
         country:
           type: string
-        start_date_ms:
+        start_date_local_ms:
           type: integer
           format: int64
-        start_date:
+        start_date_local:
+          type: string
+        start_date_utc_ms:
+          type: integer
+          format: int64
+        start_date_utc:
+          type: string
+        end_date_local_ms:
+          type: integer
+          format: int64
+        end_date_local:
+          type: string
+        end_date_utc_ms:
+          type: integer
+          format: int64
+        end_date_utc:
           type: string
         sessions:
           type: array

@@ -49,6 +49,53 @@ func intPtr(v int) *int {
 	return &v
 }
 
+func TestGetScheduleByYear(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient)
+	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Name:  "Test GP",
+			Sessions: []models.Session{
+				{
+					Type:        "FP1",
+					TimeUTCMS:   500,
+					UTCOffsetMS: 1000,
+				},
+				{
+					Type:        "Race",
+					TimeUTCMS:   2500,
+					UTCOffsetMS: 1000,
+				},
+			},
+		},
+	}
+
+	mockClient.On("GetScheduleByYear", ctx, 2024).Return(mockSchedule, nil)
+
+	// When
+	result, err := service.GetScheduleByYear(ctx, 2024)
+
+	// Then
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	weekend := result[0]
+	// Start local = 500 + 1000 = 1500
+	assert.Equal(t, int64(1500), weekend.StartDateLocalMS)
+	// End local = 2500 + 1000 = 3500
+	assert.Equal(t, int64(3500), weekend.EndDateLocalMS)
+	assert.Equal(t, int64(500), weekend.StartDateUTCMS)
+	assert.Equal(t, int64(2500), weekend.EndDateUTCMS)
+
+	assert.NotEmpty(t, weekend.StartDateLocal)
+	assert.NotEmpty(t, weekend.EndDateLocal)
+	assert.NotEmpty(t, weekend.StartDateUTC)
+	assert.NotEmpty(t, weekend.EndDateUTC)
+}
+
 func TestGetSessionResults_Formatting(t *testing.T) {
 	mockClient := new(MockF1DataClient)
 	service := NewF1Service(mockClient)
@@ -155,6 +202,7 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 	ctx := context.Background()
 
 	mockResults := &models.SessionResults{
+		SessionType: models.SessionTypeRaceShort,
 		Results: []models.DriverResult{
 			{
 				Position:    20,

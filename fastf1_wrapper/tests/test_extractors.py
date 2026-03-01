@@ -148,6 +148,10 @@ class TestExtractors(unittest.TestCase):
         self.assertEqual(result[0].y, 300.0)
 
     def test_extract_race_weekend(self):
+        # Australia is UTC+11 in March
+        local_time = pd.Timestamp('2026-03-06 13:00:00', tz='Australia/Melbourne')
+        utc_time = pd.Timestamp('2026-03-06 02:00:00')
+        
         weekend_data = pd.Series({
             'RoundNumber': 1.0,
             'OfficialEventName': 'Australian Grand Prix',
@@ -156,19 +160,21 @@ class TestExtractors(unittest.TestCase):
             'Country': 'Australia',
             'EventDate': pd.Timestamp('2026-03-08'),
             'Session1': 'Practice 1',
-            'Session1Date': pd.Timestamp('2026-03-06 13:00:00'),
-            'Session1DateUtc': pd.Timestamp('2026-03-06 02:00:00'),
+            'Session1Date': local_time,
+            'Session1DateUtc': utc_time,
         })
         
         result = extract_race_weekend(weekend_data)
         self.assertIsInstance(result, RaceWeekend)
         self.assertEqual(result.round, 1)
         self.assertEqual(result.name, 'Australian GP')
-        # 2026-03-08 00:00:00 UTC is 1772928000000
-        self.assertEqual(result.start_date_ms, 1772928000000)
         self.assertEqual(len(result.sessions), 1)
         self.assertEqual(result.sessions[0].type, 'Practice 1')
+        
+        # UTC 2026-03-06 02:00:00 is 1772762400000 ms
         self.assertEqual(result.sessions[0].time_utc_ms, 1772762400000)
+        # Offset for Australia/Melbourne is +11h = 39600000 ms
+        self.assertEqual(result.sessions[0].utc_offset_ms, 39600000)
 
 
 if __name__ == '__main__':

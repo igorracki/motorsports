@@ -27,8 +27,11 @@
 * **URL CONSTRUCTION:** Use proper URL builders (`url.JoinPath`, `url.URL`) and strictly validate path segments to prevent injection.
 
 ### Data Strategy
-* **TIME TRANSPORT:** All durations/times between `fastf1_wrapper` and `backend` MUST be `int64` milliseconds (`ms`). 
-* **DATA FORMATTING:** The backend MUST provide human-readable string versions of these `ms` values (e.g., `start_date` alongside `start_date_ms`) for consumer consumption.
+* **TIME TRANSPORT:** 
+    - All durations/times between `fastf1_wrapper` and `backend` MUST be `int64` milliseconds (`ms`). 
+    - `time_utc_ms` MUST be the true UTC epoch.
+    - `utc_offset_ms` MUST be the track's local time offset from UTC at the time of the session.
+* **DATA FORMATTING:** The backend MUST provide human-readable string versions of these `ms` values (e.g., `time_local` alongside `time_utc`) for consumer consumption. For weekend boundaries, both Local and UTC variants MUST be provided.
 * **COMPOSITION:** Use pointers with `omitempty` (Go) and `Optional[]` (Python) for clean, optional data structures.
 * **SYNC REQUIREMENT:** Changes to Python dataclass outputs **MUST** be reflected in Go models immediately to prevent unmarshaling errors.
 * **PERSISTENCE:** Use SQLite for dev/prod. SQLite driver: `modernc.org/sqlite` (CGO-free).
