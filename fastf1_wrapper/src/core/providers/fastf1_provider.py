@@ -106,7 +106,10 @@ class FastF1Provider(Provider):
                 layout=layout,
                 event_name=str(session.event.EventName),
                 event_date_ms=event_date_ms,
-                rotation=rotation
+                rotation=rotation,
+                max_speed_kmh=metrics["max_speed_kmh"],
+                max_altitude_m=metrics["max_altitude_m"],
+                min_altitude_m=metrics["min_altitude_m"]
             )
             logger.info(f"Exit: get_circuit_data(year={year}, round={round_number}) - Success for {circuit.circuit_name}")
             return circuit

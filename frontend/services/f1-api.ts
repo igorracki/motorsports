@@ -63,13 +63,13 @@ export const f1Api = {
    * Fetches the full list of drivers
    */
   async getDrivers(): Promise<DriverInfo[]> {
-    // Mapping the JSON data to our Schema
+    // Mapping the JSON data to our Schema (using snake_case to match Zod expectations)
     const drivers = driversData.map(d => ({
       id: d.id,
-      number: "0", // Dummy
-      fullName: d.name,
-      countryCode: "", // Dummy
-      teamName: d.team
+      number: "0",
+      full_name: d.name,
+      country_code: "",
+      team_name: d.team
     }));
 
     return z.array(DriverInfoSchema).parse(drivers);
@@ -82,27 +82,27 @@ export const f1Api = {
     // Currently using dummy data for development
     const rawWeekends = dummyData.getEventsByYear(year);
     
-    // Validate dummy data against our schema to ensure consistency
+    // Validate dummy data against our schema (using snake_case)
     const schedule = rawWeekends.map(raw => ({
       round: rawWeekends.indexOf(raw) + 1,
-      fullName: raw.title,
+      full_name: raw.title,
       name: raw.title,
       location: raw.location,
       country: raw.country,
-      countryCode: raw.countryCode,
-      startDateMS: new Date().getTime(),
+      country_code: raw.countryCode,
+      start_date_local_ms: new Date().getTime(),
       sessions: raw.sessions.map(s => ({
-        type: s.code,
-        timeLocalMS: 0,
-        timeUTCMS: 0,
+        type: s.name,
+        session_code: s.code,
+        time_utc_ms: 0,
         results: s.results?.map(r => ({
           position: r.position,
           driver: {
             id: r.driver.toLowerCase().replace(" ", "-"),
             number: "0",
-            fullName: r.driver,
-            countryCode: "",
-            teamName: r.team
+            full_name: r.driver,
+            country_code: "",
+            team_name: r.team
           },
           laps: 0,
           status: "Finished",
@@ -124,26 +124,26 @@ export const f1Api = {
     
     if (!raw) return null;
 
-    const mapped: RaceWeekend = {
+    const mapped = {
       round: roundIdx + 1,
-      fullName: raw.title,
+      full_name: raw.title,
       name: raw.title,
       location: raw.location,
       country: raw.country,
-      countryCode: raw.countryCode,
-      startDateMS: 0,
+      country_code: raw.countryCode,
+      start_date_local_ms: 0,
       sessions: raw.sessions.map(s => ({
-        type: s.code,
-        timeLocalMS: 0,
-        timeUTCMS: 0,
+        type: s.name,
+        session_code: s.code,
+        time_utc_ms: 0,
         results: s.results?.map(r => ({
           position: r.position,
           driver: {
             id: r.driver.toLowerCase().replace(" ", "-"),
             number: "0",
-            fullName: r.driver,
-            countryCode: "",
-            teamName: r.team
+            full_name: r.driver,
+            country_code: "",
+            team_name: r.team
           },
           laps: 0,
           status: "Finished",

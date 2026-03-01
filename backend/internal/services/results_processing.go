@@ -13,6 +13,8 @@ func formatSessionResults(results *models.SessionResults) {
 	for i := range results.Results {
 		result := &results.Results[i]
 
+		result.Driver.CountryCode = formatters.GetDriverCountryCode(result.Driver.CountryCode, result.Driver.ID)
+
 		if result.TotalTimeMS != nil {
 			result.TotalTime = formatters.FormatDuration(*result.TotalTimeMS, false)
 		}

@@ -35,13 +35,15 @@ def extract_race_weekend(weekend: pd.Series) -> Optional[RaceWeekend]:
     round_number = int(raw_round) if raw_round is not None and pd.notna(
         raw_round) else 0
 
+    country = str(weekend.get('Country', "") or "")
     race_weekend = RaceWeekend(
         round=round_number,
         full_name=str(weekend.get('OfficialEventName', "") or ""),
         name=str(weekend.get('EventName', "") or ""),
         location=str(weekend.get('Location', "") or ""),
-        country=str(weekend.get('Country', "") or ""),
-        sessions=sessions
+        country=country,
+        sessions=sessions,
+        event_format=str(weekend.get('EventFormat', "conventional"))
     )
     logger.info(f"Successfully extracted race weekend: {race_weekend.name} with {len(sessions)} sessions")
     return race_weekend

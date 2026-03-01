@@ -55,7 +55,7 @@ export function SessionSelector({
                 <Trophy className="h-2.5 w-2.5" />
               </div>
             )}
-            <span className="text-xs font-bold sm:text-sm">{session.type}</span>
+            <span className="text-xs font-bold sm:text-sm">{session.sessionCode || session.type}</span>
             <span
               className={cn(
                 "mt-1 text-[10px] sm:text-xs",

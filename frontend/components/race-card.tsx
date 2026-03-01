@@ -85,7 +85,7 @@ export function RaceCard({
                   : "bg-secondary text-secondary-foreground group-hover:bg-primary/20 group-hover:text-primary"
               )}
             >
-              {session.type}
+              {session.sessionCode || session.type}
             </span>
           ))}
         </div>

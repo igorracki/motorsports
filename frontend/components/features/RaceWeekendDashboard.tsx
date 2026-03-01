@@ -119,7 +119,15 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 eventName: raceWeekend.fullName,
                 eventDateMS: raceWeekend.startDateMS,
                 lengthKM: 5.412,
-                corners: 15
+                corners: 15,
+                latitude: undefined,
+                longitude: undefined,
+                layout: undefined,
+                eventDate: undefined,
+                rotation: undefined,
+                maxSpeedKmh: undefined,
+                maxAltitudeM: undefined,
+                minAltitudeM: undefined
               }} />
             </div>
           </div>

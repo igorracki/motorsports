@@ -13,6 +13,7 @@ class RaceWeekend:
     location: str
     country: str
     sessions: List[Session]
+    event_format: str
 
     def json(self) -> str:
         def convert_datetime(original):

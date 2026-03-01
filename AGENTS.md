@@ -31,6 +31,12 @@
     - All durations/times between `fastf1_wrapper` and `backend` MUST be `int64` milliseconds (`ms`). 
     - `time_utc_ms` MUST be the true UTC epoch.
     - `utc_offset_ms` MUST be the track's local time offset from UTC at the time of the session.
+* **GEOGRAPHIC DATA:**
+    - `country_code` MUST be the ISO 3166-1 alpha-2 code (e.g., "BH", "US").
+* **SESSION IDENTIFICATION:**
+    - `session_code` MUST be the standard F1 abbreviation (e.g., "P1", "Q", "R").
+* **CIRCUIT METRICS:**
+    - Circuit data MUST include `max_speed_kmh` and elevation metrics (`max_altitude_m`, `min_altitude_m`) where telemetry is available.
 * **DATA FORMATTING:** The backend MUST provide human-readable string versions of these `ms` values (e.g., `time_local` alongside `time_utc`) for consumer consumption. For weekend boundaries, both Local and UTC variants MUST be provided.
 * **COMPOSITION:** Use pointers with `omitempty` (Go) and `Optional[]` (Python) for clean, optional data structures.
 * **SYNC REQUIREMENT:** Changes to Python dataclass outputs **MUST** be reflected in Go models immediately to prevent unmarshaling errors.

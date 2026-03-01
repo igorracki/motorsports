@@ -42,6 +42,7 @@ func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]mo
 	for i := range schedule {
 		calculateWeekendBoundaries(&schedule[i])
 		formatRaceWeekend(&schedule[i])
+		populateStandardCodes(&schedule[i])
 	}
 
 	slog.InfoContext(ctx, "Exit: GetScheduleByYear", "year", year, "count", len(schedule))

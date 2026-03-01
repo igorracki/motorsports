@@ -30,7 +30,10 @@ def extract_circuit_metrics(session: Any) -> dict:
     logger.info(f"Entry: extract_circuit_metrics(session={session.event.EventName})")
     metrics = {
         "corners": 0,
-        "length_km": 0.0
+        "length_km": 0.0,
+        "max_speed_kmh": 0.0,
+        "max_altitude_m": 0.0,
+        "min_altitude_m": 0.0
     }
 
     try:
@@ -46,10 +49,15 @@ def extract_circuit_metrics(session: Any) -> dict:
         if not telemetry.empty:
             max_distance = telemetry['Distance'].max()
             metrics["length_km"] = float(max_distance) / 1000.0
+            
+            # Additional metrics
+            metrics["max_speed_kmh"] = float(telemetry['Speed'].max())
+            metrics["max_altitude_m"] = float(telemetry['Z'].max())
+            metrics["min_altitude_m"] = float(telemetry['Z'].min())
     except Exception:
-        logger.exception("Could not calculate circuit length")
+        logger.exception("Could not calculate circuit metrics from telemetry")
 
-    logger.info(f"Exit: extract_circuit_metrics - {metrics['corners']} corners, {metrics['length_km']:.3f} km")
+    logger.info(f"Exit: extract_circuit_metrics - {metrics['corners']} corners, {metrics['length_km']:.3f} km, {metrics['max_speed_kmh']} km/h")
     return metrics
 
 def extract_circuit_layout(session: Any) -> List[CircuitLayoutPoint]:

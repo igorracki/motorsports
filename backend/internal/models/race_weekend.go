@@ -2,6 +2,7 @@ package models
 
 type Session struct {
 	Type        string `json:"type"`
+	SessionCode string `json:"session_code"`
 	TimeLocal   string `json:"time_local,omitempty"`
 	TimeUTCMS   int64  `json:"time_utc_ms"`
 	TimeUTC     string `json:"time_utc,omitempty"`
@@ -14,6 +15,8 @@ type RaceWeekend struct {
 	Name             string    `json:"name"`
 	Location         string    `json:"location"`
 	Country          string    `json:"country"`
+	CountryCode      string    `json:"country_code"`
+	EventFormat      string    `json:"event_format"`
 	StartDateLocal   string    `json:"start_date_local,omitempty"`
 	StartDateLocalMS int64     `json:"start_date_local_ms"`
 	StartDateUTC     string    `json:"start_date_utc,omitempty"`

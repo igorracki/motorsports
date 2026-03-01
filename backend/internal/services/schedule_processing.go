@@ -55,3 +55,11 @@ func formatRaceWeekend(weekend *models.RaceWeekend) {
 	weekend.StartDateUTC = formatters.FormatTimestamp(weekend.StartDateUTCMS)
 	weekend.EndDateUTC = formatters.FormatTimestamp(weekend.EndDateUTCMS)
 }
+
+func populateStandardCodes(weekend *models.RaceWeekend) {
+	weekend.CountryCode = formatters.GetCountryCode(weekend.Country)
+	for i := range weekend.Sessions {
+		session := &weekend.Sessions[i]
+		session.SessionCode = formatters.GetSessionCode(session.Type)
+	}
+}

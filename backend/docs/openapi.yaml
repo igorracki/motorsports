@@ -330,6 +330,8 @@ components:
       properties:
         type:
           type: string
+        session_code:
+          type: string
         time_local:
           type: string
         time_utc_ms:
@@ -353,6 +355,10 @@ components:
         location:
           type: string
         country:
+          type: string
+        country_code:
+          type: string
+        event_format:
           type: string
         start_date_local_ms:
           type: integer
@@ -527,5 +533,14 @@ components:
         event_date:
           type: string
         rotation:
+          type: number
+          format: float
+        max_speed_kmh:
+          type: number
+          format: float
+        max_altitude_m:
+          type: number
+          format: float
+        min_altitude_m:
           type: number
           format: float

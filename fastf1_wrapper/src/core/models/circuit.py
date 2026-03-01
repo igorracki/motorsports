@@ -19,4 +19,6 @@ class Circuit:
     event_name: str
     event_date_ms: int
     rotation: float = 0.0
-    # lap_record: Optional[LapRecord] = None
+    max_speed_kmh: Optional[float] = None
+    max_altitude_m: Optional[float] = None
+    min_altitude_m: Optional[float] = None
