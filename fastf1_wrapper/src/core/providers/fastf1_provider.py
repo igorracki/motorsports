@@ -2,7 +2,7 @@ import fastf1
 from fastf1.ergast import Ergast
 import os
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 from .provider import Provider
 from ..models import (
     RaceWeekend, SessionResult
@@ -75,25 +75,14 @@ class FastF1Provider(Provider):
             ergast_circuits = ergast.get_circuits(season=year, round=round_number)
             location_info = extract_circuit_location(ergast_circuits)
 
-            session = fastf1.get_session(year, round_number, 'Q')
-            session.load(telemetry=True, laps=True, weather=False, messages=False)
+            session = self._fetch_qualifying_session(year, round_number)
+            metrics, layout, rotation = self._extract_circuit_metrics_and_layout(session)
             
-            metrics = extract_circuit_metrics(session)
-            
-            rotation = 0.0
-            try:
-                circuit_info = session.get_circuit_info()
-                if circuit_info is not None:
-                    rotation = circuit_info.rotation
-            except Exception:
-                pass 
+            if (metrics["length_km"] == 0 or not layout) and location_info["location"] != "Unknown":
+                metrics, layout, rotation = self._get_fallback_circuit_data(location_info, year, metrics, layout, rotation)
 
-            layout = extract_circuit_layout(session)
-            
             event_date = to_datetime(session.event.EventDate)
-            event_date_ms = datetime_to_ms(event_date)
-            if event_date_ms is None:
-                event_date_ms = 0
+            event_date_ms = datetime_to_ms(event_date) or 0
 
             circuit = Circuit(
                 circuit_name=location_info["circuit_name"],
@@ -117,3 +106,55 @@ class FastF1Provider(Provider):
         except Exception:
             logger.exception(f"Error fetching circuit data for {year} Round {round_number}")
             return None
+
+    def _fetch_qualifying_session(self, year: int, round_number: int) -> Any:
+        session = fastf1.get_session(year, round_number, 'Q')
+        try:
+            session.load(telemetry=True, laps=True, weather=False, messages=False)
+        except Exception:
+            logger.warning(f"Could not load telemetry for {year} Round {round_number}")
+        return session
+
+    def _extract_circuit_metrics_and_layout(self, session: Any) -> tuple:
+        metrics = extract_circuit_metrics(session)
+        layout = extract_circuit_layout(session)
+        rotation = 0.0
+        try:
+            circuit_info = session.get_circuit_info()
+            if circuit_info is not None:
+                rotation = circuit_info.rotation
+        except Exception:
+            pass
+        return metrics, layout, rotation
+
+    def _get_fallback_circuit_data(self, location_info: dict, year: int, metrics: dict, layout: list, rotation: float) -> tuple:
+        logger.info(f"Data missing for {year}, attempting historical fallback")
+        historical_session = self._get_historical_session(
+            location_info["location"], 
+            location_info["country"], 
+            year
+        )
+        if historical_session:
+            logger.info(f"Applying historical fallback from {historical_session.event.EventDate.year}")
+            return self._extract_circuit_metrics_and_layout(historical_session)
+        return metrics, layout, rotation
+
+    def _get_historical_session(self, location: str, country: str, current_year: int) -> Optional[Any]:
+        logger.info(f"Entry: _get_historical_session(location={location}, country={country}, current_year={current_year})")
+        for search_year in range(current_year - 1, current_year - 6, -1):
+            try:
+                schedule = fastf1.get_event_schedule(search_year)
+                matches = schedule[(schedule["Location"] == location) & (schedule["Country"] == country)]
+                if not matches.empty:
+                    historical_round_number = int(matches.iloc[-1]["RoundNumber"])
+                    historical_session = fastf1.get_session(search_year, historical_round_number, "Q")
+                    historical_session.load(telemetry=True, laps=True, weather=False, messages=False)
+                    
+                    if hasattr(historical_session, "laps") and not historical_session.laps.empty:
+                        logger.info(f"Exit: _get_historical_session - Found valid historical data in {search_year}")
+                        return historical_session
+            except Exception:
+                continue
+        
+        logger.info(f"Exit: _get_historical_session - No historical data found")
+        return None
