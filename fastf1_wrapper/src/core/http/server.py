@@ -72,5 +72,18 @@ async def get_circuit(year: int, round: int):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@server.get('/wrapper/drivers/{year}/{round}')
+async def get_drivers(year: int, round: int):
+    logger.info(f"Entry: get_drivers(year={year}, round={round})")
+    try:
+        service = F1Service(FastF1Provider())
+        results = service.get_drivers(year, round)
+        logger.info(f"Exit: get_drivers(year={year}, round={round}) - Found {len(results)} drivers")
+        return results
+    except Exception:
+        logger.exception(f"Error fetching drivers for {year} round {round}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 if __name__ == '__main__':
     uvicorn.run(server, host='0.0.0.0', port=8080)

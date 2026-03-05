@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { useState, useCallback } from "react";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -198,10 +199,28 @@ export function PredictionTable({
                   <GripVertical className="h-5 w-5 text-muted-foreground/50" />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col">
                     <span className="font-medium text-foreground">
                       {driver.fullName}
                     </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      #{driver.number}
+                    </span>
+                    {driver.countryCode && (
+                      <div className="mt-1 flex items-center">
+                        <div className="relative h-3 w-5 overflow-hidden rounded-sm ring-1 ring-border/50">
+                          <Image
+                            src={`https://flagcdn.com/w80/${driver.countryCode.toLowerCase()}.png`}
+                            alt={`${driver.countryCode} flag`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                          {driver.countryCode}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">

@@ -2,13 +2,25 @@ import {
   RaceWeekend, 
   RaceWeekendSchema, 
   DriverInfo,
-  DriverInfoSchema
+  DriverInfoSchema,
+  Circuit,
+  CircuitSchema,
+  DriverResult,
+  DriverResultSchema
 } from "@/types/f1";
-import * as dummyData from "@/lib/events-data";
-import driversData from "@/data/drivers.json";
 import { z } from "zod";
 
-const _BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+const getBaseUrl = () => {
+  if (typeof window === "undefined") {
+    // Server-side (SSR): Use internal Docker network
+    const backendUrl = process.env.BACKEND_URL || "http://backend:8080";
+    return `${backendUrl}/api`;
+  }
+  // Client-side (Browser): Use public-facing URL
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+};
+
+const _BASE_URL = getBaseUrl();
 
 /**
  * Custom Error class for API related errors
@@ -17,7 +29,8 @@ export class ApiError extends Error {
   constructor(
     public message: string,
     public status?: number,
-    public code?: string
+    public code?: string,
+    public url?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -46,112 +59,69 @@ export const f1Api = {
         throw new ApiError(
           errorData.message || `API error: ${response.statusText}`,
           response.status,
-          errorData.error
+          errorData.error,
+          url
         );
       }
 
       return await response.json();
     } catch (error) {
       if (error instanceof ApiError) throw error;
+      
+      // Log more details for network errors, especially on the server
+      console.error(`Fetch failed for URL: ${url}`, error);
+      
       throw new ApiError(
-        error instanceof Error ? error.message : "Network error occurred"
+        error instanceof Error ? error.message : "Network error occurred",
+        undefined,
+        undefined,
+        url
       );
     }
   },
 
   /**
-   * Fetches the full list of drivers
+   * Fetches the full list of drivers for a given year and round from the API.
    */
-  async getDrivers(): Promise<DriverInfo[]> {
-    // Mapping the JSON data to our Schema (using snake_case to match Zod expectations)
-    const drivers = driversData.map(d => ({
-      id: d.id,
-      number: "0",
-      full_name: d.name,
-      country_code: "",
-      team_name: d.team
-    }));
-
-    return z.array(DriverInfoSchema).parse(drivers);
+  async getDrivers(year: number, round: number): Promise<DriverInfo[]> {
+    const data = await this.fetchJson<any[]>(`${_BASE_URL}/schedule/${year}/${round}/drivers`);
+    return z.array(DriverInfoSchema).parse(data || []);
   },
 
   /**
    * Fetches the full schedule for a given year.
    */
   async getSchedule(year: number): Promise<RaceWeekend[]> {
-    // Currently using dummy data for development
-    const rawWeekends = dummyData.getEventsByYear(year);
-    
-    // Validate dummy data against our schema (using snake_case)
-    const schedule = rawWeekends.map(raw => ({
-      round: rawWeekends.indexOf(raw) + 1,
-      full_name: raw.title,
-      name: raw.title,
-      location: raw.location,
-      country: raw.country,
-      country_code: raw.countryCode,
-      start_date_local_ms: new Date().getTime(),
-      sessions: raw.sessions.map(s => ({
-        type: s.name,
-        session_code: s.code,
-        time_utc_ms: 0,
-        results: s.results?.map(r => ({
-          position: r.position,
-          driver: {
-            id: r.driver.toLowerCase().replace(" ", "-"),
-            number: "0",
-            full_name: r.driver,
-            country_code: "",
-            team_name: r.team
-          },
-          laps: 0,
-          status: "Finished",
-          gap: r.gap
-        }))
-      }))
-    }));
-
-    return z.array(RaceWeekendSchema).parse(schedule);
+    const data = await this.fetchJson<{ schedule: any[] }>(`${_BASE_URL}/schedule/${year}`);
+    return z.array(RaceWeekendSchema).parse(data.schedule);
   },
 
   /**
    * Fetches details for a specific race weekend.
    */
   async getRaceWeekend(year: number, round: string): Promise<RaceWeekend | null> {
-    const rawWeekends = dummyData.getEventsByYear(year);
-    const roundIdx = parseInt(round, 10) - 1;
-    const raw = rawWeekends[roundIdx];
-    
-    if (!raw) return null;
+    const schedule = await this.getSchedule(year);
+    const roundNumber = parseInt(round, 10);
+    const raceWeekend = schedule.find(rw => rw.round === roundNumber);
+    return raceWeekend || null;
+  },
 
-    const mapped = {
-      round: roundIdx + 1,
-      full_name: raw.title,
-      name: raw.title,
-      location: raw.location,
-      country: raw.country,
-      country_code: raw.countryCode,
-      start_date_local_ms: 0,
-      sessions: raw.sessions.map(s => ({
-        type: s.name,
-        session_code: s.code,
-        time_utc_ms: 0,
-        results: s.results?.map(r => ({
-          position: r.position,
-          driver: {
-            id: r.driver.toLowerCase().replace(" ", "-"),
-            number: "0",
-            full_name: r.driver,
-            country_code: "",
-            team_name: r.team
-          },
-          laps: 0,
-          status: "Finished",
-          gap: r.gap
-        }))
-      }))
-    };
+  /**
+   * Fetches results for a specific session.
+   */
+  async getSessionResults(year: number, round: number, sessionCode: string): Promise<DriverResult[]> {
+    const data = await this.fetchJson<any>(
+      `${_BASE_URL}/schedule/${year}/${round}/${sessionCode}/results`
+    );
+    // The Backend returns a SessionResults object
+    return z.array(DriverResultSchema).parse(data.results || []);
+  },
 
-    return RaceWeekendSchema.parse(mapped);
+  /**
+   * Fetches circuit details.
+   */
+  async getCircuit(year: number, round: number): Promise<Circuit> {
+    const data = await this.fetchJson<any>(`${_BASE_URL}/schedule/${year}/${round}/circuit`);
+    return CircuitSchema.parse(data);
   }
 };

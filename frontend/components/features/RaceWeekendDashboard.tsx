@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, AlertCircle } from "lucide-react";
 import { CircuitMap } from "@/components/circuit-map";
 import { TrackStats } from "@/components/track-stats";
 import { SessionSelector } from "@/components/session-selector";
@@ -13,8 +13,9 @@ import { usePredictions } from "@/hooks/usePredictions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { f1Api } from "@/services/f1-api";
 import { cn } from "@/lib/utils";
-import type { RaceWeekend, DriverInfo } from "@/types/f1";
+import type { RaceWeekend, DriverInfo, DriverResult, Circuit } from "@/types/f1";
 import { getRaceStatus } from "@/lib/race-utils";
+import { formatRaceRange } from "@/lib/date-utils";
 
 interface RaceWeekendDashboardProps {
   raceWeekend: RaceWeekend;
@@ -23,10 +24,14 @@ interface RaceWeekendDashboardProps {
 
 export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboardProps) {
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
+  const [circuit, setCircuit] = useState<Circuit | null>(null);
+  const [sessionResults, setSessionResults] = useState<Record<string, DriverResult[]>>({});
+  const [loadingResults, setLoadingResults] = useState(false);
   
   useEffect(() => {
-    f1Api.getDrivers().then(setDrivers);
-  }, []);
+    f1Api.getDrivers(year, raceWeekend.round).then(setDrivers);
+    f1Api.getCircuit(year, raceWeekend.round).then(setCircuit);
+  }, [year, raceWeekend.round]);
 
   const {
     isPredictionMode,
@@ -40,6 +45,57 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
     updatePredictions
   } = usePredictions(drivers);
 
+  // Fetch all results for passed sessions on mount
+  useEffect(() => {
+    if (raceWeekend && !isPredictionMode) {
+      const now = Date.now();
+      const passedSessions = raceWeekend.sessions.filter(s => s.timeUTCMS < now);
+      
+      passedSessions.forEach(session => {
+        const sessionCode = session.sessionCode || session.type;
+        // Only fetch if not already in state
+        if (!sessionResults[session.type]) {
+          f1Api.getSessionResults(year, raceWeekend.round, sessionCode)
+            .then(results => {
+              setSessionResults(prev => ({ ...prev, [session.type]: results }));
+            });
+        }
+      });
+    }
+    // We only want to run this once on mount/data-load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceWeekend?.round, isPredictionMode, year]);
+
+  // Auto-select last passed session for completed events
+  useEffect(() => {
+    if (raceWeekend && !selectedSession && !isPredictionMode) {
+      const now = Date.now();
+      // Find the last session that has started/passed
+      const lastPassedSession = [...raceWeekend.sessions]
+        .reverse()
+        .find(s => s.timeUTCMS < now);
+      
+      if (lastPassedSession) {
+        handleSessionSelect(lastPassedSession.type);
+      }
+    }
+  }, [raceWeekend, selectedSession, isPredictionMode, handleSessionSelect]);
+
+  // Fetch results when session changes
+  useEffect(() => {
+    if (selectedSession && !isPredictionMode && !sessionResults[selectedSession]) {
+      const session = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
+      const sessionCode = session?.sessionCode || selectedSession;
+      
+      setLoadingResults(true);
+      f1Api.getSessionResults(year, raceWeekend.round, sessionCode)
+        .then(results => {
+          setSessionResults(prev => ({ ...prev, [selectedSession]: results }));
+        })
+        .finally(() => setLoadingResults(false));
+    }
+  }, [selectedSession, isPredictionMode, year, raceWeekend.round, raceWeekend.sessions, sessionResults]);
+
   // Update predictions when drivers are finally loaded if they were empty
   useEffect(() => {
     if (drivers.length > 0 && currentPredictions.length === 0) {
@@ -47,11 +103,12 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
     }
   }, [drivers, currentPredictions.length, updatePredictions]);
 
-  const status = getRaceStatus(year, raceWeekend.round);
+  const status = getRaceStatus(year, raceWeekend.round, raceWeekend);
   const canPredict = status !== "completed";
   
-  const selectedSessionData = raceWeekend.sessions.find(s => s.type === selectedSession);
-  const isSessionPredictable = selectedSessionData && (!selectedSessionData.results || selectedSessionData.results.length === 0);
+  const selectedSessionData = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
+  const currentResults = selectedSession ? sessionResults[selectedSession] : undefined;
+  const isSessionPredictable = selectedSessionData && (!currentResults || currentResults.length === 0);
   const hasSavedPrediction = selectedSession ? !!savedPredictions[selectedSession] : false;
 
   return (
@@ -87,48 +144,41 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <section className="mb-8">
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="grid gap-8 lg:grid-cols-2 items-stretch">
             <div className="flex flex-col">
               <div className={cn(
-                "relative overflow-hidden rounded-2xl border bg-card p-6",
+                "relative overflow-hidden rounded-2xl border bg-card p-6 h-full flex items-center justify-center min-h-[300px]",
                 status === "ongoing" ? "border-primary/60" : "border-border/50"
               )}>
-                <CircuitMap raceWeekendId={raceWeekend.name.toLowerCase().includes("bahrain") ? `bh-${year}` : `au-${year}`} className="mx-auto aspect-[4/3] max-w-md" />
+                <CircuitMap 
+                  layout={circuit?.layout} 
+                  rotation={circuit?.rotation} 
+                  className="w-full h-full max-w-md" 
+                />
               </div>
             </div>
 
-            <div className="flex flex-col">
-              <div className="mb-6">
-                <h2 className="mb-2 text-2xl font-bold sm:text-3xl">
+            <div className="flex flex-col gap-6 h-full">
+              <div>
+                <h2 className="mb-2 text-2xl font-bold sm:text-4xl">
                   {raceWeekend.name}
                 </h2>
-                <p className="text-muted-foreground">
-                  {raceWeekend.location}, {raceWeekend.country}
-                </p>
-                <p className={cn(
-                  "mt-2 text-lg font-medium",
-                  status === "ongoing" ? "text-primary" : "text-accent"
-                )}>
-                  {raceWeekend.startDate || "TBC"}, {year}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
+                  <p className="font-medium">
+                    {raceWeekend.location}, {raceWeekend.country}
+                  </p>
+                  <div className="h-4 w-px bg-border/50 hidden sm:block" />
+                  <p className={cn(
+                    "font-semibold",
+                    status === "ongoing" ? "text-primary" : "text-accent"
+                  )}>
+                    {formatRaceRange(raceWeekend.startDateUTCMS, raceWeekend.endDateUTCMS)}, {year}
+                  </p>
+                </div>
               </div>
-              <TrackStats stats={{
-                circuitName: raceWeekend.name,
-                location: raceWeekend.location,
-                country: raceWeekend.country,
-                eventName: raceWeekend.fullName,
-                eventDateMS: raceWeekend.startDateMS,
-                lengthKM: 5.412,
-                corners: 15,
-                latitude: undefined,
-                longitude: undefined,
-                layout: undefined,
-                eventDate: undefined,
-                rotation: undefined,
-                maxSpeedKmh: undefined,
-                maxAltitudeM: undefined,
-                minAltitudeM: undefined
-              }} />
+              <div className="flex-1">
+                {circuit && <TrackStats stats={circuit} />}
+              </div>
             </div>
           </div>
         </section>
@@ -160,6 +210,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
             onSelectSession={handleSessionSelect}
             isPredictionMode={isPredictionMode}
             savedPredictions={savedPredictions}
+            sessionResults={sessionResults}
           />
 
           {isPredictionMode && selectedSession && isSessionPredictable && (
@@ -188,13 +239,21 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                   {hasSavedPrediction ? "Update Prediction" : "Save Prediction"}
                 </button>
               </div>
-              <PredictionTable
-                key={selectedSession}
-                drivers={drivers}
-                onPredictionsChange={updatePredictions}
-                initialPredictions={savedPredictions[selectedSession]}
-                onSave={saveCurrentPredictions}
-              />
+              
+              {drivers.length > 0 ? (
+                <PredictionTable
+                  key={selectedSession}
+                  drivers={drivers}
+                  onPredictionsChange={updatePredictions}
+                  initialPredictions={savedPredictions[selectedSession]}
+                  onSave={saveCurrentPredictions}
+                />
+              ) : (
+                <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
+                  <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">No driver information available for this session yet.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -208,12 +267,22 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
             </div>
           )}
 
-          {!isPredictionMode && selectedSessionData?.results && (
+          {!isPredictionMode && selectedSession && (
             <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
-              <ResultsTable
-                results={selectedSessionData.results}
-                sessionName={selectedSessionData.type}
-              />
+              {loadingResults ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+              ) : currentResults && currentResults.length > 0 ? (
+                <ResultsTable
+                  results={currentResults}
+                  sessionName={selectedSessionData?.type || selectedSession}
+                />
+              ) : (
+                <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
+                  <p className="text-muted-foreground">No results available for this session yet.</p>
+                </div>
+              )}
             </div>
           )}
         </section>

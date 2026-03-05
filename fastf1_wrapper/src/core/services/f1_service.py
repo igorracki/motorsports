@@ -1,6 +1,6 @@
 import logging
 from ..providers import Provider
-from ..models import RaceWeekend, SessionResult
+from ..models import RaceWeekend, SessionResult, DriverInfo
 from ..models.circuit import Circuit
 from typing import List, Optional
 
@@ -29,3 +29,9 @@ class F1Service:
         result = self.provider.get_circuit_data(year, round_number)
         logger.info(f"Exit: get_circuit_data(year={year}, round={round_number}) - Success: {result is not None}")
         return result
+
+    def get_drivers(self, year: int, round_number: int) -> List[DriverInfo]:
+        logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
+        results = self.provider.get_drivers(year, round_number)
+        logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(results)} drivers")
+        return results

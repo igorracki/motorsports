@@ -3,23 +3,28 @@ import { RaceWeekend } from "@/types/f1";
 export type RaceStatus = "completed" | "ongoing" | "upcoming";
 
 /**
- * Determines the status of a race weekend based on the year and round.
- * This is a temporary utility for dummy data to facilitate testing.
+ * Determines the status of a race weekend based on its start and end times.
  */
-export function getRaceStatus(year: number, round: number): RaceStatus {
-  // Historical data (2025) is always completed
-  if (year < 2026) {
+export function getRaceStatus(year: number, round: number, raceWeekend?: RaceWeekend): RaceStatus {
+  if (!raceWeekend || !raceWeekend.startDateUTCMS || !raceWeekend.endDateUTCMS) {
+    // Fallback logic for when full data isn't available
+    const now = new Date();
+    if (year < now.getFullYear()) return "completed";
+    if (year > now.getFullYear()) return "upcoming";
+    return "upcoming";
+  }
+
+  const now = Date.now();
+  
+  if (now < raceWeekend.startDateUTCMS) {
+    return "upcoming";
+  }
+  
+  if (now > raceWeekend.endDateUTCMS) {
     return "completed";
   }
 
-  // Future data (2026+)
-  // We'll make Round 1 "ongoing" to test the Live UI
-  if (round === 1) {
-    return "ongoing";
-  }
-
-  // Round 2+ are upcoming, so we can test predictions
-  return "upcoming";
+  return "ongoing";
 }
 
 /**
@@ -34,7 +39,7 @@ export function getScheduleStats(raceWeekends: RaceWeekend[], year: number) {
   };
 
   raceWeekends.forEach((r) => {
-    const status = getRaceStatus(year, r.round);
+    const status = getRaceStatus(year, r.round, r);
     stats[status]++;
   });
 

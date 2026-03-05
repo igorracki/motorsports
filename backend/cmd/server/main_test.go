@@ -18,6 +18,7 @@ import (
 type mockF1DataClient struct {
 	scheduleResponse []models.RaceWeekend
 	resultsResponse  *models.SessionResults
+	driversResponse  []models.DriverInfo
 	err              error
 }
 
@@ -31,6 +32,10 @@ func (mock *mockF1DataClient) GetSessionResults(ctx context.Context, year int, r
 
 func (mock *mockF1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
 	return nil, mock.err
+}
+
+func (mock *mockF1DataClient) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
+	return mock.driversResponse, mock.err
 }
 
 func setupTestServer(client clients.F1DataClient) *echo.Echo {

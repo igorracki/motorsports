@@ -98,6 +98,32 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /schedule/{year}/{round}/drivers:
+    get:
+      summary: Get participating drivers for a round
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: round
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of drivers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DriverInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /users:
     post:
       summary: Register a new user

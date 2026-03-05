@@ -82,10 +82,11 @@
     - **Grouping:** Group related helper functions into context-specific scripts (e.g., `lap_timing_utils.py`, `session_parsing.py`) to maintain a clean directory structure.
 * **Python Models:** Use `dataclasses` only. Always load sessions with `laps=True`.
 * **Go Layout:** Follow standard `cmd/` and `internal/` structure.
-* **Frontend UI:** 
+*   **Frontend UI:** 
     - **Optimization:** Always use the Next.js `<Image />` component for visual assets.
     - **UX:** Implement `loading.tsx` with custom `Skeleton` components for all dynamic routes.
     - **Consistency:** Use Tailwind classes only; avoid inline styles. Standardize colors via the project's design tokens.
+    - **Dependencies:** Prefer built-in browser APIs (e.g., `Intl`, `fetch`, `crypto`) over external libraries (e.g., `date-fns`, `axios`) to minimize bundle size and leverage native performance.
 
 ### Comments
 * **PURPOSE:** Only use comments to explain the 'why' behind non-obvious logic or specific domain requirements (e.g., coordinate system conversions, specific racing rules).

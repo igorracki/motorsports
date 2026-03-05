@@ -19,16 +19,31 @@ QUALIFYING_SESSION_TYPES = {
     SESSION_SPRINT_QUALIFYING, SESSION_SPRINT_QUALIFYING_FULL
 }
 
-def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> DriverResult:
+def extract_driver_info(row: pd.Series) -> DriverInfo:
     id = str(get_scalar_value(row, 'Abbreviation') or "")
-    logger.info(f"Extracting result for driver: {id}")
-    driver_info = DriverInfo(
+    
+    # Ensure driver number is an integer string (avoiding 1.0)
+    raw_number = get_scalar_value(row, 'DriverNumber')
+    try:
+        if raw_number and not pd.isna(raw_number):
+            driver_number = str(int(float(raw_number)))
+        else:
+            driver_number = "0"
+    except (ValueError, TypeError):
+        driver_number = str(raw_number or "0")
+
+    return DriverInfo(
         id=id,
-        number=str(get_scalar_value(row, 'DriverNumber') or ""),
+        number=driver_number,
         full_name=str(get_scalar_value(row, 'FullName') or ""),
         country_code=str(get_scalar_value(row, 'CountryCode') or ""),
         team_name=str(get_scalar_value(row, 'TeamName') or "")
     )
+
+def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> DriverResult:
+    driver_info = extract_driver_info(row)
+    id = driver_info.id
+    logger.info(f"Extracting result for driver: {id}")
 
     status = str(get_scalar_value(row, 'Status') or "")
 

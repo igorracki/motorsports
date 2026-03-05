@@ -160,3 +160,43 @@ func (handler *F1Handler) GetCircuit(context echo.Context) error {
 	slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
 	return context.JSON(http.StatusOK, circuit)
 }
+
+func (handler *F1Handler) GetDrivers(context echo.Context) error {
+	ctx := context.Request().Context()
+	yearStr := context.Param("year")
+	roundStr := context.Param("round")
+
+	slog.InfoContext(ctx, "Entry: GetDrivers", "year", yearStr, "round", roundStr)
+
+	year, err := strconv.Atoi(yearStr)
+	if err != nil {
+		slog.WarnContext(ctx, "Invalid year parameter", "year", yearStr)
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_year"})
+	}
+
+	if year < 1950 || year > 2100 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "year_out_of_bounds"})
+	}
+
+	round, err := strconv.Atoi(roundStr)
+	if err != nil {
+		slog.WarnContext(ctx, "Invalid round parameter", "round", roundStr)
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid_round"})
+	}
+
+	if round < 1 || round > 50 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "round_out_of_bounds"})
+	}
+
+	drivers, err := handler.service.GetDrivers(ctx, year, round)
+	if err != nil {
+		slog.ErrorContext(ctx, "Service error fetching drivers", "year", year, "round", round, "error", err)
+		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error:   "internal_error",
+			Message: err.Error(),
+		})
+	}
+
+	slog.InfoContext(ctx, "Exit: GetDrivers", "year", year, "round", round, "count", len(drivers))
+	return context.JSON(http.StatusOK, drivers)
+}

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "./ui/StatusBadge";
 import { RaceWeekend } from "@/types/f1";
+import { formatRaceRange } from "@/lib/date-utils";
 
 interface RaceCardProps {
   raceWeekend: RaceWeekend;
@@ -20,7 +21,6 @@ export function RaceCard({
   const isOngoing = status === "ongoing";
   const isUpcoming = status === "upcoming";
 
-  // Use round as the identifier in the URL
   return (
     <Link href={`/race-weekend/${year}/${raceWeekend.round}`}>
       <div
@@ -70,7 +70,7 @@ export function RaceCard({
               isOngoing ? "text-primary" : "text-accent"
             )}
           >
-            {raceWeekend.startDate || "TBC"}
+            {formatRaceRange(raceWeekend.startDateUTCMS, raceWeekend.endDateUTCMS)}
           </p>
         </div>
 

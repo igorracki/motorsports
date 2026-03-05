@@ -29,6 +29,10 @@ func main() {
 	server.Use(middleware.Recover())
 	server.Use(middleware.Secure())
 	server.Use(middleware.BodyLimit("1M"))
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+	}))
 
 	f1DataClient := clients.NewF1DataClient(configuration.ExternalAPIURL)
 	f1DataService := services.NewF1Service(f1DataClient)
@@ -47,6 +51,7 @@ func main() {
 	apiGroup.GET("/schedule/:year", f1DataHandler.GetSchedule)
 	apiGroup.GET("/schedule/:year/:round/:session/results", f1DataHandler.GetSessionResults)
 	apiGroup.GET("/schedule/:year/:round/circuit", f1DataHandler.GetCircuit)
+	apiGroup.GET("/schedule/:year/:round/drivers", f1DataHandler.GetDrivers)
 
 	apiGroup.POST("/users", userHandler.RegisterUser)
 	apiGroup.GET("/users/:id", userHandler.GetUserProfile)

@@ -28,7 +28,7 @@ export function RacesGrid({ raceWeekends, year }: RacesGridProps) {
           key={raceWeekend.round}
           raceWeekend={raceWeekend}
           year={year}
-          status={getRaceStatus(year, raceWeekend.round)}
+          status={getRaceStatus(year, raceWeekend.round, raceWeekend)}
         />
       ))}
     </div>

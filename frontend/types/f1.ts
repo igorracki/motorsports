@@ -116,6 +116,8 @@ export const RaceWeekendSchema = z
     event_format: z.string().optional(),
     start_date_local_ms: z.number(),
     start_date_local: z.string().optional().nullable(),
+    start_date_utc_ms: z.number().optional(),
+    end_date_utc_ms: z.number().optional(),
     sessions: z.array(SessionSchema),
   })
   .transform((data) => ({
@@ -128,6 +130,8 @@ export const RaceWeekendSchema = z
     eventFormat: data.event_format,
     startDateMS: data.start_date_local_ms,
     startDate: data.start_date_local ?? undefined,
+    startDateUTCMS: data.start_date_utc_ms ?? 0,
+    endDateUTCMS: data.end_date_utc_ms ?? 0,
     sessions: data.sessions,
   }));
 

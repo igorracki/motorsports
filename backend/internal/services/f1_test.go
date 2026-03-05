@@ -37,6 +37,14 @@ func (m *MockF1DataClient) GetCircuit(ctx context.Context, year int, round int) 
 	return args.Get(0).(*models.Circuit), args.Error(1)
 }
 
+func (m *MockF1DataClient) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
+	args := m.Called(ctx, year, round)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.DriverInfo), args.Error(1)
+}
+
 func int64Ptr(v int64) *int64 {
 	return &v
 }

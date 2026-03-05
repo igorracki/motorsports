@@ -14,6 +14,7 @@ type F1Service interface {
 	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
 	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
 	GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error)
+	GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error)
 }
 
 type f1Service struct {
@@ -39,14 +40,20 @@ func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]mo
 		return nil, fmt.Errorf("failed to fetch schedule from external API: %w", err)
 	}
 
+	filteredSchedule := []models.RaceWeekend{}
 	for i := range schedule {
+		if schedule[i].Round == 0 {
+			slog.DebugContext(ctx, "Filtering out non-race event", "name", schedule[i].Name)
+			continue
+		}
 		calculateWeekendBoundaries(&schedule[i])
 		formatRaceWeekend(&schedule[i])
 		populateStandardCodes(&schedule[i])
+		filteredSchedule = append(filteredSchedule, schedule[i])
 	}
 
-	slog.InfoContext(ctx, "Exit: GetScheduleByYear", "year", year, "count", len(schedule))
-	return schedule, nil
+	slog.InfoContext(ctx, "Exit: GetScheduleByYear", "year", year, "count", len(filteredSchedule))
+	return filteredSchedule, nil
 }
 
 func (service *f1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
@@ -94,4 +101,21 @@ func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (
 
 	slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
 	return circuit, nil
+}
+
+func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
+	slog.InfoContext(ctx, "Entry: GetDrivers", "year", year, "round", round)
+
+	drivers, err := service.client.GetDrivers(ctx, year, round)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to fetch drivers", "error", err)
+		return nil, fmt.Errorf("failed to fetch drivers for round %d (%d): %w", round, year, err)
+	}
+
+	if drivers == nil {
+		drivers = []models.DriverInfo{}
+	}
+
+	slog.InfoContext(ctx, "Exit: GetDrivers", "year", year, "round", round, "count", len(drivers))
+	return drivers, nil
 }
