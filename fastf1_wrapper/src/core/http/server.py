@@ -14,6 +14,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 server = FastAPI(title="FastF1 Wrapper API")
+
+# Initialize singleton service and provider
+f1_service = F1Service(FastF1Provider())
+
 server.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -26,8 +30,7 @@ server.add_middleware(
 async def get_events(year: int):
     logger.info(f"Entry: get_events(year={year})")
     try:
-        service = F1Service(FastF1Provider())
-        results = service.get_weekend_events(year)
+        results = f1_service.get_weekend_events(year)
         logger.info(f"Exit: get_events(year={year}) - Found {len(results)} events")
         return results
     except Exception:
@@ -39,8 +42,7 @@ async def get_events(year: int):
 async def get_results(year: int, round: int, session_type: str):
     logger.info(f"Entry: get_results(year={year}, round={round}, session={session_type})")
     try:
-        service = F1Service(FastF1Provider())
-        result = service.get_session_results(year, round, session_type)
+        result = f1_service.get_session_results(year, round, session_type)
         if result is None:
             logger.info(f"Exit: get_results(year={year}, round={round}, session={session_type}) - No results found")
             return {"year": year, "round": round, "session_type": session_type, "results": []}
@@ -57,8 +59,7 @@ async def get_results(year: int, round: int, session_type: str):
 async def get_circuit(year: int, round: int):
     logger.info(f"Entry: get_circuit(year={year}, round={round})")
     try:
-        service = F1Service(FastF1Provider())
-        result = service.get_circuit_data(year, round)
+        result = f1_service.get_circuit_data(year, round)
         if result is None:
             logger.warning(f"Exit: get_circuit(year={year}, round={round}) - Not found")
             raise HTTPException(status_code=404, detail="Circuit not found")
@@ -76,8 +77,7 @@ async def get_circuit(year: int, round: int):
 async def get_drivers(year: int, round: int):
     logger.info(f"Entry: get_drivers(year={year}, round={round})")
     try:
-        service = F1Service(FastF1Provider())
-        results = service.get_drivers(year, round)
+        results = f1_service.get_drivers(year, round)
         logger.info(f"Exit: get_drivers(year={year}, round={round}) - Found {len(results)} drivers")
         return results
     except Exception:

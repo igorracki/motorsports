@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Trophy, AlertCircle } from "lucide-react";
+import { ArrowLeft, Trophy, AlertCircle, Radio } from "lucide-react";
 import { CircuitMap } from "@/components/circuit-map";
 import { TrackStats } from "@/components/track-stats";
 import { SessionSelector } from "@/components/session-selector";
@@ -11,10 +11,11 @@ import { ResultsTable } from "@/components/results-table";
 import { PredictionTable } from "@/components/prediction-table";
 import { usePredictions } from "@/hooks/usePredictions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { f1Api } from "@/services/f1-api";
 import { cn } from "@/lib/utils";
 import type { RaceWeekend, DriverInfo, DriverResult, Circuit } from "@/types/f1";
-import { getRaceStatus } from "@/lib/race-utils";
+import { getRaceStatus, isSessionLive } from "@/lib/race-utils";
 import { formatRaceRange } from "@/lib/date-utils";
 
 interface RaceWeekendDashboardProps {
@@ -27,10 +28,17 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   const [circuit, setCircuit] = useState<Circuit | null>(null);
   const [sessionResults, setSessionResults] = useState<Record<string, DriverResult[]>>({});
   const [loadingResults, setLoadingResults] = useState(false);
+  const [loadingCircuit, setLoadingCircuit] = useState(true);
+  const [loadingDrivers, setLoadingDrivers] = useState(true);
   
   useEffect(() => {
-    f1Api.getDrivers(year, raceWeekend.round).then(setDrivers);
-    f1Api.getCircuit(year, raceWeekend.round).then(setCircuit);
+    setLoadingDrivers(true);
+    setLoadingCircuit(true);
+
+    Promise.all([
+      f1Api.getDrivers(year, raceWeekend.round).then(setDrivers).finally(() => setLoadingDrivers(false)),
+      f1Api.getCircuit(year, raceWeekend.round).then(setCircuit).finally(() => setLoadingCircuit(false))
+    ]);
   }, [year, raceWeekend.round]);
 
   const {
@@ -107,6 +115,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   const canPredict = status !== "completed";
   
   const selectedSessionData = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
+  const isSelectedSessionLive = selectedSessionData ? isSessionLive(selectedSessionData.timeUTCMS) : false;
   const currentResults = selectedSession ? sessionResults[selectedSession] : undefined;
   const isSessionPredictable = selectedSessionData && (!currentResults || currentResults.length === 0);
   const hasSavedPrediction = selectedSession ? !!savedPredictions[selectedSession] : false;
@@ -150,11 +159,15 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 "relative overflow-hidden rounded-2xl border bg-card p-6 h-full flex items-center justify-center min-h-[300px]",
                 status === "ongoing" ? "border-primary/60" : "border-border/50"
               )}>
-                <CircuitMap 
-                  layout={circuit?.layout} 
-                  rotation={circuit?.rotation} 
-                  className="w-full h-full max-w-md" 
-                />
+                {loadingCircuit ? (
+                  <LoadingSpinner label="Loading track map..." />
+                ) : (
+                  <CircuitMap 
+                    layout={circuit?.layout} 
+                    rotation={circuit?.rotation} 
+                    className="w-full h-full max-w-md" 
+                  />
+                )}
               </div>
             </div>
 
@@ -177,7 +190,13 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 </div>
               </div>
               <div className="flex-1">
-                {circuit && <TrackStats stats={circuit} />}
+                {loadingCircuit ? (
+                  <div className="rounded-xl border border-border/50 bg-card/50 p-8 h-full flex items-center justify-center">
+                    <LoadingSpinner size="sm" label="Loading track stats..." />
+                  </div>
+                ) : (
+                  circuit && <TrackStats stats={circuit} />
+                )}
               </div>
             </div>
           </div>
@@ -240,7 +259,11 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 </button>
               </div>
               
-              {drivers.length > 0 ? (
+              {loadingDrivers ? (
+                <div className="rounded-xl border border-border/50 bg-card/50 p-24 text-center">
+                  <LoadingSpinner label="Loading driver entry list..." />
+                </div>
+              ) : drivers.length > 0 ? (
                 <PredictionTable
                   key={selectedSession}
                   drivers={drivers}
@@ -269,9 +292,19 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
 
           {!isPredictionMode && selectedSession && (
             <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
+              {isSelectedSessionLive && (
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-2 text-destructive">
+                  <div className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive"></span>
+                  </div>
+                  <span className="text-sm font-bold uppercase tracking-wider">Live Session Data</span>
+                  <span className="ml-auto text-[10px] opacity-70">Refreshing every minute</span>
+                </div>
+              )}
               {loadingResults ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div className="flex items-center justify-center py-24 rounded-xl border border-border/50 bg-card/50">
+                  <LoadingSpinner label="Fetching session results..." />
                 </div>
               ) : currentResults && currentResults.length > 0 ? (
                 <ResultsTable

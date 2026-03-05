@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/igorracki/f1/backend/internal/cache"
 	"github.com/igorracki/f1/backend/internal/clients"
 	"github.com/igorracki/f1/backend/internal/config"
 	"github.com/igorracki/f1/backend/internal/database"
@@ -35,7 +36,8 @@ func main() {
 	}))
 
 	f1DataClient := clients.NewF1DataClient(configuration.ExternalAPIURL)
-	f1DataService := services.NewF1Service(f1DataClient)
+	f1MemoryCache := cache.NewMemoryCache()
+	f1DataService := services.NewF1Service(f1DataClient, f1MemoryCache)
 	f1DataHandler := handlers.NewF1Handler(f1DataService)
 
 	userRepository := repository.NewUserRepository(databaseManager.DB())

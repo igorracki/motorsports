@@ -1,9 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Trophy } from "lucide-react";
+import { Trophy, Radio } from "lucide-react";
 import type { Session, DriverInfo, DriverResult } from "@/types/f1";
 import { formatSessionTime } from "@/lib/date-utils";
+import { isSessionLive } from "@/lib/race-utils";
 
 interface SessionSelectorProps {
   sessions: Session[];
@@ -33,6 +34,7 @@ export function SessionSelector({
         const hasPrediction = !!savedPredictions[session.type];
         
         const isStarted = session.timeUTCMS < now;
+        const isLive = isSessionLive(session.timeUTCMS);
         
         // 1. Normal mode: Always clickable
         // 2. Prediction mode: Only clickable if it hasn't started yet
@@ -64,6 +66,11 @@ export function SessionSelector({
                 <Trophy className="h-2.5 w-2.5" />
               </div>
             )}
+            {isLive && !isPredictionMode && (
+              <div className="absolute -left-1 -top-1 flex h-4 w-auto items-center justify-center rounded-full bg-destructive px-1.5 text-[8px] font-black uppercase tracking-tighter text-destructive-foreground border-2 border-background animate-pulse">
+                Live
+              </div>
+            )}
             <span className="text-xs font-bold sm:text-sm">{session.sessionCode || session.type}</span>
             <span
               className={cn(
@@ -86,9 +93,11 @@ export function SessionSelector({
             >
               {isPredictionMode
                 ? hasPrediction ? "Predicted" : "Predict"
-                : isStarted 
-                  ? (sessionResults[session.type] && !hasResults ? "No data" : "Results") 
-                  : "Upcoming"}
+                : isLive
+                  ? "Live"
+                  : isStarted 
+                    ? (sessionResults[session.type] && !hasResults ? "No data" : "Results") 
+                    : "Upcoming"}
             </span>
           </button>
         );

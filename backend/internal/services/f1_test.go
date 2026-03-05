@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/igorracki/f1/backend/internal/cache"
 	"github.com/igorracki/f1/backend/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -59,7 +60,7 @@ func intPtr(v int) *int {
 
 func TestGetScheduleByYear(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -106,8 +107,18 @@ func TestGetScheduleByYear(t *testing.T) {
 
 func TestGetSessionResults_Formatting(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
 	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Race", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
 
 	mockResults := &models.SessionResults{
 		Year:        2023,
@@ -158,8 +169,18 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 
 func TestGetSessionResults_Qualifying(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
 	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Qualifying", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
 
 	mockResults := &models.SessionResults{
 		Year:        2023,
@@ -206,8 +227,18 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 
 func TestGetSessionResults_NilCheck(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
 	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Race", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
 
 	mockResults := &models.SessionResults{
 		SessionType: models.SessionTypeRaceShort,
@@ -236,8 +267,17 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 
 func TestGetCircuit(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
 	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round:          10,
+			StartDateUTCMS: 1677942400000,
+			EndDateUTCMS:   1678142400000,
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
 
 	mockCircuit := &models.Circuit{
 		CircuitName: "Silverstone Circuit",

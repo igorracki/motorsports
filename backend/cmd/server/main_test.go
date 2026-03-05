@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/igorracki/f1/backend/internal/cache"
 	"github.com/igorracki/f1/backend/internal/clients"
 	"github.com/igorracki/f1/backend/internal/handlers"
 	"github.com/igorracki/f1/backend/internal/models"
@@ -41,7 +42,7 @@ func (mock *mockF1DataClient) GetDrivers(ctx context.Context, year int, round in
 func setupTestServer(client clients.F1DataClient) *echo.Echo {
 	server := echo.New()
 
-	eventsService := services.NewF1Service(client)
+	eventsService := services.NewF1Service(client, cache.NewMemoryCache())
 	eventsHandler := handlers.NewF1Handler(eventsService)
 
 	api := server.Group("/api")

@@ -3,8 +3,10 @@ from fastf1.ergast import Ergast
 import pandas as pd
 import os
 import logging
+import time
 from typing import Any, List, Optional
 from .provider import Provider
+
 from ..models import (
     RaceWeekend, SessionResult, DriverInfo
 )
@@ -20,14 +22,47 @@ from ..utils.converters import datetime_to_ms, to_datetime
 logger = logging.getLogger(__name__)
 
 class FastF1Provider(Provider):
+    _cache_initialized = False
+    _memory_cache = {}
 
     def __init__(self):
+        if not FastF1Provider._cache_initialized:
+            self._setup_fastf1()
+            FastF1Provider._cache_initialized = True
+
+    def _get_from_cache(self, key: str):
+        if key in self._memory_cache:
+            value, expiry = self._memory_cache[key]
+            if time.time() < expiry:
+                logger.info(f"Memory Cache hit: {key}")
+                return value
+            else:
+                logger.info(f"Memory Cache expired: {key}")
+                del self._memory_cache[key]
+        return None
+
+    def _set_to_cache(self, key: str, value: Any, ttl: int = 600):
+        self._memory_cache[key] = (value, time.time() + ttl)
+
+    def _setup_fastf1(self):
+        # Configure FastF1 logging to reduce chatter
+        fastf1_logger = logging.getLogger('fastf1')
+        fastf1_logger.setLevel(logging.WARNING)
+        
+        # Configure cache
         cache_directory = os.path.join(os.getcwd(), '.cache')
         if not os.path.exists(cache_directory):
             os.makedirs(cache_directory)
+        
+        logger.info(f"Initializing FastF1 cache at {cache_directory}")
         fastf1.Cache.enable_cache(cache_directory)
 
     def get_weekend_events(self, year: int) -> List[RaceWeekend]:
+        cache_key = f"events_{year}"
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
         logger.info(f"Entry: get_weekend_events(year={year})")
         try:
             schedule = fastf1.get_event_schedule(year)
@@ -37,12 +72,18 @@ class FastF1Provider(Provider):
                 if race_weekend:
                     race_weekends.append(race_weekend)
             logger.info(f"Exit: get_weekend_events(year={year}) - Found {len(race_weekends)} race weekends")
+            self._set_to_cache(cache_key, race_weekends, ttl=3600)
             return race_weekends
         except Exception:
             logger.exception(f"Error fetching weekend events for year {year}")
             return []
 
     def get_session_results(self, year: int, round_number: int, session_type: str) -> Optional[SessionResult]:
+        cache_key = f"results_{year}_{round_number}_{session_type}"
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
         logger.info(f"Entry: get_session_results(year={year}, round={round_number}, session={session_type})")
         try:
             session = fastf1.get_session(year, round_number, session_type)
@@ -59,17 +100,25 @@ class FastF1Provider(Provider):
                 results.append(driver_result)
 
             logger.info(f"Exit: get_session_results(year={year}, round={round_number}, session={session_type}) - Found {len(results)} drivers")
-            return SessionResult(
+            res = SessionResult(
                 year=year,
                 round=round_number,
                 session_type=session_type,
                 results=results
             )
+            # Use short 1-minute TTL for memory cache to ensure live sessions update
+            self._set_to_cache(cache_key, res, ttl=60)
+            return res
         except Exception:
             logger.exception(f"Error fetching session results for {year} round {round_number} {session_type}")
             return None
 
     def get_drivers(self, year: int, round_number: int) -> List[DriverInfo]:
+        cache_key = f"drivers_{year}_{round_number}"
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
         logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
         try:
             # Primary attempt: Use 'R' (Race) session to get the entry list/results
@@ -91,6 +140,7 @@ class FastF1Provider(Provider):
                 
                 if drivers:
                     logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers via FastF1")
+                    self._set_to_cache(cache_key, drivers, ttl=3600)
                     return drivers
             
             # Fallback: Use Ergast for season driver info if session results are missing (e.g. future seasons)
@@ -100,11 +150,12 @@ class FastF1Provider(Provider):
             
             # Ergast responses in FastF1 3.x+ return an ErgastRawResponse which has a 'content' attribute
             # containing the list of dataframes.
-            if not driver_info_response.content:
+            response_content = getattr(driver_info_response, 'content', [])
+            if not response_content:
                 logger.warning(f"No content found in Ergast response for year {year}")
                 return []
                 
-            driver_info_df = driver_info_response.content[0]
+            driver_info_df = response_content[0]
             
             if driver_info_df.empty:
                 logger.warning(f"No drivers found via Ergast for year {year}")
@@ -135,12 +186,18 @@ class FastF1Provider(Provider):
                 ))
             
             logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers via Ergast")
+            self._set_to_cache(cache_key, drivers, ttl=3600)
             return drivers
         except Exception:
             logger.exception(f"Error fetching drivers for {year} round {round_number}")
             return []
 
     def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
+        cache_key = f"circuit_{year}_{round_number}"
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
         logger.info(f"Entry: get_circuit_data(year={year}, round={round_number})")
         try:
             ergast = Ergast()
@@ -173,6 +230,7 @@ class FastF1Provider(Provider):
                 min_altitude_m=metrics["min_altitude_m"]
             )
             logger.info(f"Exit: get_circuit_data(year={year}, round={round_number}) - Success for {circuit.circuit_name}")
+            self._set_to_cache(cache_key, circuit, ttl=3600)
             return circuit
 
         except Exception:
