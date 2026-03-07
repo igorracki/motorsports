@@ -11,9 +11,21 @@ def get_scalar_value(series: pd.Series, key: str) -> Any:
 
 
 def to_milliseconds(delta: Any) -> Optional[int]:
-    if pd.isna(delta) or not hasattr(delta, 'total_seconds'):
+    if pd.isna(delta):
         return None
-    return int(delta.total_seconds() * 1000)
+        
+    try:
+        # If it's already a timedelta-like object with total_seconds
+        if hasattr(delta, 'total_seconds'):
+            return int(delta.total_seconds() * 1000)
+            
+        # Try to convert to timedelta
+        td = pd.to_timedelta(delta)
+        if pd.isna(td):
+            return None
+        return int(td.total_seconds() * 1000)
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 def to_datetime(value: Any) -> Optional[datetime]:

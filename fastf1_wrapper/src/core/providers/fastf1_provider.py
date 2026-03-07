@@ -88,7 +88,7 @@ class FastF1Provider(Provider):
         try:
             session = fastf1.get_session(year, round_number, session_type)
             session.load(laps=True, telemetry=False,
-                         weather=False, messages=False)
+                         weather=False, messages=True)
 
             if session.results is None or session.results.empty:
                 logger.warning(f"No results found for {year} Round {round_number} ({session_type})")
@@ -120,77 +120,41 @@ class FastF1Provider(Provider):
             return cached
 
         logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
+        
+        drivers = []
+        if round_number > 1:
+            # For any round after the first, fetch from the previous round's race
+            logger.info(f"Fetching drivers from previous round race results ({year} Round {round_number-1} R)")
+            drivers = self._fetch_from_session(year, round_number - 1, 'R')
+        else:
+            # For the first round, try FP1 as it's the first session with data
+            logger.info(f"Fetching drivers from Round 1 FP1 ({year} Round 1 FP1)")
+            drivers = self._fetch_from_session(year, 1, 'FP1')
+            
+        if drivers:
+            logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers")
+            self._set_to_cache(cache_key, drivers, ttl=3600)
+            return drivers
+            
+        logger.warning(f"Exit: get_drivers(year={year}, round={round_number}) - No drivers found")
+        return []
+
+    def _fetch_from_session(self, year: int, round_number: int, session_type: str) -> List[DriverInfo]:
+        """Internal helper to fetch drivers from a specific session."""
         try:
-            # Primary attempt: Use 'R' (Race) session to get the entry list/results
-            session = fastf1.get_session(year, round_number, 'R')
+            session = fastf1.get_session(year, round_number, session_type)
+            session.load(laps=False, telemetry=False, weather=False, messages=False)
             
-            try:
-                # Use light load to get results/entry list
-                session.load(laps=False, telemetry=False, weather=False, messages=False)
-            except Exception as e:
-                logger.warning(f"Could not load session for drivers, trying fallback: {e}")
-            
-            # If session results are available, use them
             if session.results is not None and not session.results.empty:
                 drivers = []
                 for _, row in session.results.iterrows():
                     driver_info = extract_driver_info(row)
                     if driver_info.id:
                         drivers.append(driver_info)
-                
-                if drivers:
-                    logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers via FastF1")
-                    self._set_to_cache(cache_key, drivers, ttl=3600)
-                    return drivers
-            
-            # Fallback: Use Ergast for season driver info if session results are missing (e.g. future seasons)
-            logger.info(f"Falling back to Ergast season driver info for year {year}")
-            ergast = Ergast()
-            driver_info_response = ergast.get_driver_info(season=year)
-            
-            # Ergast responses in FastF1 3.x+ return an ErgastRawResponse which has a 'content' attribute
-            # containing the list of dataframes.
-            response_content = getattr(driver_info_response, 'content', [])
-            if not response_content:
-                logger.warning(f"No content found in Ergast response for year {year}")
-                return []
-                
-            driver_info_df = response_content[0]
-            
-            if driver_info_df.empty:
-                logger.warning(f"No drivers found via Ergast for year {year}")
-                return []
-                
-            drivers = []
-            for _, row in driver_info_df.iterrows():
-                # Prefer abbreviation if available, otherwise use driverId (slug)
-                abbr = row.get('abbreviation')
-                driver_id = str(abbr if abbr else row.get('driverId')).upper()
-                
-                # Ensure driver number is an integer string (avoiding 1.0)
-                raw_number = row.get('driverNumber')
-                try:
-                    if raw_number and not pd.isna(raw_number):
-                        driver_number = str(int(float(raw_number)))
-                    else:
-                        driver_number = "0"
-                except (ValueError, TypeError):
-                    driver_number = str(raw_number or "0")
-                
-                drivers.append(DriverInfo(
-                    id=driver_id,
-                    number=driver_number,
-                    full_name=f"{row.get('givenName')} {row.get('familyName')}",
-                    country_code=str(row.get('nationality') or ""),
-                    team_name="" # Ergast season driver info doesn't reliably map to constructors
-                ))
-            
-            logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers via Ergast")
-            self._set_to_cache(cache_key, drivers, ttl=3600)
-            return drivers
-        except Exception:
-            logger.exception(f"Error fetching drivers for {year} round {round_number}")
-            return []
+                return drivers
+        except Exception as e:
+            logger.warning(f"Could not load {session_type} session for drivers: {e}")
+        return []
 
     def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
         cache_key = f"circuit_{year}_{round_number}"

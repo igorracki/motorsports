@@ -46,18 +46,6 @@ func (m *MockF1DataClient) GetDrivers(ctx context.Context, year int, round int) 
 	return args.Get(0).([]models.DriverInfo), args.Error(1)
 }
 
-func int64Ptr(v int64) *int64 {
-	return &v
-}
-
-func float64Ptr(v float64) *float64 {
-	return &v
-}
-
-func intPtr(v int) *int {
-	return &v
-}
-
 func TestGetScheduleByYear(t *testing.T) {
 	mockClient := new(MockF1DataClient)
 	service := NewF1Service(mockClient, cache.NewMemoryCache())
@@ -305,4 +293,226 @@ func TestGetCircuit(t *testing.T) {
 	assert.Equal(t, 52.0786, *result.Latitude)
 	assert.Equal(t, -1.01694, *result.Longitude)
 	assert.Len(t, result.Layout, 2)
+}
+
+func TestGetSessionResults_DerivedGaps(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Qualifying", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
+
+	mockResults := &models.SessionResults{
+		Year:        2023,
+		Round:       1,
+		SessionType: models.SessionTypeQualifyingShort,
+		Results: []models.DriverResult{
+			{
+				Position:     1,
+				FastestLapMS: int64Ptr(90000), // 1:30.000
+			},
+			{
+				Position:     2,
+				FastestLapMS: int64Ptr(90100), // 1:30.100
+			},
+		},
+	}
+
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
+
+	// When
+	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, "-", result.Results[0].Gap)
+	assert.Equal(t, "+0.100", result.Results[1].Gap)
+}
+
+func TestGetSessionResults_Sprint(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Sprint", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
+
+	mockResults := &models.SessionResults{
+		Year:        2023,
+		Round:       1,
+		SessionType: models.SessionTypeSprintShort,
+		Results: []models.DriverResult{
+			{
+				Position:    1,
+				TotalTimeMS: int64Ptr(1800000), // 30:00.000
+				GapMS:       int64Ptr(0),
+				Status:      "Finished",
+			},
+			{
+				Position:    2,
+				TotalTimeMS: nil,
+				GapMS:       int64Ptr(500), // +0.500
+				Status:      "Finished",
+			},
+		},
+	}
+
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeSprintShort).Return(mockResults, nil)
+
+	// When
+	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeSprintShort)
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, "30:00.000", result.Results[0].TotalTime)
+	assert.Equal(t, "+0.000", result.Results[0].Gap)
+	assert.Equal(t, "+0.500", result.Results[1].Gap)
+}
+
+func TestGetSessionResults_QualifyingReference(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Qualifying", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
+
+	mockResults := &models.SessionResults{
+		Year:        2023,
+		Round:       1,
+		SessionType: models.SessionTypeQualifyingShort,
+		Results: []models.DriverResult{
+			{
+				Position:     1,
+				FastestLapMS: int64Ptr(91000), // 1:31.000 (Pole in wet Q3)
+			},
+			{
+				Position:     5,
+				FastestLapMS: int64Ptr(90000), // 1:30.000 (Fastest in dry Q2)
+			},
+		},
+	}
+
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
+
+	// When
+	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
+
+	// Then
+	assert.NoError(t, err)
+	// Reference should be P1 (91000), not the absolute fastest (90000)
+	assert.Equal(t, "-", result.Results[0].Gap)
+	assert.Equal(t, "-1.000", result.Results[1].Gap) // P5 still in top 10, shows gap
+}
+
+func TestGetSessionResults_QualifyingGaps(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Qualifying", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
+
+	mockResults := &models.SessionResults{
+		Year:        2023,
+		Round:       1,
+		SessionType: models.SessionTypeQualifyingShort,
+		Results: []models.DriverResult{
+			{
+				Position:     1,
+				FastestLapMS: int64Ptr(88789), // 1:28.789
+			},
+			{
+				Position:     2,
+				FastestLapMS: int64Ptr(88889), // 1:28.889
+			},
+			{
+				Position:     11,
+				FastestLapMS: int64Ptr(89789), // 1:29.789
+			},
+		},
+	}
+
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
+
+	// When
+	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
+
+	// Then
+	assert.NoError(t, err)
+	assert.Equal(t, "-", result.Results[0].Gap)
+	assert.Equal(t, "+0.100", result.Results[1].Gap)
+	assert.Equal(t, "+1.000", result.Results[2].Gap)
+}
+
+func TestGetSessionResults_QualifyingFallback(t *testing.T) {
+	mockClient := new(MockF1DataClient)
+	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	ctx := context.Background()
+
+	mockSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Qualifying", TimeUTCMS: 1677942400000},
+			},
+		},
+	}
+	mockClient.On("GetScheduleByYear", ctx, 2023).Return(mockSchedule, nil)
+
+	mockResults := &models.SessionResults{
+		Year:        2023,
+		Round:       1,
+		SessionType: models.SessionTypeQualifyingShort,
+		Results: []models.DriverResult{
+			{
+				Position:     0, // P1 not set correctly
+				FastestLapMS: int64Ptr(90000),
+			},
+			{
+				Position:     2,
+				FastestLapMS: int64Ptr(90100),
+			},
+		},
+	}
+
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
+
+	// When
+	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
+
+	// Then
+	assert.NoError(t, err)
+	// Reference should fall back to first driver (index 0)
+	assert.Equal(t, "-", result.Results[0].Gap)
+	assert.Equal(t, "+0.100", result.Results[1].Gap)
 }

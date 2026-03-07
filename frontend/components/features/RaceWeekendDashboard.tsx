@@ -285,7 +285,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
               <Trophy className="mx-auto mb-3 h-8 w-8 text-accent" />
               <p className="font-medium">Select a session above to make your prediction</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Only sessions without results can be predicted
+                Only upcoming sessions can be predicted
               </p>
             </div>
           )}

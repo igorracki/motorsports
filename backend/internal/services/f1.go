@@ -209,6 +209,10 @@ func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) (
 		drivers = []models.DriverInfo{}
 	}
 
+	for i := range drivers {
+		drivers[i].CountryCode = formatters.GetDriverCountryCode(drivers[i].CountryCode, drivers[i].ID)
+	}
+
 	ttl := service.calculateWeekendTTL(ctx, year, round)
 	service.cache.Set(cacheKey, drivers, ttl)
 

@@ -8,12 +8,14 @@ logger = logging.getLogger(__name__)
 
 SESSION_RACE = 'R'
 SESSION_RACE_FULL = 'RACE'
+SESSION_SPRINT = 'S'
+SESSION_SPRINT_FULL = 'SPRINT'
 SESSION_QUALIFYING = 'Q'
 SESSION_QUALIFYING_FULL = 'QUALIFYING'
 SESSION_SPRINT_QUALIFYING = 'SQ'
 SESSION_SPRINT_QUALIFYING_FULL = 'SPRINT QUALIFYING'
 
-RACE_SESSION_TYPES = {SESSION_RACE, SESSION_RACE_FULL}
+RACE_SESSION_TYPES = {SESSION_RACE, SESSION_RACE_FULL, SESSION_SPRINT, SESSION_SPRINT_FULL}
 QUALIFYING_SESSION_TYPES = {
     SESSION_QUALIFYING, SESSION_QUALIFYING_FULL,
     SESSION_SPRINT_QUALIFYING, SESSION_SPRINT_QUALIFYING_FULL
@@ -53,8 +55,16 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
 
     laps_completed = int(
         laps_val) if laps_val is not None and pd.notna(laps_val) else 0
-    finish_position = int(get_scalar_value(row, 'Position')) if pd.notna(
-        get_scalar_value(row, 'Position')) else 0
+    
+    # Position can be float or int in FastF1, handle carefully
+    raw_position = get_scalar_value(row, 'Position')
+    if pd.notna(raw_position):
+        try:
+            finish_position = int(float(raw_position))
+        except (ValueError, TypeError):
+            finish_position = 0
+    else:
+        finish_position = 0
 
     raw_time_delta = get_scalar_value(row, 'Time')
     total_time_ms = None
@@ -102,11 +112,34 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
         )
 
     elif normalized_session_type in QUALIFYING_SESSION_TYPES:
+        # For Qualifying and Sprint Qualifying, extract segment times.
+        # FastF1 uses Q1/Q2/Q3 for Qualifying and sometimes SQ1/SQ2/SQ3 for Sprint Qualifying.
+        # We try both sets of column names.
+        q1_val = get_scalar_value(row, 'Q1')
+        if pd.isna(q1_val): q1_val = get_scalar_value(row, 'SQ1')
+        q1_ms = to_milliseconds(q1_val)
+
+        q2_val = get_scalar_value(row, 'Q2')
+        if pd.isna(q2_val): q2_val = get_scalar_value(row, 'SQ2')
+        q2_ms = to_milliseconds(q2_val)
+
+        q3_val = get_scalar_value(row, 'Q3')
+        if pd.isna(q3_val): q3_val = get_scalar_value(row, 'SQ3')
+        q3_ms = to_milliseconds(q3_val)
+
         driver_result.qualifying_details = QualifyingDetails(
-            q1_ms=to_milliseconds(get_scalar_value(row, 'Q1')),
-            q2_ms=to_milliseconds(get_scalar_value(row, 'Q2')),
-            q3_ms=to_milliseconds(get_scalar_value(row, 'Q3'))
+            q1_ms=q1_ms,
+            q2_ms=q2_ms,
+            q3_ms=q3_ms
         )
+        
+        # Ensure we have a representative best lap for the summary table.
+        # Primary: The absolute fastest lap recorded in the session.
+        # Secondary: The time from the latest qualifying segment reached.
+        if driver_result.fastest_lap_ms is None:
+            if q3_ms is not None: driver_result.fastest_lap_ms = q3_ms
+            elif q2_ms is not None: driver_result.fastest_lap_ms = q2_ms
+            elif q1_ms is not None: driver_result.fastest_lap_ms = q1_ms
 
     logger.info(f"Successfully extracted result for driver: {id} (Pos: {finish_position})")
     return driver_result

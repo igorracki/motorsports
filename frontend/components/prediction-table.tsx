@@ -144,16 +144,22 @@ export function PredictionTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-border/50 bg-secondary/50">
-              <th className="w-12 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Pos
               </th>
-              <th className="w-10 px-2 py-3"></th>
+              <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Flag
+              </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Driver
+              </th>
+              <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                #
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Team
               </th>
+              <th className="w-10 px-2 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -179,10 +185,10 @@ export function PredictionTable({
                   dragOverIndex !== index && "hover:bg-secondary/30"
                 )}
               >
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 text-center">
                   <span
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
+                      "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
                       index === 0 &&
                         "bg-yellow-500/20 text-yellow-500",
                       index === 1 &&
@@ -195,36 +201,32 @@ export function PredictionTable({
                     {index + 1}
                   </span>
                 </td>
-                <td className="px-2 py-3">
-                  <GripVertical className="h-5 w-5 text-muted-foreground/50" />
+                <td className="px-3 py-3 text-center">
+                  {driver.countryCode && (
+                    <div className="mx-auto relative h-3 w-5 overflow-hidden rounded-sm ring-1 ring-border/50">
+                      <Image
+                        src={`https://flagcdn.com/w80/${driver.countryCode.toLowerCase()}.png`}
+                        alt={`${driver.countryCode} flag`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-foreground">
-                      {driver.fullName}
-                    </span>
-                    <span className="text-xs text-muted-foreground/70">
-                      #{driver.number}
-                    </span>
-                    {driver.countryCode && (
-                      <div className="mt-1 flex items-center">
-                        <div className="relative h-3 w-5 overflow-hidden rounded-sm ring-1 ring-border/50">
-                          <Image
-                            src={`https://flagcdn.com/w80/${driver.countryCode.toLowerCase()}.png`}
-                            alt={`${driver.countryCode} flag`}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/50">
-                          {driver.countryCode}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <span className="font-medium text-foreground">
+                    {driver.fullName}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-center font-mono text-sm font-bold text-muted-foreground/80">
+                  {driver.number}
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
                   {driver.teamName}
+                </td>
+                <td className="px-2 py-3 text-right">
+                  <GripVertical className="h-5 w-5 text-muted-foreground/30" />
                 </td>
               </tr>
             ))}

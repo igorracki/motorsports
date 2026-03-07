@@ -79,7 +79,7 @@ export const DriverResultSchema = z
     fastestLapMS: data.fastest_lap_ms ?? undefined,
     fastestLap: data.fastest_lap ?? undefined,
     raceDetails: data.race_details ?? undefined,
-    qualifyingDetails: data.qualifying_details ?? undefined,
+    qualifying_details: data.qualifying_details ?? undefined,
   }));
 
 export type DriverResult = z.infer<typeof DriverResultSchema>;

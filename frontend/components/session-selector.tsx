@@ -92,7 +92,7 @@ export function SessionSelector({
               )}
             >
               {isPredictionMode
-                ? hasPrediction ? "Predicted" : "Predict"
+                ? hasPrediction ? "Predicted" : (isStarted ? "Locked" : "Predict")
                 : isLive
                   ? "Live"
                   : isStarted 

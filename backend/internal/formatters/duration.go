@@ -7,13 +7,13 @@ import (
 
 func FormatDuration(durationMS int64, isGap bool) string {
 	prefix := ""
-	if isGap {
+	if isGap && durationMS >= 0 {
 		prefix = "+"
 	}
 
 	secondsTotal := float64(durationMS) / 1000.0
 
-	if secondsTotal < 60 && isGap {
+	if secondsTotal < 60 && secondsTotal > -60 && isGap {
 		return fmt.Sprintf("%s%.3f", prefix, secondsTotal)
 	}
 
