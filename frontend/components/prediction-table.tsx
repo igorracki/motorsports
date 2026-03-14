@@ -10,24 +10,17 @@ import type { DriverInfo } from "@/types/f1";
 interface PredictionTableProps {
   drivers: DriverInfo[];
   onPredictionsChange: (predictions: DriverInfo[]) => void;
-  initialPredictions?: DriverInfo[];
   onSave: (predictions: DriverInfo[]) => void;
 }
 
 export function PredictionTable({
   drivers,
   onPredictionsChange,
-  initialPredictions,
   onSave,
 }: PredictionTableProps) {
-  const [predictions, setPredictions] = useState<DriverInfo[]>(
-    initialPredictions || [...drivers]
-  );
-
   // Notify parent of changes
   const updatePredictions = useCallback(
     (newPredictions: DriverInfo[]) => {
-      setPredictions(newPredictions);
       onPredictionsChange(newPredictions);
     },
     [onPredictionsChange]
@@ -79,15 +72,19 @@ export function PredictionTable({
 
       if (dragIndex === dropIndex) return;
 
-      const newPredictions = [...predictions];
+      const newPredictions = [...drivers];
       const [draggedItem] = newPredictions.splice(dragIndex, 1);
+      
+      // Mark the moved item as predicted
+      draggedItem.isPredicted = true;
+      
       newPredictions.splice(dropIndex, 0, draggedItem);
       updatePredictions(newPredictions);
 
       setDraggedIndex(null);
       setDragOverIndex(null);
     },
-    [predictions, updatePredictions]
+    [drivers, updatePredictions]
   );
 
   // Touch support for mobile
@@ -128,15 +125,19 @@ export function PredictionTable({
 
   const handleTouchEnd = useCallback(() => {
     if (touchedIndex !== null && dragOverIndex !== null && touchedIndex !== dragOverIndex) {
-      const newPredictions = [...predictions];
+      const newPredictions = [...drivers];
       const [draggedItem] = newPredictions.splice(touchedIndex, 1);
+      
+      // Mark as predicted
+      draggedItem.isPredicted = true;
+      
       newPredictions.splice(dragOverIndex, 0, draggedItem);
       updatePredictions(newPredictions);
     }
     setTouchStartY(null);
     setTouchedIndex(null);
     setDragOverIndex(null);
-  }, [touchedIndex, dragOverIndex, predictions, updatePredictions]);
+  }, [touchedIndex, dragOverIndex, drivers, updatePredictions]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
@@ -163,7 +164,7 @@ export function PredictionTable({
             </tr>
           </thead>
           <tbody>
-            {predictions.map((driver, index) => (
+            {drivers.map((driver, index) => (
               <tr
                 key={driver.id}
                 data-row-index={index}
@@ -182,23 +183,22 @@ export function PredictionTable({
                   dragOverIndex === index &&
                     draggedIndex !== null &&
                     "bg-primary/10 border-primary/50",
-                  dragOverIndex !== index && "hover:bg-secondary/30"
+                  dragOverIndex !== index && "hover:bg-secondary/30",
+                  driver.isPredicted && "bg-blue-500/5 border-blue-500/20"
                 )}
               >
                 <td className="px-3 py-3 text-center">
                   <span
                     className={cn(
                       "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
-                      index === 0 &&
-                        "bg-yellow-500/20 text-yellow-500",
-                      index === 1 &&
-                        "bg-gray-400/20 text-gray-400",
-                      index === 2 &&
-                        "bg-amber-600/20 text-amber-600",
-                      index > 2 && "text-muted-foreground"
+                      !driver.isPredicted && "text-muted-foreground/30",
+                      driver.isPredicted && index === 0 && "bg-yellow-500/20 text-yellow-500",
+                      driver.isPredicted && index === 1 && "bg-gray-400/20 text-gray-400",
+                      driver.isPredicted && index === 2 && "bg-amber-600/20 text-amber-600",
+                      driver.isPredicted && index > 2 && "text-muted-foreground"
                     )}
                   >
-                    {index + 1}
+                    {driver.isPredicted ? index + 1 : "-"}
                   </span>
                 </td>
                 <td className="px-3 py-3 text-center">

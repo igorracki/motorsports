@@ -14,6 +14,7 @@ export const DriverInfoSchema = z
     fullName: data.full_name,
     countryCode: data.country_code,
     teamName: data.team_name,
+    isPredicted: false, // UI tracking only
   }));
 
 export type DriverInfo = z.infer<typeof DriverInfoSchema>;
@@ -182,25 +183,43 @@ export const CircuitSchema = z
 
 export type Circuit = z.infer<typeof CircuitSchema>;
 
-export const PredictionEntrySchema = z.object({
-  predictionId: z.string(),
-  position: z.number(),
-  driverId: z.string(),
-});
+export const PredictionEntrySchema = z
+  .object({
+    prediction_id: z.string(),
+    position: z.number(),
+    driver_id: z.string(),
+  })
+  .transform((data) => ({
+    predictionId: data.prediction_id,
+    position: data.position,
+    driverId: data.driver_id,
+  }));
 
 export type PredictionEntry = z.infer<typeof PredictionEntrySchema>;
 
-export const PredictionSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  year: z.number(),
-  round: z.number(),
-  sessionType: z.string(),
-  score: z.number().optional(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  entries: z.array(PredictionEntrySchema),
-});
+export const PredictionSchema = z
+  .object({
+    id: z.string(),
+    user_id: z.string(),
+    year: z.number(),
+    round: z.number(),
+    session_type: z.string(),
+    score: z.number().optional().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    entries: z.array(PredictionEntrySchema),
+  })
+  .transform((data) => ({
+    id: data.id,
+    userId: data.user_id,
+    year: data.year,
+    round: data.round,
+    sessionType: data.session_type,
+    score: data.score ?? undefined,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    entries: data.entries,
+  }));
 
 export type Prediction = z.infer<typeof PredictionSchema>;
 

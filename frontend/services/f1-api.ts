@@ -8,7 +8,9 @@ import {
   DriverResult,
   DriverResultSchema,
   UserProfileResponse,
-  UserProfileResponseSchema
+  UserProfileResponseSchema,
+  Prediction,
+  PredictionSchema
 } from "@/types/f1";
 import { 
   LoginRequest, 
@@ -185,5 +187,26 @@ export const f1Api = {
   async getUserProfile(userId: string): Promise<UserProfileResponse> {
     const data = await this.fetchJson<any>(`${_BASE_URL}/users/${userId}`);
     return UserProfileResponseSchema.parse(data);
+  },
+
+  /**
+   * Predictions: Get predictions for a specific round
+   */
+  async getRoundPredictions(userId: string, year: number, round: number): Promise<Prediction[]> {
+    const data = await this.fetchJson<any[]>(
+      `${_BASE_URL}/users/${userId}/predictions/${year}/${round}`
+    );
+    return z.array(PredictionSchema).parse(data || []);
+  },
+
+  /**
+   * Predictions: Submit a prediction
+   */
+  async submitPrediction(userId: string, prediction: Partial<Prediction>): Promise<Prediction> {
+    const data = await this.fetchJson<any>(`${_BASE_URL}/users/${userId}/predictions`, {
+      method: "POST",
+      body: JSON.stringify(prediction),
+    });
+    return PredictionSchema.parse(data);
   }
 };

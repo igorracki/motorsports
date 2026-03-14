@@ -51,11 +51,12 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
     currentPredictions,
     savedPredictions,
     hasChanges,
+    isSubmitting,
     handleSessionSelect,
     togglePredictionMode,
     saveCurrentPredictions,
     updatePredictions
-  } = usePredictions(drivers);
+  } = usePredictions(drivers, year, raceWeekend.round);
 
   // Fetch all results for passed sessions on mount
   useEffect(() => {
@@ -257,17 +258,23 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 </div>
                 <button
                   onClick={saveCurrentPredictions}
-                  disabled={!hasChanges}
+                  disabled={!hasChanges || isSubmitting}
                   type="button"
                   className={cn(
                     "flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all duration-200",
-                    hasChanges
+                    hasChanges && !isSubmitting
                       ? "border-success bg-success text-success-foreground hover:bg-success/90"
                       : "cursor-not-allowed border-border/30 bg-card/50 text-muted-foreground opacity-50"
                   )}
                 >
-                  <Trophy className="h-4 w-4" />
-                  {hasSavedPrediction ? "Update Prediction" : "Save Prediction"}
+                  {isSubmitting ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <Trophy className="h-4 w-4" />
+                  )}
+                  {isSubmitting 
+                    ? "Saving..." 
+                    : hasSavedPrediction ? "Update Prediction" : "Save Prediction"}
                 </button>
               </div>
               
@@ -276,13 +283,13 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                   <LoadingSpinner label="Loading driver entry list..." />
                 </div>
               ) : drivers.length > 0 ? (
-                <PredictionTable
-                  key={selectedSession}
-                  drivers={drivers}
-                  onPredictionsChange={updatePredictions}
-                  initialPredictions={savedPredictions[selectedSession]}
-                  onSave={saveCurrentPredictions}
-                />
+              <PredictionTable
+                key={selectedSession}
+                drivers={currentPredictions}
+                onPredictionsChange={updatePredictions}
+                onSave={saveCurrentPredictions}
+              />
+
               ) : (
                 <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
                   <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />

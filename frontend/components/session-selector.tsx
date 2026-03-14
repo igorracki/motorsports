@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Trophy, Radio } from "lucide-react";
-import type { Session, DriverInfo, DriverResult } from "@/types/f1";
+import type { Session, DriverInfo, DriverResult, Prediction } from "@/types/f1";
 import { formatSessionTime } from "@/lib/date-utils";
 import { isSessionLive } from "@/lib/race-utils";
 
@@ -11,7 +11,7 @@ interface SessionSelectorProps {
   selectedSession: string | null;
   onSelectSession: (code: string | null) => void;
   isPredictionMode: boolean;
-  savedPredictions: Record<string, DriverInfo[]>;
+  savedPredictions: Record<string, Prediction>;
   sessionResults?: Record<string, DriverResult[]>;
 }
 

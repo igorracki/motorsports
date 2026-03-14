@@ -61,8 +61,9 @@
     - `ui/`: Reusable, atomic UI primitives (Table, Skeleton, Badge).
     - `services/`: Dedicated API communication layer (`f1-api.ts`).
     - `hooks/`: Isolated client-side logic and global context (`SeasonContext`).
-* **TYPE MIRRORING:** Frontend interfaces in `types/f1.ts` MUST mirror Go models exactly.
-* **VALIDATION:** Use Zod schemas to validate all API responses at the service boundary.
+* **FRONTEND STATE:** Use `usePredictions` hook for synchronizing local UI state with backend persistence. Implement "Only Save Changes" logic by comparing current state against a fetched baseline.
+* **TYPE MIRRORING:** Frontend interfaces in `types/f1.ts` MUST mirror Go models exactly. Use Zod transformations to map snake_case (Go) to camelCase (TS).
+* **UI FEEDBACK:** Assignment-based tables (like predictions) MUST visually distinguish between "assigned" and "unassigned" states (e.g., using '-' placeholders and subtle color tints).
 
 ---
 
