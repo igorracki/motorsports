@@ -11,25 +11,32 @@ interface PredictionTableProps {
   drivers: DriverInfo[];
   onPredictionsChange: (predictions: DriverInfo[]) => void;
   onSave: (predictions: DriverInfo[]) => void;
+  readOnly?: boolean;
 }
 
 export function PredictionTable({
   drivers,
   onPredictionsChange,
   onSave,
+  readOnly = false,
 }: PredictionTableProps) {
   // Notify parent of changes
   const updatePredictions = useCallback(
     (newPredictions: DriverInfo[]) => {
+      if (readOnly) return;
       onPredictionsChange(newPredictions);
     },
-    [onPredictionsChange]
+    [onPredictionsChange, readOnly]
   );
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
+      if (readOnly) {
+        e.preventDefault();
+        return;
+      }
       setDraggedIndex(index);
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", index.toString());
@@ -91,12 +98,40 @@ export function PredictionTable({
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
 
+  const handleDoubleClick = useCallback((index: number) => {
+    if (readOnly || index === 0) return;
+
+    const newPredictions = [...drivers];
+    const [selectedItem] = newPredictions.splice(index, 1);
+    
+    // Mark as predicted
+    selectedItem.isPredicted = true;
+    
+    // Move to first position
+    newPredictions.unshift(selectedItem);
+    updatePredictions(newPredictions);
+  }, [drivers, readOnly, updatePredictions]);
+
+  // Touch support for double tap
+  const [lastTap, setLastTap] = useState<{ time: number, index: number } | null>(null);
+
   const handleTouchStart = useCallback(
     (e: React.TouchEvent<HTMLTableRowElement>, index: number) => {
+      if (readOnly) return;
+
+      const now = Date.now();
+      if (lastTap && now - lastTap.time < 300 && lastTap.index === index) {
+        // Double tap detected
+        handleDoubleClick(index);
+        setLastTap(null);
+        return;
+      }
+      setLastTap({ time: now, index });
+
       setTouchStartY(e.touches[0].clientY);
       setTouchedIndex(index);
     },
-    []
+    [readOnly, lastTap, handleDoubleClick]
   );
 
   const handleTouchMove = useCallback(
@@ -168,7 +203,8 @@ export function PredictionTable({
               <tr
                 key={driver.id}
                 data-row-index={index}
-                draggable
+                draggable={!readOnly}
+                onDoubleClick={() => handleDoubleClick(index)}
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragEnd={handleDragEnd}
                 onDragOver={(e) => handleDragOver(e, index)}

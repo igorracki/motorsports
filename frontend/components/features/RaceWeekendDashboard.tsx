@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Trophy, AlertCircle, Radio } from "lucide-react";
+import { ArrowLeft, Trophy, AlertCircle } from "lucide-react";
 import { CircuitMap } from "@/components/circuit-map";
 import { TrackStats } from "@/components/track-stats";
 import { SessionSelector } from "@/components/session-selector";
@@ -15,6 +15,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { f1Api } from "@/services/f1-api";
 import { useAuth } from "@/hooks/useAuth";
+import { MainNav } from "@/components/main-nav";
 import { cn } from "@/lib/utils";
 import type { RaceWeekend, DriverInfo, DriverResult, Circuit } from "@/types/f1";
 import { getRaceStatus, isSessionLive } from "@/lib/race-utils";
@@ -75,15 +76,12 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
         }
       });
     }
-    // We only want to run this once on mount/data-load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [raceWeekend?.round, isPredictionMode, year]);
+  }, [raceWeekend, isPredictionMode, year, raceWeekend.round, sessionResults]);
 
   // Auto-select last passed session for completed events
   useEffect(() => {
     if (raceWeekend && !selectedSession && !isPredictionMode) {
       const now = Date.now();
-      // Find the last session that has started/passed
       const lastPassedSession = [...raceWeekend.sessions]
         .reverse()
         .find(s => s.timeUTCMS < now);
@@ -125,17 +123,20 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   };
 
   const status = getRaceStatus(year, raceWeekend.round, raceWeekend);
-  const canPredict = status !== "completed";
+  const isWeekendCompleted = status === "completed";
   
   const selectedSessionData = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
   const isSelectedSessionLive = selectedSessionData ? isSessionLive(selectedSessionData.timeUTCMS) : false;
   const currentResults = selectedSession ? sessionResults[selectedSession] : undefined;
-  const isSessionPredictable = selectedSessionData && (!currentResults || currentResults.length === 0);
+  
+  const now = Date.now();
+  const isSessionLocked = selectedSessionData ? selectedSessionData.timeUTCMS < now : false;
   const hasSavedPrediction = selectedSession ? !!savedPredictions[selectedSession] : false;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur-sm">
+      <MainNav />
+      <header className="sticky top-14 z-50 border-b border-border/50 bg-background/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link
             href={`/?year=${year}`}
@@ -218,19 +219,18 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
         <section className="mb-6">
           <button
             onClick={handlePredictClick}
-            disabled={!canPredict}
             type="button"
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-xl border px-6 py-4 text-base font-semibold transition-all duration-200",
-              !canPredict
-                ? "cursor-not-allowed border-border/30 bg-card/50 text-muted-foreground opacity-50"
-                : isPredictionMode
-                  ? "border-success bg-success text-success-foreground hover:bg-success/90"
-                  : "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20"
+              isPredictionMode
+                ? "border-success bg-success text-success-foreground hover:bg-success/90"
+                : "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20"
             )}
           >
             <Trophy className="h-5 w-5" />
-            {isPredictionMode ? "Exit Prediction Mode" : "Predict"}
+            {isPredictionMode 
+              ? "Exit Prediction Mode" 
+              : isWeekendCompleted ? "View Predictions" : "Predict"}
           </button>
         </section>
 
@@ -245,7 +245,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
             sessionResults={sessionResults}
           />
 
-          {isPredictionMode && selectedSession && isSessionPredictable && (
+          {isPredictionMode && selectedSession && (
             <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -253,43 +253,52 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                     {selectedSession} Prediction
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Drag rows to reorder your prediction
+                    {isSessionLocked 
+                      ? "This session is locked and cannot be modified." 
+                      : "Drag rows to reorder your prediction"}
                   </p>
                 </div>
-                <button
-                  onClick={saveCurrentPredictions}
-                  disabled={!hasChanges || isSubmitting}
-                  type="button"
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all duration-200",
-                    hasChanges && !isSubmitting
-                      ? "border-success bg-success text-success-foreground hover:bg-success/90"
-                      : "cursor-not-allowed border-border/30 bg-card/50 text-muted-foreground opacity-50"
-                  )}
-                >
-                  {isSubmitting ? (
-                    <LoadingSpinner size="sm" />
-                  ) : (
-                    <Trophy className="h-4 w-4" />
-                  )}
-                  {isSubmitting 
-                    ? "Saving..." 
-                    : hasSavedPrediction ? "Update Prediction" : "Save Prediction"}
-                </button>
+                {!isSessionLocked && (
+                  <button
+                    onClick={saveCurrentPredictions}
+                    disabled={!hasChanges || isSubmitting}
+                    type="button"
+                    className={cn(
+                      "flex items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all duration-200",
+                      hasChanges && !isSubmitting
+                        ? "border-success bg-success text-success-foreground hover:bg-success/90"
+                        : "cursor-not-allowed border-border/30 bg-card/50 text-muted-foreground opacity-50"
+                    )}
+                  >
+                    {isSubmitting ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <Trophy className="h-4 w-4" />
+                    )}
+                    {isSubmitting 
+                      ? "Saving..." 
+                      : hasSavedPrediction ? "Update Prediction" : "Save Prediction"}
+                  </button>
+                )}
               </div>
               
-              {loadingDrivers ? (
+              {isSessionLocked && !hasSavedPrediction ? (
+                <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
+                  <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">No prediction was submitted for this session.</p>
+                </div>
+              ) : loadingDrivers ? (
                 <div className="rounded-xl border border-border/50 bg-card/50 p-24 text-center">
                   <LoadingSpinner label="Loading driver entry list..." />
                 </div>
               ) : drivers.length > 0 ? (
-              <PredictionTable
-                key={selectedSession}
-                drivers={currentPredictions}
-                onPredictionsChange={updatePredictions}
-                onSave={saveCurrentPredictions}
-              />
-
+                <PredictionTable
+                  key={selectedSession}
+                  drivers={currentPredictions}
+                  onPredictionsChange={updatePredictions}
+                  onSave={saveCurrentPredictions}
+                  readOnly={isSessionLocked}
+                />
               ) : (
                 <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
                   <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
@@ -302,9 +311,11 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
           {isPredictionMode && !selectedSession && (
             <div className="mt-6 rounded-xl border border-accent/50 bg-accent/10 p-8 text-center">
               <Trophy className="mx-auto mb-3 h-8 w-8 text-accent" />
-              <p className="font-medium">Select a session above to make your prediction</p>
+              <p className="font-medium">Select a session above to view or make predictions</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Only upcoming sessions can be predicted
+                {isWeekendCompleted 
+                  ? "Select a completed session to view your submitted prediction" 
+                  : "Only upcoming sessions can be predicted"}
               </p>
             </div>
           )}

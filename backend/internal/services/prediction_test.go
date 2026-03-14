@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/igorracki/f1/backend/internal/database"
 	"github.com/igorracki/f1/backend/internal/models"
@@ -11,14 +12,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type mockF1Service struct {
+	F1Service
+	schedule []models.RaceWeekend
+}
+
+func (m *mockF1Service) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+	return m.schedule, nil
+}
+
 func TestPredictionService(t *testing.T) {
 	databaseManager, err := database.NewManager(":memory:")
 	require.NoError(t, err)
 	defer databaseManager.Close()
 
+	// Default future schedule for tests
+	futureSchedule := []models.RaceWeekend{
+		{
+			Round: 1,
+			Sessions: []models.Session{
+				{Type: "Race", TimeUTCMS: time.Now().Add(24 * time.Hour).UnixMilli()},
+			},
+		},
+		{
+			Round: 2,
+			Sessions: []models.Session{
+				{Type: "Qualifying", TimeUTCMS: time.Now().Add(24 * time.Hour).UnixMilli()},
+			},
+		},
+	}
+	f1Mock := &mockF1Service{schedule: futureSchedule}
+
 	predictionRepo := repository.NewPredictionRepository(databaseManager.DB())
 	userRepo := repository.NewUserRepository(databaseManager.DB())
-	predictionService := NewPredictionService(predictionRepo)
+	predictionService := NewPredictionService(predictionRepo, f1Mock)
 
 	ctx := context.Background()
 

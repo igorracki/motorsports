@@ -36,28 +36,34 @@ export function SessionSelector({
         const isStarted = session.timeUTCMS < now;
         const isLive = isSessionLive(session.timeUTCMS);
         
-        // 1. Normal mode: Always clickable
-        // 2. Prediction mode: Only clickable if it hasn't started yet
-        const isClickable = isPredictionMode ? !isStarted : true;
+        const isClickable = true
 
         return (
           <button
             key={session.type}
             onClick={() => {
-              if (isClickable) {
-                onSelectSession(isSelected ? null : session.type);
+              if (isClickable && !isSelected) {
+                onSelectSession(session.type);
               }
             }}
             type="button"
             className={cn(
               "group relative flex flex-col items-center justify-center rounded-xl border px-2 py-3 transition-all duration-200 sm:px-4",
-              isSelected
-                ? "border-primary bg-primary/20 text-primary shadow-sm shadow-primary/10"
-                : isClickable
-                  ? isPredictionMode
-                    ? "border-accent/50 bg-accent/10 text-foreground hover:border-accent hover:bg-accent/20"
-                    : "border-border/50 bg-card text-foreground hover:border-primary/50 hover:bg-primary/10"
-                  : "cursor-not-allowed border-border/30 bg-card/50 text-muted-foreground opacity-50"
+              isPredictionMode
+                ? isSelected
+                  ? isStarted
+                    ? hasPrediction
+                      ? "border-success bg-success/20 text-foreground shadow-sm shadow-success/10"
+                      : "border-green-500 bg-green-500/20 text-foreground shadow-sm shadow-green-500/10"
+                    : "border-accent bg-accent/20 text-foreground shadow-sm shadow-accent/10"
+                  : isStarted
+                    ? hasPrediction
+                      ? "border-success/50 bg-success/10 text-foreground hover:border-success hover:bg-success/20"
+                      : "border-green-500/50 bg-green-500/10 text-foreground hover:border-green-500 hover:bg-green-500/20"
+                    : "border-accent/50 bg-accent/10 text-foreground hover:border-accent hover:bg-accent/20"
+                : isSelected
+                  ? "border-primary/50 bg-primary/10 text-primary shadow-sm shadow-primary/10"
+                  : "border-border/50 bg-card text-foreground hover:border-primary/50 hover:bg-primary/10"
             )}
             disabled={!isClickable}
           >
@@ -71,11 +77,20 @@ export function SessionSelector({
                 Live
               </div>
             )}
-            <span className="text-xs font-bold sm:text-sm">{session.sessionCode || session.type}</span>
+            <span className={cn(
+              "text-xs font-bold sm:text-sm",
+              isPredictionMode
+                ? isSelected ? "text-foreground" : "text-foreground/90"
+                : isSelected ? "text-primary" : "text-foreground/90"
+            )}>
+              {session.sessionCode || session.type}
+            </span>
             <span
               className={cn(
                 "mt-1 text-[10px] sm:text-xs font-medium",
-                isSelected ? "text-primary" : "text-muted-foreground"
+                isPredictionMode
+                  ? isSelected ? "text-foreground" : "text-muted-foreground"
+                  : isSelected ? "text-primary" : "text-muted-foreground"
               )}
             >
               {formatSessionTime(session.timeUTCMS)}
@@ -85,10 +100,16 @@ export function SessionSelector({
               className={cn(
                 "mt-1 text-[10px] uppercase tracking-wider font-bold",
                 isPredictionMode
-                  ? isSelected ? "text-primary" : "text-accent"
-                  : isStarted
-                    ? hasResults ? "text-success" : (sessionResults[session.type] ? "text-muted-foreground" : "text-success")
-                    : "text-muted-foreground"
+                  ? isStarted && hasPrediction
+                    ? "text-success"
+                    : isStarted
+                      ? "text-green-500"
+                      : "text-accent"
+                  : isSelected
+                    ? "text-primary"
+                    : isStarted
+                      ? hasResults ? "text-success" : (sessionResults[session.type] ? "text-muted-foreground" : "text-success")
+                      : "text-muted-foreground"
               )}
             >
               {isPredictionMode

@@ -19,11 +19,13 @@ type PredictionService interface {
 
 type predictionService struct {
 	predictionRepository repository.PredictionRepository
+	f1Service            F1Service
 }
 
-func NewPredictionService(repo repository.PredictionRepository) PredictionService {
+func NewPredictionService(repo repository.PredictionRepository, f1 F1Service) PredictionService {
 	return &predictionService{
 		predictionRepository: repo,
+		f1Service:            f1,
 	}
 }
 
@@ -40,6 +42,11 @@ func (service *predictionService) SubmitPrediction(ctx context.Context, predicti
 		return err
 	}
 
+	if err := service.validatePredictionDeadline(ctx, prediction); err != nil {
+		slog.WarnContext(ctx, "Prediction deadline validation failed", "error", err)
+		return err
+	}
+
 	now := time.Now().UTC()
 	prediction.ID = uuid.New().String()
 	prediction.CreatedAt = now
@@ -52,6 +59,38 @@ func (service *predictionService) SubmitPrediction(ctx context.Context, predicti
 	slog.InfoContext(ctx, "Exit: SubmitPrediction",
 		"user_id", prediction.UserID,
 		"prediction_id", prediction.ID)
+	return nil
+}
+
+func (service *predictionService) validatePredictionDeadline(ctx context.Context, prediction *models.Prediction) error {
+	schedule, err := service.f1Service.GetScheduleByYear(ctx, prediction.Year)
+	if err != nil {
+		return fmt.Errorf("fetching schedule for deadline check: %w", err)
+	}
+
+	var sessionTimeMS int64
+	found := false
+	for _, weekend := range schedule {
+		if weekend.Round == prediction.Round {
+			for _, session := range weekend.Sessions {
+				if session.Type == prediction.SessionType {
+					sessionTimeMS = session.TimeUTCMS
+					found = true
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("session %s not found in round %d, %d", prediction.SessionType, prediction.Round, prediction.Year)
+	}
+
+	if time.Now().UnixMilli() >= sessionTimeMS {
+		return fmt.Errorf("prediction period has closed for this session")
+	}
+
 	return nil
 }
 

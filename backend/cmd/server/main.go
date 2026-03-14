@@ -52,7 +52,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService, userService)
 
 	predictionRepository := repository.NewPredictionRepository(databaseManager.DB())
-	predictionService := services.NewPredictionService(predictionRepository)
+	predictionService := services.NewPredictionService(predictionRepository, f1DataService)
 	predictionHandler := handlers.NewPredictionHandler(predictionService)
 
 	apiGroup := server.Group("/api")
