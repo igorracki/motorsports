@@ -24,8 +24,8 @@ func TestPredictionRepository(t *testing.T) {
 	// Create a user first for FK constraints
 	userID := uuid.New().String()
 	err = userRepo.CreateUser(ctx, &models.User{
-		ID: userID, Username: "max33", Email: "max@redbull.com", CreatedAt: time.Now(),
-	}, &models.Profile{UserID: userID, DisplayName: "Max"})
+		ID: userID, Email: "max@redbull.com", CreatedAt: time.Now(),
+	}, "hash", &models.Profile{UserID: userID, DisplayName: "Max"})
 	require.NoError(t, err)
 
 	t.Run("Save and Get Prediction", func(tt *testing.T) {
@@ -151,8 +151,8 @@ func TestPredictionRepository(t *testing.T) {
 		// Given: A new user with no predictions
 		newUserID := uuid.New().String()
 		err = userRepo.CreateUser(ctx, &models.User{
-			ID: newUserID, Username: "empty", Email: "empty@example.com", CreatedAt: time.Now(),
-		}, &models.Profile{UserID: newUserID, DisplayName: "Empty"})
+			ID: newUserID, Email: "empty@example.com", CreatedAt: time.Now(),
+		}, "hash", &models.Profile{UserID: newUserID, DisplayName: "Empty"})
 		require.NoError(tt, err)
 
 		// When

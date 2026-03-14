@@ -24,9 +24,9 @@ func TestPredictionService(t *testing.T) {
 
 	// Helper to create a user for FK constraints
 	createUser := func(id string) {
-		user := &models.User{ID: id, Username: "user_" + id, Email: id + "@example.com"}
+		user := &models.User{ID: id, Email: id + "@example.com"}
 		profile := &models.Profile{UserID: id, DisplayName: "User " + id}
-		err := userRepo.CreateUser(ctx, user, profile)
+		err := userRepo.CreateUser(ctx, user, "hash", profile)
 		require.NoError(t, err)
 	}
 

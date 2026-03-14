@@ -10,8 +10,9 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, user *models.User, profile *models.Profile) error
+	CreateUser(ctx context.Context, user *models.User, passwordHash string, profile *models.Profile) error
 	GetUserByID(ctx context.Context, id string) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, string, error)
 	GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error)
 }
 
@@ -23,8 +24,8 @@ func NewUserRepository(db *sql.DB) UserRepository {
 	return &userRepository{database: db}
 }
 
-func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.User, profile *models.Profile) error {
-	log.Printf("INFO: Attempting to create user [username: %s, email: %s]", user.Username, user.Email)
+func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.User, passwordHash string, profile *models.Profile) error {
+	log.Printf("INFO: Attempting to create user [email: %s]", user.Email)
 
 	transaction, err := userRepo.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -33,8 +34,8 @@ func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.Use
 	defer transaction.Rollback()
 
 	_, err = transaction.ExecContext(ctx,
-		"INSERT INTO users (id, username, email, created_at) VALUES (?, ?, ?, ?)",
-		user.ID, user.Username, user.Email, user.CreatedAt,
+		"INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+		user.ID, user.Email, passwordHash, user.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting user %s: %w", user.ID, err)
@@ -52,7 +53,7 @@ func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.Use
 		return fmt.Errorf("committing transaction for user %s: %w", user.ID, err)
 	}
 
-	log.Printf("INFO: Successfully created user [id: %s, username: %s]", user.ID, user.Username)
+	log.Printf("INFO: Successfully created user [id: %s, email: %s]", user.ID, user.Email)
 	return nil
 }
 
@@ -61,9 +62,9 @@ func (userRepo *userRepository) GetUserByID(ctx context.Context, id string) (*mo
 
 	user := &models.User{}
 	err := userRepo.database.QueryRowContext(ctx,
-		"SELECT id, username, email, created_at FROM users WHERE id = ?",
+		"SELECT id, email, created_at FROM users WHERE id = ?",
 		id,
-	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.CreatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -75,6 +76,28 @@ func (userRepo *userRepository) GetUserByID(ctx context.Context, id string) (*mo
 
 	log.Printf("INFO: Successfully fetched user [id: %s]", id)
 	return user, nil
+}
+
+func (userRepo *userRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, string, error) {
+	log.Printf("INFO: Fetching user [email: %s]", email)
+
+	user := &models.User{}
+	var passwordHash string
+	err := userRepo.database.QueryRowContext(ctx,
+		"SELECT id, email, password_hash, created_at FROM users WHERE email = ?",
+		email,
+	).Scan(&user.ID, &user.Email, &passwordHash, &user.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("INFO: User not found [email: %s]", email)
+			return nil, "", nil
+		}
+		return nil, "", fmt.Errorf("querying user by email %s: %w", email, err)
+	}
+
+	log.Printf("INFO: Successfully fetched user [id: %s, email: %s]", user.ID, user.Email)
+	return user, passwordHash, nil
 }
 
 func (userRepo *userRepository) GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error) {

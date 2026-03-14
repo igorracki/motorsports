@@ -204,6 +204,39 @@ export const PredictionSchema = z.object({
 
 export type Prediction = z.infer<typeof PredictionSchema>;
 
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  created_at: z.string(),
+});
+
+export type User = z.infer<typeof UserSchema>;
+
+export const ProfileSchema = z.object({
+  user_id: z.string(),
+  display_name: z.string(),
+});
+
+export type Profile = z.infer<typeof ProfileSchema>;
+
+export const UserScoreSchema = z.object({
+  user_id: z.string(),
+  score_type: z.string(),
+  season: z.number().optional(),
+  value: z.number(),
+  updated_at: z.string(),
+});
+
+export type UserScore = z.infer<typeof UserScoreSchema>;
+
+export const UserProfileResponseSchema = z.object({
+  user: UserSchema,
+  profile: ProfileSchema,
+  scores: z.array(UserScoreSchema),
+});
+
+export type UserProfileResponse = z.infer<typeof UserProfileResponseSchema>;
+
 export const ScheduleResponseSchema = z.object({
   schedule: z.array(RaceWeekendSchema),
 });

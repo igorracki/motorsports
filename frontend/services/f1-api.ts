@@ -6,8 +6,16 @@ import {
   Circuit,
   CircuitSchema,
   DriverResult,
-  DriverResultSchema
+  DriverResultSchema,
+  UserProfileResponse,
+  UserProfileResponseSchema
 } from "@/types/f1";
+import { 
+  LoginRequest, 
+  RegisterRequest, 
+  AuthResponse, 
+  AuthResponseSchema 
+} from "@/types/auth";
 import { z } from "zod";
 
 const getBaseUrl = () => {
@@ -48,6 +56,7 @@ export const f1Api = {
     try {
       const response = await fetch(url, {
         ...options,
+        credentials: options?.credentials || "include",
         headers: {
           "Content-Type": "application/json",
           ...options?.headers,
@@ -64,7 +73,13 @@ export const f1Api = {
         );
       }
 
-      return await response.json();
+      // Handle empty responses (like 204 No Content or empty 200 OK)
+      const text = await response.text();
+      if (!text) {
+        return {} as T;
+      }
+
+      return JSON.parse(text);
     } catch (error) {
       if (error instanceof ApiError) throw error;
       
@@ -123,5 +138,52 @@ export const f1Api = {
   async getCircuit(year: number, round: number): Promise<Circuit> {
     const data = await this.fetchJson<any>(`${_BASE_URL}/schedule/${year}/${round}/circuit`);
     return CircuitSchema.parse(data);
+  },
+
+  /**
+   * Auth: Login
+   */
+  async login(request: LoginRequest): Promise<AuthResponse> {
+    const data = await this.fetchJson<any>(`${_BASE_URL}/auth/login`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+    return AuthResponseSchema.parse(data);
+  },
+
+  /**
+   * Auth: Register
+   */
+  async register(request: RegisterRequest): Promise<AuthResponse> {
+    const data = await this.fetchJson<any>(`${_BASE_URL}/auth/register`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+    return AuthResponseSchema.parse(data);
+  },
+
+  /**
+   * Auth: Logout
+   */
+  async logout(): Promise<void> {
+    await this.fetchJson<void>(`${_BASE_URL}/auth/logout`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Auth: Get current user
+   */
+  async getMe(): Promise<AuthResponse> {
+    const data = await this.fetchJson<any>(`${_BASE_URL}/auth/me`);
+    return AuthResponseSchema.parse(data);
+  },
+
+  /**
+   * User: Get full profile
+   */
+  async getUserProfile(userId: string): Promise<UserProfileResponse> {
+    const data = await this.fetchJson<any>(`${_BASE_URL}/users/${userId}`);
+    return UserProfileResponseSchema.parse(data);
   }
 };

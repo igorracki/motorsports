@@ -19,32 +19,6 @@ func NewUserHandler(userService services.UserService) *UserHandler {
 	}
 }
 
-func (handler *UserHandler) RegisterUser(context echo.Context) error {
-	ctx := context.Request().Context()
-	slog.InfoContext(ctx, "Entry: RegisterUser")
-
-	var request models.RegisterUserRequest
-	if err := context.Bind(&request); err != nil {
-		slog.WarnContext(ctx, "Failed to bind registration request", "error", err)
-		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "failed to parse request body",
-		})
-	}
-
-	user, err := handler.userService.RegisterUser(ctx, request)
-	if err != nil {
-		slog.WarnContext(ctx, "User registration failed", "username", request.Username, "error", err)
-		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "registration_failed",
-			Message: err.Error(),
-		})
-	}
-
-	slog.InfoContext(ctx, "Exit: RegisterUser", "user_id", user.ID, "username", user.Username)
-	return context.JSON(http.StatusCreated, user)
-}
-
 func (handler *UserHandler) GetUserProfile(context echo.Context) error {
 	ctx := context.Request().Context()
 	userID := context.Param("id")

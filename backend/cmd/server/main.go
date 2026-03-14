@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	f1middleware "github.com/igorracki/f1/backend/internal/api/middleware"
 	"github.com/igorracki/f1/backend/internal/cache"
 	"github.com/igorracki/f1/backend/internal/clients"
 	"github.com/igorracki/f1/backend/internal/config"
@@ -31,8 +32,10 @@ func main() {
 	server.Use(middleware.Secure())
 	server.Use(middleware.BodyLimit("1M"))
 	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowOrigins:     configuration.AllowedOrigins,
+		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
 	}))
 
 	f1DataClient := clients.NewF1DataClient(configuration.ExternalAPIURL)
@@ -45,6 +48,9 @@ func main() {
 	userService := services.NewUserService(userRepository, scoreRepository)
 	userHandler := handlers.NewUserHandler(userService)
 
+	authService := services.NewAuthService(userRepository)
+	authHandler := handlers.NewAuthHandler(authService, userService)
+
 	predictionRepository := repository.NewPredictionRepository(databaseManager.DB())
 	predictionService := services.NewPredictionService(predictionRepository)
 	predictionHandler := handlers.NewPredictionHandler(predictionService)
@@ -55,7 +61,11 @@ func main() {
 	apiGroup.GET("/schedule/:year/:round/circuit", f1DataHandler.GetCircuit)
 	apiGroup.GET("/schedule/:year/:round/drivers", f1DataHandler.GetDrivers)
 
-	apiGroup.POST("/users", userHandler.RegisterUser)
+	apiGroup.POST("/auth/register", authHandler.Register)
+	apiGroup.POST("/auth/login", authHandler.Login)
+	apiGroup.POST("/auth/logout", authHandler.Logout)
+	apiGroup.GET("/auth/me", authHandler.Me, f1middleware.AuthMiddleware)
+
 	apiGroup.GET("/users/:id", userHandler.GetUserProfile)
 	apiGroup.POST("/users/:id/predictions", predictionHandler.SubmitPrediction)
 	apiGroup.GET("/users/:id/predictions", predictionHandler.GetUserPredictions)

@@ -23,8 +23,8 @@ func TestScoreRepository(t *testing.T) {
 
 	userID := uuid.New().String()
 	err = userRepo.CreateUser(ctx, &models.User{
-		ID: userID, Username: "lando4", Email: "lando@mclaren.com", CreatedAt: time.Now(),
-	}, &models.Profile{UserID: userID, DisplayName: "Lando"})
+		ID: userID, Email: "lando@mclaren.com", CreatedAt: time.Now(),
+	}, "hash", &models.Profile{UserID: userID, DisplayName: "Lando"})
 	require.NoError(t, err)
 
 	t.Run("Update and Get Scores", func(tt *testing.T) {

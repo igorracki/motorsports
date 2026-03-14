@@ -4,7 +4,6 @@ import "time"
 
 type User struct {
 	ID        string    `json:"id"`
-	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -23,9 +22,20 @@ type UserScore struct {
 }
 
 type RegisterUserRequest struct {
-	Username    string `json:"username"`
 	Email       string `json:"email"`
+	Password    string `json:"password"`
 	DisplayName string `json:"display_name"`
+}
+
+type LoginRequest struct {
+	Email      string `json:"email"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"remember_me"`
+}
+
+type AuthResponse struct {
+	User    User    `json:"user"`
+	Profile Profile `json:"profile"`
 }
 
 type UpdateProfileRequest struct {

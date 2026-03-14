@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -12,6 +13,7 @@ type Configuration struct {
 	ServerPort     int
 	ExternalAPIURL string
 	DatabasePath   string
+	AllowedOrigins []string
 }
 
 func Load() *Configuration {
@@ -22,11 +24,13 @@ func Load() *Configuration {
 	serverPort := getEnvAsInt("SERVER_PORT", 8081)
 	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8080/wrapper")
 	databasePath := getEnv("DATABASE_PATH", "f1_data.db")
+	allowedOrigins := getEnvAsSlice("ALLOWED_ORIGINS", []string{"http://localhost:3000"})
 
 	return &Configuration{
 		ServerPort:     serverPort,
 		ExternalAPIURL: externalAPIURL,
 		DatabasePath:   databasePath,
+		AllowedOrigins: allowedOrigins,
 	}
 }
 
@@ -35,6 +39,20 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvAsSlice(key string, defaultValue []string) []string {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+
+	// Split by comma
+	origins := strings.Split(valueStr, ",")
+	for i, origin := range origins {
+		origins[i] = strings.TrimSpace(origin)
+	}
+	return origins
 }
 
 func getEnvAsInt(key string, defaultValue int) int {

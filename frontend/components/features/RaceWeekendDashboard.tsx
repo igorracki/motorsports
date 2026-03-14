@@ -12,7 +12,9 @@ import { PredictionTable } from "@/components/prediction-table";
 import { usePredictions } from "@/hooks/usePredictions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { LoginModal } from "@/components/auth/LoginModal";
 import { f1Api } from "@/services/f1-api";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import type { RaceWeekend, DriverInfo, DriverResult, Circuit } from "@/types/f1";
 import { getRaceStatus, isSessionLive } from "@/lib/race-utils";
@@ -24,6 +26,8 @@ interface RaceWeekendDashboardProps {
 }
 
 export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboardProps) {
+  const { isAuthenticated } = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [circuit, setCircuit] = useState<Circuit | null>(null);
   const [sessionResults, setSessionResults] = useState<Record<string, DriverResult[]>>({});
@@ -110,6 +114,14 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
       updatePredictions(drivers);
     }
   }, [drivers, currentPredictions.length, updatePredictions]);
+
+  const handlePredictClick = () => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
+    togglePredictionMode();
+  };
 
   const status = getRaceStatus(year, raceWeekend.round, raceWeekend);
   const canPredict = status !== "completed";
@@ -204,7 +216,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
 
         <section className="mb-6">
           <button
-            onClick={togglePredictionMode}
+            onClick={handlePredictClick}
             disabled={!canPredict}
             type="button"
             className={cn(
@@ -320,6 +332,12 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
           )}
         </section>
       </main>
+
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={() => togglePredictionMode()}
+      />
     </div>
   );
 }

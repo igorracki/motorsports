@@ -25,7 +25,6 @@ func TestUserRepository(t *testing.T) {
 		userID := uuid.New().String()
 		user := &models.User{
 			ID:        userID,
-			Username:  "lewis44",
 			Email:     "lewis@mercedes.com",
 			CreatedAt: time.Now().UTC().Truncate(time.Second),
 		}
@@ -35,7 +34,7 @@ func TestUserRepository(t *testing.T) {
 		}
 
 		// When
-		err := userRepo.CreateUser(ctx, user, profile)
+		err := userRepo.CreateUser(ctx, user, "hash", profile)
 		require.NoError(tt, err)
 
 		fetchedUser, err := userRepo.GetUserByID(ctx, userID)
@@ -43,7 +42,6 @@ func TestUserRepository(t *testing.T) {
 
 		// Then
 		assert.NotNil(tt, fetchedUser)
-		assert.Equal(tt, user.Username, fetchedUser.Username)
 		assert.Equal(tt, user.Email, fetchedUser.Email)
 		assert.True(tt, user.CreatedAt.Equal(fetchedUser.CreatedAt))
 	})
@@ -62,39 +60,22 @@ func TestUserRepository(t *testing.T) {
 		userID1 := uuid.New().String()
 		user1 := &models.User{
 			ID:        userID1,
-			Username:  "charles16",
 			Email:     "charles@ferrari.com",
 			CreatedAt: time.Now().UTC().Truncate(time.Second),
 		}
 		profile1 := &models.Profile{UserID: userID1, DisplayName: "Charles"}
-		err := userRepo.CreateUser(ctx, user1, profile1)
+		err := userRepo.CreateUser(ctx, user1, "hash", profile1)
 		require.NoError(tt, err)
-
-		// When: Duplicate username
-		userID2 := uuid.New().String()
-		user2 := &models.User{
-			ID:        userID2,
-			Username:  "charles16", // Duplicate
-			Email:     "other@ferrari.com",
-			CreatedAt: time.Now().UTC().Truncate(time.Second),
-		}
-		profile2 := &models.Profile{UserID: userID2, DisplayName: "Other"}
-		err = userRepo.CreateUser(ctx, user2, profile2)
-
-		// Then
-		assert.Error(tt, err)
-		assert.Contains(tt, err.Error(), "UNIQUE constraint failed: users.username")
 
 		// When: Duplicate email
 		userID3 := uuid.New().String()
 		user3 := &models.User{
 			ID:        userID3,
-			Username:  "carlos55",
 			Email:     "charles@ferrari.com", // Duplicate
 			CreatedAt: time.Now().UTC().Truncate(time.Second),
 		}
 		profile3 := &models.Profile{UserID: userID3, DisplayName: "Carlos"}
-		err = userRepo.CreateUser(ctx, user3, profile3)
+		err = userRepo.CreateUser(ctx, user3, "hash", profile3)
 
 		// Then
 		assert.Error(tt, err)
