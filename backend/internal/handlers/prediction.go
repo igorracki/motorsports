@@ -12,12 +12,19 @@ import (
 
 type PredictionHandler struct {
 	predictionService services.PredictionService
+	scoringService    services.ScoringService
 }
 
-func NewPredictionHandler(service services.PredictionService) *PredictionHandler {
+func NewPredictionHandler(service services.PredictionService, scoring services.ScoringService) *PredictionHandler {
 	return &PredictionHandler{
 		predictionService: service,
+		scoringService:    scoring,
 	}
+}
+
+func (handler *PredictionHandler) GetScoringRules(context echo.Context) error {
+	rules := handler.scoringService.GetScoringRules()
+	return context.JSON(http.StatusOK, rules)
 }
 
 func (handler *PredictionHandler) SubmitPrediction(context echo.Context) error {

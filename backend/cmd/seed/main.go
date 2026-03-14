@@ -91,7 +91,11 @@ func main() {
 			continue
 		}
 
+		seededSessions := 0
 		for _, weekend := range schedule {
+			if seededSessions >= 3 {
+				break
+			}
 			log.Printf("  Round %d: %s", weekend.Round, weekend.FullName)
 
 			// Fetch drivers for this weekend
@@ -111,12 +115,17 @@ func main() {
 					continue
 				}
 
+				if seededSessions >= 3 {
+					break
+				}
+
 				log.Printf("    Seeding session: %s", session.Type)
 
 				for _, email := range []string{"test1@test.com", "test2@test.com"} {
 					userID := userIDs[email]
 					seedRandomPrediction(db, userID, year, weekend.Round, session.Type, drivers)
 				}
+				seededSessions++
 			}
 		}
 	}

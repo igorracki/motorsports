@@ -10,7 +10,9 @@ import {
   UserProfileResponse,
   UserProfileResponseSchema,
   Prediction,
-  PredictionSchema
+  PredictionSchema,
+  SessionScoringRules,
+  SessionScoringRulesSchema
 } from "@/types/f1";
 import { 
   LoginRequest, 
@@ -190,6 +192,14 @@ export const f1Api = {
   },
 
   /**
+   * User: Get season scores/stats
+   */
+  async getSeasonScores(userId: string): Promise<any[]> {
+    const data = await this.fetchJson<any[]>(`${_BASE_URL}/users/${userId}/stats/seasons`);
+    return data || [];
+  },
+
+  /**
    * Predictions: Get predictions for a specific round
    */
   async getRoundPredictions(userId: string, year: number, round: number): Promise<Prediction[]> {
@@ -208,5 +218,13 @@ export const f1Api = {
       body: JSON.stringify(prediction),
     });
     return PredictionSchema.parse(data);
+  },
+
+  /**
+   * Predictions: Get scoring rules
+   */
+  async getScoringRules(): Promise<SessionScoringRules[]> {
+    const data = await this.fetchJson<any[]>(`${_BASE_URL}/predictions/scoring-rules`);
+    return z.array(SessionScoringRulesSchema).parse(data || []);
   }
 };

@@ -15,6 +15,8 @@ export const DriverInfoSchema = z
     countryCode: data.country_code,
     teamName: data.team_name,
     isPredicted: false, // UI tracking only
+    correct: false,      // UI tracking only
+    points: 0,          // UI tracking only
   }));
 
 export type DriverInfo = z.infer<typeof DriverInfoSchema>;
@@ -188,11 +190,13 @@ export const PredictionEntrySchema = z
     prediction_id: z.string(),
     position: z.number(),
     driver_id: z.string(),
+    correct: z.boolean().optional(),
   })
   .transform((data) => ({
     predictionId: data.prediction_id,
     position: data.position,
     driverId: data.driver_id,
+    correct: data.correct,
   }));
 
 export type PredictionEntry = z.infer<typeof PredictionEntrySchema>;
@@ -261,3 +265,20 @@ export const ScheduleResponseSchema = z.object({
 });
 
 export type ScheduleResponse = z.infer<typeof ScheduleResponseSchema>;
+
+export const PositionPointsSchema = z.object({
+  position: z.number(),
+  points: z.number(),
+});
+
+export type PositionPoints = z.infer<typeof PositionPointsSchema>;
+
+export const SessionScoringRulesSchema = z.object({
+  session_type: z.string(),
+  rules: z.array(PositionPointsSchema),
+}).transform(data => ({
+  sessionType: data.session_type,
+  rules: data.rules,
+}));
+
+export type SessionScoringRules = z.infer<typeof SessionScoringRulesSchema>;

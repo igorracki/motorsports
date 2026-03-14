@@ -2,12 +2,19 @@
 
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { LogOut, User as UserIcon, Mail, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LogOut, User as UserIcon, Mail, Calendar, Trophy } from "lucide-react";
 import { MainNav } from "@/components/main-nav";
+import { f1Api } from "@/services/f1-api";
+import type { UserProfileResponse, UserScore } from "@/types/f1";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ProfilePage() {
   const { user, profile, isAuthenticated, isLoading, logout } = useAuth();
+  const [fullProfile, setFullProfile] = useState<UserProfileResponse | null>(null);
+  const [seasonScores, setSeasonScores] = useState<UserScore[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingScores, setLoadingScores] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -15,6 +22,22 @@ export default function ProfilePage() {
       router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setLoadingProfile(true);
+      f1Api.getUserProfile(user.id)
+        .then(setFullProfile)
+        .catch(err => console.error("Failed to fetch full profile:", err))
+        .finally(() => setLoadingProfile(false));
+
+      setLoadingScores(true);
+      f1Api.getSeasonScores(user.id)
+        .then(setSeasonScores)
+        .catch(err => console.error("Failed to fetch season scores:", err))
+        .finally(() => setLoadingScores(false));
+    }
+  }, [isAuthenticated, user]);
 
   if (isLoading) {
     return (
@@ -29,7 +52,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-screen bg-background text-white pb-20">
       <MainNav />
       
       <div className="p-4 md:p-8">
@@ -85,12 +108,51 @@ export default function ProfilePage() {
           </div>
         </main>
 
-        <section className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 space-y-4">
-          <h3 className="text-xl font-bold">Prediction Dashboard</h3>
-          <p className="text-slate-400 italic">Dashboard coming soon... Stay tuned for your performance metrics!</p>
-          <div className="h-32 rounded-xl bg-slate-950/50 border border-dashed border-slate-800 flex items-center justify-center">
-             <p className="text-slate-600 text-sm">No recent prediction history found</p>
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold">Prediction Dashboard</h3>
+            {loadingScores && <Skeleton className="h-4 w-24" />}
           </div>
+          
+          {loadingScores ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[1, 2].map(i => (
+                <Skeleton key={i} className="h-32 rounded-2xl" />
+              ))}
+            </div>
+          ) : seasonScores.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {seasonScores.sort((a, b) => (b.season || 0) - (a.season || 0)).map((score) => (
+                <div 
+                  key={score.season}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50 p-6 transition-all duration-300 hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/5"
+                >
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wider text-slate-500 group-hover:text-red-400/80 transition-colors">
+                        {score.season} Season
+                      </p>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-3xl font-bold text-white transition-transform group-hover:scale-105 inline-block">
+                          {score.value}
+                        </span>
+                        <span className="text-sm font-medium text-slate-400">Points</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-red-500/10 p-3 text-red-500 transition-colors group-hover:bg-red-500/20">
+                      <Trophy className="h-6 w-6" />
+                    </div>
+                  </div>
+                  {/* Decorative background element */}
+                  <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-red-500/5 blur-2xl group-hover:bg-red-500/10 transition-colors" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-32 rounded-xl bg-slate-950/50 border border-dashed border-slate-800 flex items-center justify-center animate-in fade-in duration-500">
+              <p className="text-slate-600 text-sm">No recent prediction history found</p>
+            </div>
+          )}
         </section>
       </div>
     </div>

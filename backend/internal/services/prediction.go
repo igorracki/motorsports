@@ -20,12 +20,14 @@ type PredictionService interface {
 type predictionService struct {
 	predictionRepository repository.PredictionRepository
 	f1Service            F1Service
+	scoringService       ScoringService
 }
 
-func NewPredictionService(repo repository.PredictionRepository, f1 F1Service) PredictionService {
+func NewPredictionService(repo repository.PredictionRepository, f1 F1Service, scoring ScoringService) PredictionService {
 	return &predictionService{
 		predictionRepository: repo,
 		f1Service:            f1,
+		scoringService:       scoring,
 	}
 }
 
@@ -42,13 +44,20 @@ func (service *predictionService) SubmitPrediction(ctx context.Context, predicti
 		return err
 	}
 
-	if err := service.validatePredictionDeadline(ctx, prediction); err != nil {
-		slog.WarnContext(ctx, "Prediction deadline validation failed", "error", err)
+	sessionTimeMS, err := service.getSessionStartTimeMS(ctx, prediction.Year, prediction.Round, prediction.SessionType)
+	if err != nil {
+		slog.WarnContext(ctx, "Failed to get session time for deadline check", "error", err)
 		return err
 	}
 
+	if time.Now().UTC().UnixMilli() >= sessionTimeMS {
+		return fmt.Errorf("prediction period has closed for this session")
+	}
+
 	now := time.Now().UTC()
+	revalidateUntil := time.UnixMilli(sessionTimeMS + (48 * 3600 * 1000)).UTC()
 	prediction.ID = uuid.New().String()
+	prediction.RevalidateUntil = &revalidateUntil
 	prediction.CreatedAt = now
 	prediction.UpdatedAt = now
 
@@ -102,6 +111,10 @@ func (service *predictionService) GetUserPredictions(ctx context.Context, userID
 		return nil, err
 	}
 
+	for i := range predictions {
+		service.processPredictionScore(ctx, &predictions[i])
+	}
+
 	slog.InfoContext(ctx, "Exit: GetUserPredictions", "user_id", userID, "count", len(predictions))
 	return predictions, nil
 }
@@ -114,8 +127,105 @@ func (service *predictionService) GetRoundPredictions(ctx context.Context, userI
 		return nil, err
 	}
 
+	for i := range predictions {
+		service.processPredictionScore(ctx, &predictions[i])
+	}
+
 	slog.InfoContext(ctx, "Exit: GetRoundPredictions", "user_id", userID, "year", year, "round", round, "count", len(predictions))
 	return predictions, nil
+}
+
+func (service *predictionService) processPredictionScore(ctx context.Context, prediction *models.Prediction) {
+	now := time.Now().UTC().UnixMilli()
+
+	// Short-circuit if we already have a score and we are past the revalidation window
+	if prediction.Score != nil && prediction.RevalidateUntil != nil && now > prediction.RevalidateUntil.UnixMilli() {
+		return
+	}
+
+	sessionTimeMS, err := service.getSessionStartTimeMS(ctx, prediction.Year, prediction.Round, prediction.SessionType)
+	if err != nil {
+		return
+	}
+
+	// If revalidate_until is missing, it's an old record. Set it now for future optimization.
+	if prediction.RevalidateUntil == nil {
+		revalidateUntil := time.UnixMilli(sessionTimeMS + (48 * 3600 * 1000)).UTC()
+		prediction.RevalidateUntil = &revalidateUntil
+	}
+
+	// Session is considered "potentially completed" if it started more than 2 hours ago
+	isCompleted := now > sessionTimeMS+(2*3600*1000)
+	// We re-validate scores for 48 hours after the session start
+	isInRevalidationWindow := now < sessionTimeMS+(48*3600*1000)
+
+	if !isCompleted {
+		return
+	}
+
+	// Calculate if score is missing or we are in the revalidation window
+	if prediction.Score == nil || isInRevalidationWindow {
+		service.syncScoreWithResults(ctx, prediction)
+	}
+}
+
+func (service *predictionService) getSessionStartTimeMS(ctx context.Context, year, round int, sessionType string) (int64, error) {
+	schedule, err := service.f1Service.GetScheduleByYear(ctx, year)
+	if err != nil {
+		return 0, err
+	}
+
+	for _, weekend := range schedule {
+		if weekend.Round == round {
+			for _, session := range weekend.Sessions {
+				if session.Type == sessionType {
+					return session.TimeUTCMS, nil
+				}
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("session %s not found in round %d, %d", sessionType, round, year)
+}
+
+func (service *predictionService) syncScoreWithResults(ctx context.Context, prediction *models.Prediction) {
+
+	results, err := service.f1Service.GetSessionResults(ctx, prediction.Year, prediction.Round, prediction.SessionType)
+	if err != nil || results == nil || len(results.Results) == 0 {
+		return
+	}
+
+	newScore, correctness := service.scoringService.CalculateScore(prediction, results)
+
+	if !service.hasPredictionChanged(prediction, newScore, correctness) {
+		return
+	}
+
+	prediction.Score = &newScore
+	for j := range prediction.Entries {
+		prediction.Entries[j].Correct = correctness[j]
+	}
+	prediction.UpdatedAt = time.Now().UTC()
+
+	if err := service.predictionRepository.SavePrediction(ctx, prediction); err != nil {
+		slog.ErrorContext(ctx, "Failed to persist updated prediction score",
+			"error", err,
+			"prediction_id", prediction.ID)
+	}
+}
+
+func (service *predictionService) hasPredictionChanged(prediction *models.Prediction, newScore int, correctness []bool) bool {
+	if prediction.Score == nil || *prediction.Score != newScore {
+		return true
+	}
+
+	for j, entry := range prediction.Entries {
+		if entry.Correct != correctness[j] {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (service *predictionService) validatePrediction(prediction *models.Prediction) error {

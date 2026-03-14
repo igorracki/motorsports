@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { DriverInfo, Prediction } from "@/types/f1";
+import type { DriverInfo, Prediction, SessionScoringRules } from "@/types/f1";
 import { f1Api } from "@/services/f1-api";
 import { useAuth } from "./useAuth";
 
@@ -7,8 +7,9 @@ export function usePredictions(initialDrivers: DriverInfo[], year: number, round
   const { user, isAuthenticated } = useAuth();
   const [isPredictionMode, setIsPredictionMode] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [scoringRules, setScoringRules] = useState<SessionScoringRules[]>([]);
   const [currentPredictions, setCurrentPredictions] = useState<DriverInfo[]>(
-    initialDrivers.map(d => ({ ...d, isPredicted: false }))
+    initialDrivers.map(d => ({ ...d, isPredicted: false, correct: false, points: 0 }))
   );
   // Store predictions fetched from backend: { [sessionCode]: Prediction }
   const [savedPredictions, setSavedPredictions] = useState<Record<string, Prediction>>({});
@@ -21,14 +22,19 @@ export function usePredictions(initialDrivers: DriverInfo[], year: number, round
     if (!isAuthenticated || !user) return;
 
     try {
-      const predictions = await f1Api.getRoundPredictions(user.id, year, round);
+      const [predictions, rules] = await Promise.all([
+        f1Api.getRoundPredictions(user.id, year, round),
+        f1Api.getScoringRules()
+      ]);
+      
       const predictionMap: Record<string, Prediction> = {};
       predictions.forEach(p => {
         predictionMap[p.sessionType] = p;
       });
       setSavedPredictions(predictionMap);
+      setScoringRules(rules);
     } catch (error) {
-      console.error("Failed to fetch predictions:", error);
+      console.error("Failed to fetch predictions or rules:", error);
     }
   }, [isAuthenticated, user, year, round]);
 
@@ -42,25 +48,53 @@ export function usePredictions(initialDrivers: DriverInfo[], year: number, round
   const getDriverListWithPredictions = useCallback((sessionCode: string) => {
     const saved = savedPredictions[sessionCode];
     if (!saved || !saved.entries) {
-      return initialDrivers.map(d => ({ ...d, isPredicted: false }));
+      return initialDrivers.map(d => ({ ...d, isPredicted: false, correct: false, points: 0 }));
     }
 
     // Sort drivers based on saved positions
-    const predictedDrivers = [...initialDrivers].map(d => ({ ...d, isPredicted: false }));
+    const predictedDrivers = [...initialDrivers].map(d => ({ ...d, isPredicted: false, correct: false, points: 0 }));
     
-    // Create a map of driver_id -> position
-    const positionMap = new Map(saved.entries.map(e => [e.driverId, e.position]));
+    // Create a map of driver_id -> { position, correct }
+    const predictionMap = new Map(saved.entries.map(e => [e.driverId, { position: e.position, correct: e.correct }]));
     
+    // Find scoring rules for this session
+    // We need to handle session type mapping (Race, Sprint, Qualifying, Practice 1, etc.)
+    // Backend uses standard names.
+    const sessionRules = scoringRules.find(r => 
+      r.sessionType === sessionCode || 
+      (sessionCode === "R" && r.sessionType === "Race") ||
+      (sessionCode === "S" && r.sessionType === "Sprint") ||
+      (sessionCode === "Q" && r.sessionType === "Qualifying") ||
+      (sessionCode === "SQ" && r.sessionType === "Sprint Qualifying") ||
+      (sessionCode.startsWith("FP") && r.sessionType.startsWith("Practice"))
+    );
+
     // Sort and mark as predicted
     return predictedDrivers.sort((a, b) => {
-      const posA = positionMap.get(a.id) || 999;
-      const posB = positionMap.get(b.id) || 999;
+      const predA = predictionMap.get(a.id);
+      const predB = predictionMap.get(b.id);
+      const posA = predA?.position || 999;
+      const posB = predB?.position || 999;
       return posA - posB;
-    }).map(d => ({
-      ...d,
-      isPredicted: positionMap.has(d.id)
-    }));
-  }, [initialDrivers, savedPredictions]);
+    }).map(d => {
+      const pred = predictionMap.get(d.id);
+      const isPredicted = !!pred;
+      const correct = pred?.correct || false;
+      let points = 0;
+      
+      if (correct && pred && sessionRules) {
+        const rule = sessionRules.rules.find(r => r.position === pred.position);
+        points = rule ? rule.points : 0;
+      }
+
+      return {
+        ...d,
+        isPredicted,
+        correct,
+        points
+      };
+    });
+  }, [initialDrivers, savedPredictions, scoringRules]);
 
   const handleSessionSelect = useCallback((sessionCode: string | null) => {
     if (sessionCode) {

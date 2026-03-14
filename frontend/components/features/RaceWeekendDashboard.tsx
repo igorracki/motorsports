@@ -291,15 +291,17 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 <div className="rounded-xl border border-border/50 bg-card/50 p-24 text-center">
                   <LoadingSpinner label="Loading driver entry list..." />
                 </div>
-              ) : drivers.length > 0 ? (
-                <PredictionTable
-                  key={selectedSession}
-                  drivers={currentPredictions}
-                  onPredictionsChange={updatePredictions}
-                  onSave={saveCurrentPredictions}
-                  readOnly={isSessionLocked}
-                />
-              ) : (
+                ) : drivers.length > 0 ? (
+                  <PredictionTable
+                    key={selectedSession}
+                    drivers={currentPredictions}
+                    onPredictionsChange={updatePredictions}
+                    onSave={saveCurrentPredictions}
+                    readOnly={isSessionLocked}
+                    totalScore={selectedSession ? savedPredictions[selectedSession]?.score : undefined}
+                  />
+                ) : (
+
                 <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
                   <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
                   <p className="text-muted-foreground">No driver information available for this session yet.</p>

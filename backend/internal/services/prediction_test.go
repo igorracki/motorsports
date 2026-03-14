@@ -45,7 +45,8 @@ func TestPredictionService(t *testing.T) {
 
 	predictionRepo := repository.NewPredictionRepository(databaseManager.DB())
 	userRepo := repository.NewUserRepository(databaseManager.DB())
-	predictionService := NewPredictionService(predictionRepo, f1Mock)
+	scoringService := NewScoringService()
+	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService)
 
 	ctx := context.Background()
 

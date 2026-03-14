@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { useState, useCallback } from "react";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DriverInfo } from "@/types/f1";
 
@@ -12,6 +12,7 @@ interface PredictionTableProps {
   onPredictionsChange: (predictions: DriverInfo[]) => void;
   onSave: (predictions: DriverInfo[]) => void;
   readOnly?: boolean;
+  totalScore?: number;
 }
 
 export function PredictionTable({
@@ -19,6 +20,7 @@ export function PredictionTable({
   onPredictionsChange,
   onSave,
   readOnly = false,
+  totalScore,
 }: PredictionTableProps) {
   // Notify parent of changes
   const updatePredictions = useCallback(
@@ -195,6 +197,17 @@ export function PredictionTable({
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Team
               </th>
+              <th className="w-20 px-3 py-3 text-right text-xs font-bold tracking-wider text-foreground">
+                {totalScore !== undefined && totalScore !== null ? (
+                  <div className="flex items-center justify-end gap-1.5 text-success">
+                    <span className="text-[10px] text-muted-foreground font-semibold uppercase">Total:</span>
+                    <span>{totalScore}</span>
+                    <Trophy className="h-3 w-3 fill-success/20" />
+                  </div>
+                ) : (
+                  "Points"
+                )}
+              </th>
               <th className="w-10 px-2 py-3"></th>
             </tr>
           </thead>
@@ -214,15 +227,17 @@ export function PredictionTable({
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 className={cn(
-                  "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
-                  draggedIndex === index && "opacity-50",
-                  dragOverIndex === index &&
-                    draggedIndex !== null &&
-                    "bg-primary/10 border-primary/50",
-                  dragOverIndex !== index && "hover:bg-secondary/30",
-                  driver.isPredicted && "bg-blue-500/5 border-blue-500/20"
-                )}
-              >
+                   "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
+                   draggedIndex === index && "opacity-50",
+                   dragOverIndex === index &&
+                     draggedIndex !== null &&
+                     "bg-primary/10 border-primary/50",
+                   dragOverIndex !== index && "hover:bg-secondary/30",
+                   driver.isPredicted && !driver.correct && "bg-blue-500/5 border-blue-500/20",
+                   driver.correct && "bg-success/10 border-success/30"
+                 )}
+               >
+
                 <td className="px-3 py-3 text-center">
                   <span
                     className={cn(
@@ -258,10 +273,19 @@ export function PredictionTable({
                 <td className="px-3 py-3 text-center font-mono text-sm font-bold text-muted-foreground/80">
                   {driver.number}
                 </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {driver.teamName}
-                </td>
-                <td className="px-2 py-3 text-right">
+                 <td className="px-4 py-3 text-sm text-muted-foreground">
+                   {driver.teamName}
+                 </td>
+                 <td className="px-3 py-3 text-right">
+                   {driver.correct && driver.points > 0 && (
+                     <div className="flex items-center justify-end gap-1 font-bold text-success animate-in fade-in zoom-in duration-500">
+                       <span className="text-sm">+{driver.points}</span>
+                       <Trophy className="h-3 w-3 fill-success/20" />
+                     </div>
+                   )}
+                 </td>
+                 <td className="px-2 py-3 text-right">
+
                   <GripVertical className="h-5 w-5 text-muted-foreground/30" />
                 </td>
               </tr>

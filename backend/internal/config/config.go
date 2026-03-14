@@ -21,8 +21,8 @@ func Load() *Configuration {
 		log.Println("No .env file found, using environment variables")
 	}
 
-	serverPort := getEnvAsInt("SERVER_PORT", 8081)
-	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8080/wrapper")
+	serverPort := getEnvAsInt("SERVER_PORT", 8080)
+	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8081/wrapper")
 	databasePath := getEnv("DATABASE_PATH", "f1_data.db")
 	allowedOrigins := getEnvAsSlice("ALLOWED_ORIGINS", []string{"http://localhost:3000"})
 

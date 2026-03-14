@@ -35,13 +35,14 @@ func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, 
 	defer transaction.Rollback()
 
 	_, err = transaction.ExecContext(ctx, `
-		INSERT INTO predictions (id, user_id, year, round, session_type, score, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO predictions (id, user_id, year, round, session_type, score, revalidate_until, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, year, round, session_type) DO UPDATE SET
 			score = excluded.score,
+			revalidate_until = excluded.revalidate_until,
 			updated_at = excluded.updated_at
 	`, prediction.ID, prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType,
-		prediction.Score, prediction.CreatedAt, prediction.UpdatedAt)
+		prediction.Score, prediction.RevalidateUntil, prediction.CreatedAt, prediction.UpdatedAt)
 
 	if err != nil {
 		return fmt.Errorf("upserting prediction header: %w", err)
@@ -64,8 +65,8 @@ func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, 
 
 	for _, entry := range prediction.Entries {
 		_, err = transaction.ExecContext(ctx,
-			"INSERT INTO prediction_entries (prediction_id, position, driver_id) VALUES (?, ?, ?)",
-			prediction.ID, entry.Position, entry.DriverID,
+			"INSERT INTO prediction_entries (prediction_id, position, driver_id, correct) VALUES (?, ?, ?, ?)",
+			prediction.ID, entry.Position, entry.DriverID, entry.Correct,
 		)
 		if err != nil {
 			return fmt.Errorf("inserting prediction entry [pos: %d, driver: %s]: %w", entry.Position, entry.DriverID, err)
@@ -93,11 +94,11 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 	}
 
 	err := predictionRepo.database.QueryRowContext(ctx, `
-		SELECT id, score, created_at, updated_at 
+		SELECT id, score, revalidate_until, created_at, updated_at 
 		FROM predictions 
 		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`,
 		userID, year, round, sessionType,
-	).Scan(&prediction.ID, &prediction.Score, &prediction.CreatedAt, &prediction.UpdatedAt)
+	).Scan(&prediction.ID, &prediction.Score, &prediction.RevalidateUntil, &prediction.CreatedAt, &prediction.UpdatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -108,7 +109,7 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 	}
 
 	rows, err := predictionRepo.database.QueryContext(ctx, `
-		SELECT position, driver_id 
+		SELECT position, driver_id, correct 
 		FROM prediction_entries 
 		WHERE prediction_id = ? 
 		ORDER BY position ASC`,
@@ -122,7 +123,7 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 	for rows.Next() {
 		var entry models.PredictionEntry
 		entry.PredictionID = prediction.ID
-		if err := rows.Scan(&entry.Position, &entry.DriverID); err != nil {
+		if err := rows.Scan(&entry.Position, &entry.DriverID, &entry.Correct); err != nil {
 			return nil, fmt.Errorf("scanning prediction entry: %w", err)
 		}
 		prediction.Entries = append(prediction.Entries, entry)
@@ -136,7 +137,7 @@ func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Conte
 	log.Printf("INFO: Fetching all predictions for user [user_id: %s]", userID)
 
 	rows, err := predictionRepo.database.QueryContext(ctx, `
-		SELECT id, year, round, session_type, score, created_at, updated_at 
+		SELECT id, year, round, session_type, score, revalidate_until, created_at, updated_at 
 		FROM predictions 
 		WHERE user_id = ?
 		ORDER BY year DESC, round DESC, session_type ASC`,
@@ -152,7 +153,7 @@ func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Conte
 		var p models.Prediction
 		p.UserID = userID
 		p.Entries = []models.PredictionEntry{}
-		if err := rows.Scan(&p.ID, &p.Year, &p.Round, &p.SessionType, &p.Score, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Year, &p.Round, &p.SessionType, &p.Score, &p.RevalidateUntil, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning prediction: %w", err)
 		}
 		predictions = append(predictions, p)
@@ -170,7 +171,7 @@ func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Cont
 	log.Printf("INFO: Fetching round predictions [user_id: %s, year: %d, round: %d]", userID, year, round)
 
 	rows, err := predictionRepo.database.QueryContext(ctx, `
-		SELECT id, session_type, score, created_at, updated_at 
+		SELECT id, session_type, score, revalidate_until, created_at, updated_at 
 		FROM predictions 
 		WHERE user_id = ? AND year = ? AND round = ?
 		ORDER BY session_type ASC`,
@@ -188,7 +189,7 @@ func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Cont
 		p.Year = year
 		p.Round = round
 		p.Entries = []models.PredictionEntry{}
-		if err := rows.Scan(&p.ID, &p.SessionType, &p.Score, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.SessionType, &p.Score, &p.RevalidateUntil, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning round prediction: %w", err)
 		}
 		predictions = append(predictions, p)
@@ -210,7 +211,7 @@ func (predictionRepo *predictionRepository) fetchEntriesForPredictions(ctx conte
 
 	for i := range predictions {
 		rows, err := predictionRepo.database.QueryContext(ctx, `
-			SELECT position, driver_id 
+			SELECT position, driver_id, correct 
 			FROM prediction_entries 
 			WHERE prediction_id = ? 
 			ORDER BY position ASC`,
@@ -224,7 +225,7 @@ func (predictionRepo *predictionRepository) fetchEntriesForPredictions(ctx conte
 		for rows.Next() {
 			var entry models.PredictionEntry
 			entry.PredictionID = predictions[i].ID
-			if err := rows.Scan(&entry.Position, &entry.DriverID); err != nil {
+			if err := rows.Scan(&entry.Position, &entry.DriverID, &entry.Correct); err != nil {
 				return fmt.Errorf("scanning entry for prediction %s: %w", predictions[i].ID, err)
 			}
 			predictions[i].Entries = append(predictions[i].Entries, entry)

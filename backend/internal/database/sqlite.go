@@ -78,6 +78,7 @@ func (manager *Manager) setup() error {
 		round INTEGER NOT NULL,
 		session_type TEXT NOT NULL,
 		score INTEGER,
+		revalidate_until TIMESTAMP,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -88,6 +89,7 @@ func (manager *Manager) setup() error {
 		prediction_id TEXT NOT NULL,
 		position INTEGER NOT NULL,
 		driver_id TEXT NOT NULL,
+		correct INTEGER NOT NULL DEFAULT 0,
 		PRIMARY KEY (prediction_id, position),
 		FOREIGN KEY (prediction_id) REFERENCES predictions(id) ON DELETE CASCADE
 	);`
@@ -95,6 +97,12 @@ func (manager *Manager) setup() error {
 	if _, err := manager.databaseConnection.Exec(schema); err != nil {
 		return fmt.Errorf("creating schema: %w", err)
 	}
+
+	// Migration: Add correct column to prediction_entries if it doesn't exist
+	_, _ = manager.databaseConnection.Exec("ALTER TABLE prediction_entries ADD COLUMN correct INTEGER NOT NULL DEFAULT 0")
+
+	// Migration: Add revalidate_until column to predictions if it doesn't exist
+	_, _ = manager.databaseConnection.Exec("ALTER TABLE predictions ADD COLUMN revalidate_until TIMESTAMP")
 
 	return nil
 }

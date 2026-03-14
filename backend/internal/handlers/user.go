@@ -43,3 +43,28 @@ func (handler *UserHandler) GetUserProfile(context echo.Context) error {
 	slog.InfoContext(ctx, "Exit: GetUserProfile", "user_id", userID)
 	return context.JSON(http.StatusOK, profile)
 }
+
+func (handler *UserHandler) GetSeasonScores(context echo.Context) error {
+	ctx := context.Request().Context()
+	userID := context.Param("id")
+	slog.InfoContext(ctx, "Entry: GetSeasonScores", "user_id", userID)
+
+	if userID == "" {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "missing_parameter",
+			Message: "must provide a user id",
+		})
+	}
+
+	scores, err := handler.userService.GetSeasonScores(ctx, userID)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to fetch season scores", "user_id", userID, "error", err)
+		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error:   "fetch_failed",
+			Message: err.Error(),
+		})
+	}
+
+	slog.InfoContext(ctx, "Exit: GetSeasonScores", "user_id", userID, "count", len(scores))
+	return context.JSON(http.StatusOK, scores)
+}
