@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, User as UserIcon, Mail, Calendar, Trophy } from "lucide-react";
+import { LogOut, User as UserIcon, Mail, Calendar, Trophy, Copy, Check } from "lucide-react";
 import { MainNav } from "@/components/main-nav";
 import { f1Api } from "@/services/f1-api";
 import type { UserProfileResponse, UserScore } from "@/types/f1";
@@ -15,7 +15,15 @@ export default function ProfilePage() {
   const [seasonScores, setSeasonScores] = useState<UserScore[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingScores, setLoadingScores] = useState(true);
+  const [copied, setCopied] = useState(false);
   const router = useRouter();
+
+  const handleCopyId = () => {
+    if (!user?.id) return;
+    navigator.clipboard.writeText(user.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -86,9 +94,22 @@ export default function ProfilePage() {
               </div>
               <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800/50 space-y-1">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Account ID</p>
-                <div className="flex items-center gap-2">
-                  <UserIcon className="h-4 w-4 text-red-500" />
-                  <p className="font-mono text-xs">{user.id.substring(0, 8)}...</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <UserIcon className="h-4 w-4 text-red-500 shrink-0" />
+                    <p className="font-mono text-xs truncate" title={user.id}>{user.id}</p>
+                  </div>
+                  <button 
+                    onClick={handleCopyId}
+                    className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+                    title="Copy ID"
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-slate-400 group-hover:text-white" />
+                    )}
+                  </button>
                 </div>
               </div>
             </div>

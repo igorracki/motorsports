@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { DriverResult } from "@/types/f1";
 import { cn } from "@/lib/utils";
 import {
@@ -10,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table";
+import { Switch } from "@/components/ui/Switch";
 
 interface ResultsTableProps {
   results: DriverResult[];
@@ -17,6 +19,7 @@ interface ResultsTableProps {
 }
 
 export function ResultsTable({ results, sessionName }: ResultsTableProps) {
+  const [showDetails, setShowDetails] = useState(false);
   const normalizedSession = sessionName.toLowerCase();
   const isQualifying = normalizedSession.includes("qualifying") || normalizedSession === "sq" || normalizedSession.includes("shootout");
   const isPractice = normalizedSession.includes("practice") || normalizedSession.includes("fp");
@@ -32,8 +35,19 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
 
   return (
     <div className="rounded-xl border border-border/50 bg-card overflow-hidden shadow-sm">
-      <div className="border-b border-border/50 bg-secondary/50 px-4 py-3">
+      <div className="border-b border-border/50 bg-secondary/50 px-4 py-3 flex items-center justify-between">
         <h3 className="font-semibold text-foreground">{sessionName} Results</h3>
+        {isQualifying && (
+          <div className="flex items-center gap-2 md:hidden">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+              Show Times
+            </span>
+            <Switch
+              checked={showDetails}
+              onCheckedChange={setShowDetails}
+            />
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -44,9 +58,18 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
               <TableHead className="hidden sm:table-cell text-muted-foreground font-bold">Team</TableHead>
               {isQualifying && (
                 <>
-                  <TableHead className="hidden md:table-cell text-right text-muted-foreground font-bold">Q1</TableHead>
-                  <TableHead className="hidden md:table-cell text-right text-muted-foreground font-bold">Q2</TableHead>
-                  <TableHead className="hidden md:table-cell text-right text-muted-foreground font-bold">Q3</TableHead>
+                  <TableHead className={cn(
+                    "md:table-cell text-right text-muted-foreground font-bold",
+                    showDetails ? "table-cell" : "hidden"
+                  )}>Q1</TableHead>
+                  <TableHead className={cn(
+                    "md:table-cell text-right text-muted-foreground font-bold",
+                    showDetails ? "table-cell" : "hidden"
+                  )}>Q2</TableHead>
+                  <TableHead className={cn(
+                    "md:table-cell text-right text-muted-foreground font-bold",
+                    showDetails ? "table-cell" : "hidden"
+                  )}>Q3</TableHead>
                 </>
               )}
               <TableHead className="text-right text-muted-foreground font-bold whitespace-nowrap">
@@ -55,6 +78,11 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
               <TableHead className="text-right text-muted-foreground font-bold">
                 {isRace ? "Total Time" : "Gap"}
               </TableHead>
+              {isRace && (
+                <TableHead className="w-16 text-right text-muted-foreground font-bold whitespace-nowrap">
+                  +/-
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,13 +134,22 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
                   </TableCell>
                   {isQualifying && (
                     <>
-                      <TableCell className="hidden md:table-cell text-right font-mono text-sm text-muted-foreground">
+                      <TableCell className={cn(
+                        "md:table-cell text-right font-mono text-sm text-muted-foreground",
+                        showDetails ? "table-cell" : "hidden"
+                      )}>
                         {result.qualifying_details?.q1 || "-"}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-right font-mono text-sm text-muted-foreground">
+                      <TableCell className={cn(
+                        "md:table-cell text-right font-mono text-sm text-muted-foreground",
+                        showDetails ? "table-cell" : "hidden"
+                      )}>
                         {result.qualifying_details?.q2 || "-"}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-right font-mono text-sm text-muted-foreground">
+                      <TableCell className={cn(
+                        "md:table-cell text-right font-mono text-sm text-muted-foreground",
+                        showDetails ? "table-cell" : "hidden"
+                      )}>
                         {result.qualifying_details?.q3 || "-"}
                       </TableCell>
                     </>
@@ -133,6 +170,20 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
                   >
                     {displayGap}
                   </TableCell>
+                  {isRace && (
+                    <TableCell
+                      className={cn(
+                        "text-right font-mono text-sm",
+                        (result.raceDetails?.positionsChange ?? 0) > 0 && "text-success",
+                        (result.raceDetails?.positionsChange ?? 0) < 0 && "text-destructive",
+                        (result.raceDetails?.positionsChange ?? 0) === 0 && "text-muted-foreground"
+                      )}
+                    >
+                      {result.raceDetails && result.raceDetails.positionsChange !== 0
+                        ? (result.raceDetails.positionsChange > 0 ? `+${result.raceDetails.positionsChange}` : result.raceDetails.positionsChange)
+                        : "-"}
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
