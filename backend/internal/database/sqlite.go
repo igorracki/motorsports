@@ -92,6 +92,26 @@ func (manager *Manager) setup() error {
 		correct INTEGER NOT NULL DEFAULT 0,
 		PRIMARY KEY (prediction_id, position),
 		FOREIGN KEY (prediction_id) REFERENCES predictions(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS friend_requests (
+		id TEXT PRIMARY KEY,
+		sender_id TEXT NOT NULL,
+		receiver_id TEXT NOT NULL,
+		status TEXT NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+		FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+		UNIQUE(sender_id, receiver_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS friendships (
+		user_id TEXT NOT NULL,
+		friend_id TEXT NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		PRIMARY KEY (user_id, friend_id),
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+		FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
 	if _, err := manager.databaseConnection.Exec(schema); err != nil {

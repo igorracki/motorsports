@@ -45,16 +45,21 @@ func main() {
 	userRepository := repository.NewUserRepository(databaseManager.DB())
 	scoreRepository := repository.NewScoreRepository(databaseManager.DB())
 	predictionRepository := repository.NewPredictionRepository(databaseManager.DB())
+	friendRepository := repository.NewFriendRepository(databaseManager.DB())
 
 	scoringService := services.NewScoringService()
 	predictionService := services.NewPredictionService(predictionRepository, f1DataService, scoringService)
 	userService := services.NewUserService(userRepository, scoreRepository, predictionService)
 	authService := services.NewAuthService(userRepository)
+	friendService := services.NewFriendService(friendRepository, userRepository)
+	leaderboardService := services.NewLeaderboardService(friendRepository, userRepository, scoreRepository)
 
 	f1DataHandler := handlers.NewF1Handler(f1DataService)
 	userHandler := handlers.NewUserHandler(userService)
 	authHandler := handlers.NewAuthHandler(authService, userService)
 	predictionHandler := handlers.NewPredictionHandler(predictionService, scoringService)
+	friendHandler := handlers.NewFriendHandler(friendService)
+	leaderboardHandler := handlers.NewLeaderboardHandler(leaderboardService)
 
 	apiGroup := server.Group("/api")
 	apiGroup.GET("/schedule/:year", f1DataHandler.GetSchedule)
@@ -68,11 +73,16 @@ func main() {
 	apiGroup.POST("/auth/logout", authHandler.Logout)
 	apiGroup.GET("/auth/me", authHandler.Me, f1middleware.AuthMiddleware)
 
-	apiGroup.GET("/users/:id", userHandler.GetUserProfile)
-	apiGroup.GET("/users/:id/stats/seasons", userHandler.GetSeasonScores)
-	apiGroup.POST("/users/:id/predictions", predictionHandler.SubmitPrediction)
-	apiGroup.GET("/users/:id/predictions", predictionHandler.GetUserPredictions)
-	apiGroup.GET("/users/:id/predictions/:year/:round", predictionHandler.GetRoundPredictions)
+	apiGroup.GET("/users/:id", userHandler.GetUserProfile, f1middleware.AuthMiddleware)
+	apiGroup.GET("/users/:id/stats/seasons", userHandler.GetSeasonScores, f1middleware.AuthMiddleware)
+	apiGroup.POST("/users/:id/predictions", predictionHandler.SubmitPrediction, f1middleware.AuthMiddleware)
+	apiGroup.GET("/users/:id/predictions", predictionHandler.GetUserPredictions, f1middleware.AuthMiddleware)
+	apiGroup.GET("/users/:id/predictions/:year/:round", predictionHandler.GetRoundPredictions, f1middleware.AuthMiddleware)
+
+	apiGroup.POST("/users/friends/request", friendHandler.SendFriendRequest, f1middleware.AuthMiddleware)
+	apiGroup.GET("/users/friends/requests", friendHandler.GetPendingRequests, f1middleware.AuthMiddleware)
+	apiGroup.PUT("/users/friends/requests/:id", friendHandler.HandleFriendRequest, f1middleware.AuthMiddleware)
+	apiGroup.GET("/users/friends/leaderboard/:season", leaderboardHandler.GetLeaderboard, f1middleware.AuthMiddleware)
 
 	server.GET("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})

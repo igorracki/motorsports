@@ -39,6 +39,15 @@ func (handler *PredictionHandler) SubmitPrediction(context echo.Context) error {
 		})
 	}
 
+	// Security: Ensure user can only submit their own predictions
+	authUserID := context.Get("user_id").(string)
+	if authUserID != userID {
+		return context.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error:   "forbidden",
+			Message: "cannot submit predictions for other users",
+		})
+	}
+
 	var prediction models.Prediction
 	if err := context.Bind(&prediction); err != nil {
 		slog.WarnContext(ctx, "Failed to bind prediction request", "error", err)
@@ -79,6 +88,15 @@ func (handler *PredictionHandler) GetUserPredictions(context echo.Context) error
 		})
 	}
 
+	// Security: Ensure user can only access their own predictions
+	authUserID := context.Get("user_id").(string)
+	if authUserID != userID {
+		return context.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error:   "forbidden",
+			Message: "cannot access other user predictions",
+		})
+	}
+
 	predictions, err := handler.predictionService.GetUserPredictions(ctx, userID)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to fetch user predictions", "user_id", userID, "error", err)
@@ -105,6 +123,15 @@ func (handler *PredictionHandler) GetRoundPredictions(context echo.Context) erro
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "missing_parameter",
 			Message: "must provide user id, year, and round",
+		})
+	}
+
+	// Security: Ensure user can only access their own predictions
+	authUserID := context.Get("user_id").(string)
+	if authUserID != userID {
+		return context.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error:   "forbidden",
+			Message: "cannot access other user predictions",
 		})
 	}
 

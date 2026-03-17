@@ -233,7 +233,98 @@ paths:
                 items:
                   $ref: '#/components/schemas/Prediction'
 
+  /users/friends/request:
+    post:
+      summary: Send a friend request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendFriendRequestRequest'
+      responses:
+        '201':
+          description: Friend request sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Unauthorized
+
+  /users/friends/requests:
+    get:
+      summary: Get pending friend requests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendRequest'
+        '401':
+          description: Unauthorized
+
+  /users/friends/requests/{id}:
+    put:
+      summary: Handle a friend request (accept/deny)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandleFriendRequestRequest'
+      responses:
+        '200':
+          description: Request handled
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Unauthorized
+
+  /users/friends/leaderboard/{season}:
+    get:
+      summary: Get leaderboard for a season
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1950
+            maximum: 2100
+      responses:
+        '200':
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaderboardEntry'
+        '401':
+          description: Unauthorized
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   responses:
     BadRequest:
       description: Invalid request parameters
@@ -570,3 +661,53 @@ components:
         min_altitude_m:
           type: number
           format: float
+
+    FriendRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        sender_id:
+          type: string
+        receiver_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, denied]
+        created_at:
+          type: string
+          format: date-time
+        sender_email:
+          type: string
+        sender_name:
+          type: string
+
+    SendFriendRequestRequest:
+      type: object
+      required:
+        - identifier
+      properties:
+        identifier:
+          type: string
+          description: User email or UUID
+
+    HandleFriendRequestRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [accept, deny]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        position:
+          type: integer
+        user_id:
+          type: string
+        display_name:
+          type: string
+        score:
+          type: integer

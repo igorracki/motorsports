@@ -36,7 +36,7 @@ func (handler *AuthHandler) Register(context echo.Context) error {
 		})
 	}
 
-	user, profile, err := handler.authService.Register(ctx, request)
+	user, profile, token, expiresAt, err := handler.authService.Register(ctx, request)
 	if err != nil {
 		slog.WarnContext(ctx, "User registration failed", "email", request.Email, "error", err)
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
@@ -44,6 +44,17 @@ func (handler *AuthHandler) Register(context echo.Context) error {
 			Message: err.Error(),
 		})
 	}
+
+	cookie := &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Expires:  expiresAt,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteLaxMode,
+	}
+	context.SetCookie(cookie)
 
 	slog.InfoContext(ctx, "Exit: Register", "user_id", user.ID)
 	return context.JSON(http.StatusCreated, models.AuthResponse{

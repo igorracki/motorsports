@@ -31,6 +31,15 @@ func (handler *UserHandler) GetUserProfile(context echo.Context) error {
 		})
 	}
 
+	// Security: Ensure user can only access their own profile
+	authUserID := context.Get("user_id").(string)
+	if authUserID != userID {
+		return context.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error:   "forbidden",
+			Message: "cannot access other user profiles",
+		})
+	}
+
 	profile, err := handler.userService.GetFullProfile(ctx, userID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to fetch user profile", "user_id", userID, "error", err)
@@ -53,6 +62,15 @@ func (handler *UserHandler) GetSeasonScores(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "missing_parameter",
 			Message: "must provide a user id",
+		})
+	}
+
+	// Security: Ensure user can only access their own stats
+	authUserID := context.Get("user_id").(string)
+	if authUserID != userID {
+		return context.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error:   "forbidden",
+			Message: "cannot access other user stats",
 		})
 	}
 

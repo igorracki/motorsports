@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/igorracki/f1/backend/internal/models"
 )
@@ -14,6 +14,7 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, id string) (*models.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.User, string, error)
 	GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error)
+	GetProfilesByUserIDs(ctx context.Context, userIDs []string) ([]models.Profile, error)
 }
 
 type userRepository struct {
@@ -25,7 +26,7 @@ func NewUserRepository(db *sql.DB) UserRepository {
 }
 
 func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.User, passwordHash string, profile *models.Profile) error {
-	log.Printf("INFO: Attempting to create user [email: %s]", user.Email)
+	slog.InfoContext(ctx, "Entry: CreateUser", "email", user.Email)
 
 	transaction, err := userRepo.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -53,12 +54,12 @@ func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.Use
 		return fmt.Errorf("committing transaction for user %s: %w", user.ID, err)
 	}
 
-	log.Printf("INFO: Successfully created user [id: %s, email: %s]", user.ID, user.Email)
+	slog.InfoContext(ctx, "Exit: CreateUser", "user_id", user.ID, "email", user.Email)
 	return nil
 }
 
 func (userRepo *userRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
-	log.Printf("INFO: Fetching user [id: %s]", id)
+	slog.InfoContext(ctx, "Entry: GetUserByID", "user_id", id)
 
 	user := &models.User{}
 	err := userRepo.database.QueryRowContext(ctx,
@@ -68,18 +69,18 @@ func (userRepo *userRepository) GetUserByID(ctx context.Context, id string) (*mo
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("INFO: User not found [id: %s]", id)
+			slog.InfoContext(ctx, "User not found", "user_id", id)
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying user %s: %w", id, err)
 	}
 
-	log.Printf("INFO: Successfully fetched user [id: %s]", id)
+	slog.InfoContext(ctx, "Exit: GetUserByID", "user_id", id)
 	return user, nil
 }
 
 func (userRepo *userRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, string, error) {
-	log.Printf("INFO: Fetching user [email: %s]", email)
+	slog.InfoContext(ctx, "Entry: GetUserByEmail", "email", email)
 
 	user := &models.User{}
 	var passwordHash string
@@ -90,18 +91,18 @@ func (userRepo *userRepository) GetUserByEmail(ctx context.Context, email string
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("INFO: User not found [email: %s]", email)
+			slog.InfoContext(ctx, "User not found", "email", email)
 			return nil, "", nil
 		}
 		return nil, "", fmt.Errorf("querying user by email %s: %w", email, err)
 	}
 
-	log.Printf("INFO: Successfully fetched user [id: %s, email: %s]", user.ID, user.Email)
+	slog.InfoContext(ctx, "Exit: GetUserByEmail", "user_id", user.ID, "email", user.Email)
 	return user, passwordHash, nil
 }
 
 func (userRepo *userRepository) GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error) {
-	log.Printf("INFO: Fetching profile [user_id: %s]", userID)
+	slog.InfoContext(ctx, "Entry: GetProfileByUserID", "user_id", userID)
 
 	profile := &models.Profile{}
 	err := userRepo.database.QueryRowContext(ctx,
@@ -111,12 +112,49 @@ func (userRepo *userRepository) GetProfileByUserID(ctx context.Context, userID s
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("INFO: Profile not found [user_id: %s]", userID)
+			slog.InfoContext(ctx, "Profile not found", "user_id", userID)
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying profile for user %s: %w", userID, err)
 	}
 
-	log.Printf("INFO: Successfully fetched profile [user_id: %s]", userID)
+	slog.InfoContext(ctx, "Exit: GetProfileByUserID", "user_id", userID)
 	return profile, nil
+}
+
+func (userRepo *userRepository) GetProfilesByUserIDs(ctx context.Context, userIDs []string) ([]models.Profile, error) {
+	slog.InfoContext(ctx, "Entry: GetProfilesByUserIDs", "count", len(userIDs))
+
+	if len(userIDs) == 0 {
+		return []models.Profile{}, nil
+	}
+
+	query := "SELECT user_id, display_name FROM profiles WHERE user_id IN ("
+	args := make([]interface{}, len(userIDs))
+	for i, id := range userIDs {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args[i] = id
+	}
+	query += ")"
+
+	rows, err := userRepo.database.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying profiles: %w", err)
+	}
+	defer rows.Close()
+
+	profiles := []models.Profile{}
+	for rows.Next() {
+		var p models.Profile
+		if err := rows.Scan(&p.UserID, &p.DisplayName); err != nil {
+			return nil, fmt.Errorf("scanning profile: %w", err)
+		}
+		profiles = append(profiles, p)
+	}
+
+	slog.InfoContext(ctx, "Exit: GetProfilesByUserIDs", "found", len(profiles))
+	return profiles, nil
 }

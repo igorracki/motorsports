@@ -21,13 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`font-sans antialiased`}>
-        <Suspense fallback={null}>
-          <AuthProvider>
-            <SeasonProvider>
-              {children}
-            </SeasonProvider>
-          </AuthProvider>
-        </Suspense>
+        <AuthProvider>
+          <SeasonProvider>
+            {children}
+          </SeasonProvider>
+        </AuthProvider>
       </body>
     </html>
   )

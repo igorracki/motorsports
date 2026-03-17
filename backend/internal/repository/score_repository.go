@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/igorracki/f1/backend/internal/models"
 )
@@ -12,6 +12,7 @@ import (
 type ScoreRepository interface {
 	UpdateScore(ctx context.Context, score *models.UserScore) error
 	GetUserScores(ctx context.Context, userID string) ([]models.UserScore, error)
+	GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) ([]models.UserScore, error)
 }
 
 type scoreRepository struct {
@@ -27,8 +28,7 @@ func (scoreRepo *scoreRepository) UpdateScore(ctx context.Context, score *models
 	if score.Season != nil {
 		seasonValue = fmt.Sprintf("%d", *score.Season)
 	}
-	log.Printf("INFO: Attempting to update score [user_id: %s, type: %s, season: %s]",
-		score.UserID, score.ScoreType, seasonValue)
+	slog.InfoContext(ctx, "Entry: UpdateScore", "user_id", score.UserID, "type", score.ScoreType, "season", seasonValue)
 
 	_, err := scoreRepo.database.ExecContext(ctx, `
 		INSERT INTO user_scores (user_id, score_type, season, value, updated_at)
@@ -42,13 +42,12 @@ func (scoreRepo *scoreRepository) UpdateScore(ctx context.Context, score *models
 		return fmt.Errorf("upserting user score for user %s: %w", score.UserID, err)
 	}
 
-	log.Printf("INFO: Successfully updated score [user_id: %s, type: %s, new_value: %d]",
-		score.UserID, score.ScoreType, score.Value)
+	slog.InfoContext(ctx, "Exit: UpdateScore", "user_id", score.UserID, "type", score.ScoreType, "new_value", score.Value)
 	return nil
 }
 
 func (scoreRepo *scoreRepository) GetUserScores(ctx context.Context, userID string) ([]models.UserScore, error) {
-	log.Printf("INFO: Fetching all scores for user [id: %s]", userID)
+	slog.InfoContext(ctx, "Entry: GetUserScores", "user_id", userID)
 
 	rows, err := scoreRepo.database.QueryContext(ctx, `
 		SELECT user_id, score_type, season, value, updated_at 
@@ -70,6 +69,44 @@ func (scoreRepo *scoreRepository) GetUserScores(ctx context.Context, userID stri
 		scores = append(scores, score)
 	}
 
-	log.Printf("INFO: Successfully fetched %d scores for user %s", len(scores), userID)
+	slog.InfoContext(ctx, "Exit: GetUserScores", "user_id", userID, "count", len(scores))
+	return scores, nil
+}
+
+func (scoreRepo *scoreRepository) GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) ([]models.UserScore, error) {
+	slog.InfoContext(ctx, "Entry: GetSeasonScoresByUserIDs", "count", len(userIDs), "season", season)
+
+	if len(userIDs) == 0 {
+		return []models.UserScore{}, nil
+	}
+
+	query := "SELECT user_id, score_type, season, value, updated_at FROM user_scores WHERE season = ? AND user_id IN ("
+	args := make([]interface{}, len(userIDs)+1)
+	args[0] = season
+	for i, id := range userIDs {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args[i+1] = id
+	}
+	query += ")"
+
+	rows, err := scoreRepo.database.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying season scores: %w", err)
+	}
+	defer rows.Close()
+
+	scores := []models.UserScore{}
+	for rows.Next() {
+		var s models.UserScore
+		if err := rows.Scan(&s.UserID, &s.ScoreType, &s.Season, &s.Value, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning user score: %w", err)
+		}
+		scores = append(scores, s)
+	}
+
+	slog.InfoContext(ctx, "Exit: GetSeasonScoresByUserIDs", "found", len(scores))
 	return scores, nil
 }

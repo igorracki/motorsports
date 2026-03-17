@@ -1,41 +1,72 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useMemo, useCallback, useState, ReactNode, useEffect, Suspense, useTransition } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 interface SeasonContextType {
   selectedYear: number;
   setSelectedYear: (year: number) => void;
   availableYears: number[];
+  isPending: boolean;
 }
 
 const SeasonContext = createContext<SeasonContextType | undefined>(undefined);
 
+function URLSync({ onSync }: { onSync: (year: number) => void }) {
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    const yearParam = searchParams.get("year");
+    if (yearParam) {
+      const year = parseInt(yearParam, 10);
+      if (!isNaN(year)) {
+        onSync(year);
+      }
+    } else {
+      // Default to 2026 if no param, but only if we aren't already there
+      onSync(2026);
+    }
+  }, [searchParams, onSync]);
+
+  return null;
+}
+
 export function SeasonProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [selectedYear, setSelectedYearState] = useState(2026);
+  const [isPending, startTransition] = useTransition();
   
-  // Available years for the F1 Calendar
-  const availableYears = [2026, 2025];
-  
-  // Initialize from URL search params if present, otherwise default to latest
-  const [selectedYear, setSelectedYearState] = useState<number>(() => {
-    const yearParam = searchParams.get("year");
-    const year = yearParam ? parseInt(yearParam, 10) : 2026;
-    return availableYears.includes(year) ? year : 2026;
-  });
+  const availableYears = useMemo(() => [2026, 2025], []);
 
-  // Keep state in sync with URL
-  const setSelectedYear = (year: number) => {
+  const setSelectedYear = useCallback((year: number) => {
+    // 1. Update local state immediately for snappy UI
     setSelectedYearState(year);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("year", year.toString());
-    router.push(`${pathname}?${params.toString()}`);
-  };
+    
+    // 2. Update URL as a transition to avoid blocking UI or triggering top-level suspense
+    startTransition(() => {
+      const params = new URLSearchParams(window.location.search);
+      params.set("year", year.toString());
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    });
+  }, [pathname, router]);
+
+  const value = useMemo(() => ({
+    selectedYear,
+    setSelectedYear,
+    availableYears,
+    isPending
+  }), [selectedYear, setSelectedYear, availableYears, isPending]);
 
   return (
-    <SeasonContext.Provider value={{ selectedYear, setSelectedYear, availableYears }}>
+    <SeasonContext.Provider value={value}>
+      {/* 
+          Suspense boundary here captures any suspension from useSearchParams 
+          without unmounting the 'children' below.
+      */}
+      <Suspense fallback={null}>
+        <URLSync onSync={setSelectedYearState} />
+      </Suspense>
       {children}
     </SeasonContext.Provider>
   );

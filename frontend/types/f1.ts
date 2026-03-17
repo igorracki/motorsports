@@ -260,6 +260,40 @@ export const UserProfileResponseSchema = z.object({
 
 export type UserProfileResponse = z.infer<typeof UserProfileResponseSchema>;
 
+export const FriendRequestSchema = z.object({
+  id: z.string(),
+  sender_id: z.string(),
+  receiver_id: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+  sender_email: z.string().optional(),
+  sender_name: z.string().optional(),
+}).transform(data => ({
+  id: data.id,
+  senderId: data.sender_id,
+  receiverId: data.receiver_id,
+  status: data.status,
+  createdAt: data.created_at,
+  senderEmail: data.sender_email,
+  senderName: data.sender_name,
+}));
+
+export type FriendRequest = z.infer<typeof FriendRequestSchema>;
+
+export const LeaderboardEntrySchema = z.object({
+  position: z.number(),
+  user_id: z.string(),
+  display_name: z.string(),
+  score: z.number(),
+}).transform(data => ({
+  position: data.position,
+  userId: data.user_id,
+  displayName: data.display_name,
+  score: data.score,
+}));
+
+export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
+
 export const ScheduleResponseSchema = z.object({
   schedule: z.array(RaceWeekendSchema),
 });

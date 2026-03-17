@@ -18,7 +18,7 @@ import (
 var sanitizer = bluemonday.StrictPolicy()
 
 type AuthService interface {
-	Register(ctx context.Context, request models.RegisterUserRequest) (*models.User, *models.Profile, error)
+	Register(ctx context.Context, request models.RegisterUserRequest) (*models.User, *models.Profile, string, time.Time, error)
 	Login(ctx context.Context, request models.LoginRequest) (*models.User, *models.Profile, string, time.Time, error)
 }
 
@@ -32,16 +32,16 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 	}
 }
 
-func (service *authService) Register(ctx context.Context, request models.RegisterUserRequest) (*models.User, *models.Profile, error) {
+func (service *authService) Register(ctx context.Context, request models.RegisterUserRequest) (*models.User, *models.Profile, string, time.Time, error) {
 	slog.InfoContext(ctx, "Registering user", "email", request.Email)
 
 	if err := service.validateRegistrationRequest(request); err != nil {
-		return nil, nil, err
+		return nil, nil, "", time.Time{}, err
 	}
 
 	passwordHash, err := auth.HashPassword(request.Password)
 	if err != nil {
-		return nil, nil, fmt.Errorf("hashing password: %w", err)
+		return nil, nil, "", time.Time{}, fmt.Errorf("hashing password: %w", err)
 	}
 
 	userID := uuid.New().String()
@@ -64,14 +64,21 @@ func (service *authService) Register(ctx context.Context, request models.Registe
 	if err := service.userRepository.CreateUser(ctx, user, passwordHash, profile); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			if strings.Contains(err.Error(), "users.email") {
-				return nil, nil, fmt.Errorf("email '%s' is already registered", request.Email)
+				return nil, nil, "", time.Time{}, fmt.Errorf("email '%s' is already registered", request.Email)
 			}
 		}
-		return nil, nil, fmt.Errorf("failed to create user: %w", err)
+		return nil, nil, "", time.Time{}, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Generate token for immediate authentication after registration
+	expiresAt := time.Now().Add(24 * time.Hour)
+	token, err := auth.GenerateToken(userID, expiresAt)
+	if err != nil {
+		return user, profile, "", time.Time{}, fmt.Errorf("generating token: %w", err)
 	}
 
 	slog.InfoContext(ctx, "User registered successfully", "user_id", userID)
-	return user, profile, nil
+	return user, profile, token, expiresAt, nil
 }
 
 func (service *authService) Login(ctx context.Context, request models.LoginRequest) (*models.User, *models.Profile, string, time.Time, error) {

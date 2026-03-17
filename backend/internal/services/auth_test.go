@@ -30,11 +30,13 @@ func TestAuthService(t *testing.T) {
 		}
 
 		// When: Register
-		user, profile, err := authService.Register(ctx, registerRequest)
+		user, profile, regToken, regExpires, err := authService.Register(ctx, registerRequest)
 		require.NoError(tt, err)
 		assert.NotNil(tt, user)
 		assert.Equal(tt, registerRequest.Email, user.Email)
 		assert.Equal(tt, registerRequest.DisplayName, profile.DisplayName)
+		assert.NotEmpty(tt, regToken)
+		assert.NotEmpty(tt, regExpires)
 
 		// When: Login
 		loginRequest := models.LoginRequest{
@@ -59,7 +61,7 @@ func TestAuthService(t *testing.T) {
 			Password:    "password123",
 			DisplayName: "Checo",
 		}
-		_, _, err := authService.Register(ctx, registerRequest)
+		_, _, _, _, err := authService.Register(ctx, registerRequest)
 		require.NoError(tt, err)
 
 		// When
@@ -83,7 +85,7 @@ func TestAuthService(t *testing.T) {
 			Password:    "password123",
 			DisplayName: "Invalid",
 		}
-		_, _, err := authService.Register(ctx, request)
+		_, _, _, _, err := authService.Register(ctx, request)
 		assert.Error(tt, err)
 		assert.Contains(tt, err.Error(), "invalid email address format")
 	})

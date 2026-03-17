@@ -12,7 +12,11 @@ import {
   Prediction,
   PredictionSchema,
   SessionScoringRules,
-  SessionScoringRulesSchema
+  SessionScoringRulesSchema,
+  FriendRequest,
+  FriendRequestSchema,
+  LeaderboardEntry,
+  LeaderboardEntrySchema
 } from "@/types/f1";
 import { 
   LoginRequest, 
@@ -226,5 +230,41 @@ export const f1Api = {
   async getScoringRules(): Promise<SessionScoringRules[]> {
     const data = await this.fetchJson<any[]>(`${_BASE_URL}/predictions/scoring-rules`);
     return z.array(SessionScoringRulesSchema).parse(data || []);
+  },
+
+  /**
+   * Friends: Send friend request
+   */
+  async sendFriendRequest(identifier: string): Promise<void> {
+    await this.fetchJson<void>(`${_BASE_URL}/users/friends/request`, {
+      method: "POST",
+      body: JSON.stringify({ identifier }),
+    });
+  },
+
+  /**
+   * Friends: Get pending requests
+   */
+  async getPendingRequests(): Promise<FriendRequest[]> {
+    const data = await this.fetchJson<any[]>(`${_BASE_URL}/users/friends/requests`);
+    return z.array(FriendRequestSchema).parse(data || []);
+  },
+
+  /**
+   * Friends: Handle friend request
+   */
+  async handleFriendRequest(requestId: string, action: "accept" | "deny"): Promise<void> {
+    await this.fetchJson<void>(`${_BASE_URL}/users/friends/requests/${requestId}`, {
+      method: "PUT",
+      body: JSON.stringify({ action }),
+    });
+  },
+
+  /**
+   * Leaderboard: Get leaderboard for a season
+   */
+  async getLeaderboard(season: number): Promise<LeaderboardEntry[]> {
+    const data = await this.fetchJson<any[]>(`${_BASE_URL}/users/friends/leaderboard/${season}`);
+    return z.array(LeaderboardEntrySchema).parse(data || []);
   }
 };

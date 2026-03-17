@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/igorracki/f1/backend/internal/models"
 )
@@ -25,8 +25,7 @@ func NewPredictionRepository(db *sql.DB) PredictionRepository {
 }
 
 func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, prediction *models.Prediction) error {
-	log.Printf("INFO: Attempting to save prediction [user_id: %s, year: %d, round: %d, session: %s]",
-		prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType)
+	slog.InfoContext(ctx, "Entry: SavePrediction", "user_id", prediction.UserID, "year", prediction.Year, "round", prediction.Round, "session", prediction.SessionType)
 
 	transaction, err := predictionRepo.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -77,13 +76,12 @@ func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, 
 		return fmt.Errorf("committing prediction [id: %s]: %w", prediction.ID, err)
 	}
 
-	log.Printf("INFO: Successfully saved prediction [id: %s, entries: %d]", prediction.ID, len(prediction.Entries))
+	slog.InfoContext(ctx, "Exit: SavePrediction", "prediction_id", prediction.ID)
 	return nil
 }
 
 func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error) {
-	log.Printf("INFO: Fetching prediction [user_id: %s, year: %d, round: %d, session: %s]",
-		userID, year, round, sessionType)
+	slog.InfoContext(ctx, "Entry: GetPrediction", "user_id", userID, "year", year, "round", round, "session", sessionType)
 
 	prediction := &models.Prediction{
 		UserID:      userID,
@@ -102,7 +100,7 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("INFO: No prediction found [user_id: %s, year: %d, round: %d]", userID, year, round)
+			slog.InfoContext(ctx, "No prediction found", "user_id", userID, "year", year, "round", round)
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying prediction: %w", err)
@@ -129,12 +127,12 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 		prediction.Entries = append(prediction.Entries, entry)
 	}
 
-	log.Printf("INFO: Successfully fetched prediction [id: %s, entries: %d]", prediction.ID, len(prediction.Entries))
+	slog.InfoContext(ctx, "Exit: GetPrediction", "prediction_id", prediction.ID)
 	return prediction, nil
 }
 
 func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error) {
-	log.Printf("INFO: Fetching all predictions for user [user_id: %s]", userID)
+	slog.InfoContext(ctx, "Entry: GetUserPredictions", "user_id", userID)
 
 	rows, err := predictionRepo.database.QueryContext(ctx, `
 		SELECT id, year, round, session_type, score, revalidate_until, created_at, updated_at 
@@ -163,12 +161,12 @@ func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Conte
 		return nil, err
 	}
 
-	log.Printf("INFO: Successfully fetched %d predictions for user [user_id: %s]", len(predictions), userID)
+	slog.InfoContext(ctx, "Exit: GetUserPredictions", "user_id", userID, "count", len(predictions))
 	return predictions, nil
 }
 
 func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error) {
-	log.Printf("INFO: Fetching round predictions [user_id: %s, year: %d, round: %d]", userID, year, round)
+	slog.InfoContext(ctx, "Entry: GetRoundPredictions", "user_id", userID, "year", year, "round", round)
 
 	rows, err := predictionRepo.database.QueryContext(ctx, `
 		SELECT id, session_type, score, revalidate_until, created_at, updated_at 
@@ -199,8 +197,7 @@ func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Cont
 		return nil, err
 	}
 
-	log.Printf("INFO: Successfully fetched %d round predictions [user_id: %s, year: %d, round: %d]",
-		len(predictions), userID, year, round)
+	slog.InfoContext(ctx, "Exit: GetRoundPredictions", "user_id", userID, "count", len(predictions))
 	return predictions, nil
 }
 
