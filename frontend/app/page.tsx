@@ -1,5 +1,5 @@
-import { CalendarView } from "@/components/features/CalendarView";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <CalendarView />;
+  redirect("/calendar/2026");
 }

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"log/slog"
+
 	"github.com/igorracki/f1/backend/internal/models"
 )
 
@@ -65,8 +67,17 @@ func (s *scoringService) CalculateScore(prediction *models.Prediction, results *
 		return 0, nil
 	}
 
+	slog.Info("Entry: CalculateScore",
+		"user_id", prediction.UserID,
+		"year", prediction.Year,
+		"round", prediction.Round,
+		"session_type", prediction.SessionType,
+		"entries_count", len(prediction.Entries),
+	)
+
 	sessionRules, ok := s.rules[results.SessionType]
 	if !ok {
+		slog.Warn("No scoring rules found for session type", "session_type", results.SessionType)
 		return 0, nil
 	}
 
@@ -89,10 +100,16 @@ func (s *scoringService) CalculateScore(prediction *models.Prediction, results *
 		}
 	}
 
+	slog.Info("Exit: CalculateScore",
+		"user_id", prediction.UserID,
+		"total_score", totalScore,
+	)
+
 	return totalScore, correctness
 }
 
 func (s *scoringService) GetScoringRules() []models.SessionScoringRules {
+	slog.Info("Entry: GetScoringRules")
 	sessionTypes := []string{
 		models.SessionTypePractice1,
 		models.SessionTypeQualifying,
@@ -131,5 +148,6 @@ func (s *scoringService) GetScoringRules() []models.SessionScoringRules {
 		})
 	}
 
+	slog.Info("Exit: GetScoringRules", "count", len(result))
 	return result
 }

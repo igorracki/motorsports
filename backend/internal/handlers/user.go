@@ -83,6 +83,10 @@ func (handler *UserHandler) GetSeasonScores(context echo.Context) error {
 		})
 	}
 
+	if scores == nil {
+		scores = []models.UserScore{}
+	}
+
 	slog.InfoContext(ctx, "Exit: GetSeasonScores", "user_id", userID, "count", len(scores))
 	return context.JSON(http.StatusOK, scores)
 }

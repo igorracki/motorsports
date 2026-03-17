@@ -42,17 +42,12 @@ export function PredictionTable({
       setDraggedIndex(index);
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", index.toString());
-      // Add a slight delay to allow the drag image to be set
-      setTimeout(() => {
-        (e.target as HTMLTableRowElement).style.opacity = "0.5";
-      }, 0);
     },
     []
   );
 
   const handleDragEnd = useCallback(
     (e: React.DragEvent<HTMLTableRowElement>) => {
-      (e.target as HTMLTableRowElement).style.opacity = "1";
       setDraggedIndex(null);
       setDragOverIndex(null);
     },

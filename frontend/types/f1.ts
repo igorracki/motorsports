@@ -82,7 +82,7 @@ export const DriverResultSchema = z
     fastestLapMS: data.fastest_lap_ms ?? undefined,
     fastestLap: data.fastest_lap ?? undefined,
     raceDetails: data.race_details ?? undefined,
-    qualifying_details: data.qualifying_details ?? undefined,
+    qualifyingDetails: data.qualifying_details ?? undefined,
   }));
 
 export type DriverResult = z.infer<typeof DriverResultSchema>;
@@ -94,6 +94,7 @@ export const SessionSchema = z
     time_local: z.string().optional().nullable(),
     time_utc_ms: z.number(),
     time_utc: z.string().optional().nullable(),
+    utc_offset_ms: z.number(),
     results: z.array(DriverResultSchema).optional(),
   })
   .transform((data) => ({
@@ -103,6 +104,7 @@ export const SessionSchema = z
     timeLocalMS: 0, // Fallback for now as backend doesn't provide it yet
     timeUTCMS: data.time_utc_ms,
     timeUTC: data.time_utc ?? undefined,
+    utcOffsetMS: data.utc_offset_ms,
     results: data.results,
   }));
 
@@ -119,7 +121,11 @@ export const RaceWeekendSchema = z
     event_format: z.string().optional(),
     start_date_local_ms: z.number(),
     start_date_local: z.string().optional().nullable(),
+    start_date_utc: z.string().optional().nullable(),
     start_date_utc_ms: z.number().optional(),
+    end_date_local: z.string().optional().nullable(),
+    end_date_local_ms: z.number().optional(),
+    end_date_utc: z.string().optional().nullable(),
     end_date_utc_ms: z.number().optional(),
     sessions: z.array(SessionSchema),
   })
@@ -132,8 +138,12 @@ export const RaceWeekendSchema = z
     countryCode: data.country_code,
     eventFormat: data.event_format,
     startDateMS: data.start_date_local_ms,
-    startDate: data.start_date_local ?? undefined,
+    startDateLocal: data.start_date_local ?? undefined,
+    startDateUTC: data.start_date_utc ?? undefined,
     startDateUTCMS: data.start_date_utc_ms ?? 0,
+    endDateLocal: data.end_date_local ?? undefined,
+    endDateLocalMS: data.end_date_local_ms ?? 0,
+    endDateUTC: data.end_date_utc ?? undefined,
     endDateUTCMS: data.end_date_utc_ms ?? 0,
     sessions: data.sessions,
   }));
@@ -160,10 +170,10 @@ export const CircuitSchema = z
     event_name: z.string(),
     event_date_ms: z.number(),
     event_date: z.string().optional().nullable(),
-    rotation: z.number().optional(),
-    max_speed_kmh: z.number().optional(),
-    max_altitude_m: z.number().optional(),
-    min_altitude_m: z.number().optional(),
+    rotation: z.number(),
+    max_speed_kmh: z.number(),
+    max_altitude_m: z.number(),
+    min_altitude_m: z.number(),
   })
   .transform((data) => ({
     circuitName: data.circuit_name,
@@ -231,14 +241,21 @@ export const UserSchema = z.object({
   id: z.string(),
   email: z.string(),
   created_at: z.string(),
-});
+}).transform(data => ({
+  id: data.id,
+  email: data.email,
+  createdAt: data.created_at,
+}));
 
 export type User = z.infer<typeof UserSchema>;
 
 export const ProfileSchema = z.object({
   user_id: z.string(),
   display_name: z.string(),
-});
+}).transform(data => ({
+  userId: data.user_id,
+  displayName: data.display_name,
+}));
 
 export type Profile = z.infer<typeof ProfileSchema>;
 
@@ -247,8 +264,14 @@ export const UserScoreSchema = z.object({
   score_type: z.string(),
   season: z.number().optional(),
   value: z.number(),
-  updated_at: z.string(),
-});
+  updated_at: z.string().optional(),
+}).transform(data => ({
+  userId: data.user_id,
+  scoreType: data.score_type,
+  season: data.season,
+  value: data.value,
+  updatedAt: data.updated_at,
+}));
 
 export type UserScore = z.infer<typeof UserScoreSchema>;
 
@@ -316,3 +339,13 @@ export const SessionScoringRulesSchema = z.object({
 }));
 
 export type SessionScoringRules = z.infer<typeof SessionScoringRulesSchema>;
+
+export interface SubmitPredictionRequest {
+  year: number;
+  round: number;
+  session_type: string;
+  entries: {
+    position: number;
+    driver_id: string;
+  }[];
+}

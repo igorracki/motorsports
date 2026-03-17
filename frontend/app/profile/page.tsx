@@ -1,18 +1,17 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { useSeason } from "@/hooks/SeasonContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, User as UserIcon, Mail, Calendar, Trophy, Copy, Check, UserPlus, Users, ChevronRight, ChevronLeft } from "lucide-react";
-import { MainNav } from "@/components/main-nav";
+import { MainNav } from "@/components/ui/main-nav";
 import { f1Api } from "@/services/f1-api";
 import type { FriendRequest, LeaderboardEntry } from "@/types/f1";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ProfilePage() {
   const { user, profile, isAuthenticated, isLoading, logout } = useAuth();
-  const { selectedYear, setSelectedYear } = useSeason();
+  const [selectedYear, setSelectedYear] = useState(2026);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [copied, setCopied] = useState(false);
   
@@ -27,6 +26,8 @@ export default function ProfilePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const currentYear = new Date().getFullYear();
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [errorFriends, setErrorFriends] = useState<string | null>(null);
+  const [errorLeaderboard, setErrorLeaderboard] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -58,21 +59,25 @@ export default function ProfilePage() {
 
 
   const fetchFriendsData = async () => {
+    setErrorFriends(null);
     try {
       const requests = await f1Api.getPendingRequests();
       setPendingRequests(requests);
     } catch (err) {
       console.error("Failed to fetch friend requests:", err);
+      setErrorFriends("Failed to load friend requests");
     }
   };
 
   const fetchLeaderboard = async () => {
     setLoadingLeaderboard(true);
+    setErrorLeaderboard(null);
     try {
       const data = await f1Api.getLeaderboard(selectedYear);
       setLeaderboard(data);
     } catch (err) {
       console.error("Failed to fetch leaderboard:", err);
+      setErrorLeaderboard("Failed to load leaderboard");
     } finally {
       setLoadingLeaderboard(false);
     }
@@ -90,8 +95,9 @@ export default function ProfilePage() {
       await f1Api.sendFriendRequest(friendIdentifier);
       setFriendSuccess("Request sent successfully!");
       setFriendIdentifier("");
-    } catch (err: any) {
-      setFriendError(err.message || "Failed to send request");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to send request";
+      setFriendError(message);
     } finally {
       setSendingRequest(false);
     }
@@ -134,7 +140,7 @@ export default function ProfilePage() {
                   <UserIcon className="h-12 w-12" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold">{profile.display_name}</h2>
+                  <h2 className="text-2xl font-bold">{profile.displayName}</h2>
                   <p className="text-slate-400 flex items-center gap-2">
                     <Mail className="h-4 w-4" /> {user.email}
                   </p>
@@ -146,7 +152,7 @@ export default function ProfilePage() {
                   <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Member Since</p>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-red-500" />
-                    <p>{new Date(user.created_at).toLocaleDateString()}</p>
+                    <p>{new Date(user.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800/50 space-y-1">
@@ -225,7 +231,17 @@ export default function ProfilePage() {
                 <div className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
                   Incoming Requests
                 </div>
-                {pendingRequests.length > 0 ? (
+                {errorFriends ? (
+                  <div className="h-24 flex flex-col items-center justify-center rounded-xl bg-red-950/10 border border-dashed border-red-900/50">
+                    <p className="text-red-500 text-xs">{errorFriends}</p>
+                    <button 
+                      onClick={fetchFriendsData}
+                      className="text-[10px] text-slate-400 hover:underline mt-2"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                ) : pendingRequests.length > 0 ? (
                   <div className="space-y-3">
                     {pendingRequests.map((req) => (
                       <div key={req.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950/50 border border-slate-800/50">
@@ -304,6 +320,18 @@ export default function ProfilePage() {
                         </td>
                       </tr>
                     ))
+                  ) : errorLeaderboard ? (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-12 text-center">
+                        <p className="text-red-500 text-sm mb-2">{errorLeaderboard}</p>
+                        <button 
+                          onClick={fetchLeaderboard}
+                          className="text-xs text-slate-400 hover:underline"
+                        >
+                          Try Again
+                        </button>
+                      </td>
+                    </tr>
                   ) : leaderboard.length > 0 ? (
                     leaderboard.map((entry) => (
                       <tr

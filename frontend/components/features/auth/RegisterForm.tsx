@@ -36,8 +36,9 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     try {
       await registerUser(data);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setServerError(err.message || "Registration failed. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Registration failed. Please try again.";
+      setServerError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -47,7 +48,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
     <div className="w-full max-w-md space-y-6 p-6 bg-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-800 shadow-xl">
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold tracking-tighter text-white">Create Account</h1>
-        <p className="text-slate-400">Join the F1 Data Hub to start predicting</p>
+        <p className="text-slate-400">Join the platform to start predicting</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -68,7 +69,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
               {...register("display_name")}
               id="display_name"
               type="text"
-              placeholder="F1 Fan"
+              placeholder="jimmy_v"
               className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
             />
           </div>

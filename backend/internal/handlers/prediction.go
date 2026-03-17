@@ -8,6 +8,7 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 	"github.com/igorracki/f1/backend/internal/services"
 	"github.com/labstack/echo/v4"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type PredictionHandler struct {
@@ -54,6 +55,25 @@ func (handler *PredictionHandler) SubmitPrediction(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "failed to parse request body",
+		})
+	}
+
+	sanitizer := bluemonday.StrictPolicy()
+	prediction.SessionType = sanitizer.Sanitize(prediction.SessionType)
+	for i := range prediction.Entries {
+		prediction.Entries[i].DriverID = sanitizer.Sanitize(prediction.Entries[i].DriverID)
+	}
+
+	if prediction.Year < 1950 || prediction.Year > 2100 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_parameter",
+			Message: "year must be between 1950 and 2100",
+		})
+	}
+	if prediction.Round < 1 || prediction.Round > 50 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_parameter",
+			Message: "round must be between 1 and 50",
 		})
 	}
 
@@ -146,6 +166,19 @@ func (handler *PredictionHandler) GetRoundPredictions(context echo.Context) erro
 		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "invalid_parameter",
 			Message: "round must be an integer",
+		})
+	}
+
+	if year < 1950 || year > 2100 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_parameter",
+			Message: "year must be between 1950 and 2100",
+		})
+	}
+	if round < 1 || round > 50 {
+		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "invalid_parameter",
+			Message: "round must be between 1 and 50",
 		})
 	}
 

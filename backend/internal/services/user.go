@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/igorracki/f1/backend/internal/models"
 	"github.com/igorracki/f1/backend/internal/repository"
@@ -29,14 +29,14 @@ func NewUserService(userRepo repository.UserRepository, scoreRepo repository.Sco
 }
 
 func (service *userService) GetFullProfile(ctx context.Context, userID string) (*models.UserProfileResponse, error) {
-	log.Printf("INFO: Fetching full profile for user [id: %s]", userID)
+	slog.InfoContext(ctx, "Entry: GetFullProfile", "user_id", userID)
 
 	user, err := service.userRepository.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching user %s: %w", userID, err)
 	}
 	if user == nil {
-		log.Printf("WARN: User not found while fetching profile [id: %s]", userID)
+		slog.WarnContext(ctx, "User not found while fetching profile", "user_id", userID)
 		return nil, fmt.Errorf("user not found")
 	}
 
@@ -45,7 +45,7 @@ func (service *userService) GetFullProfile(ctx context.Context, userID string) (
 		return nil, fmt.Errorf("fetching profile for user %s: %w", userID, err)
 	}
 	if profile == nil {
-		log.Printf("WARN: Profile not found for user [id: %s]", userID)
+		slog.WarnContext(ctx, "Profile not found for user", "user_id", userID)
 		return nil, fmt.Errorf("profile not found")
 	}
 
@@ -65,12 +65,12 @@ func (service *userService) GetFullProfile(ctx context.Context, userID string) (
 		Scores:  scores,
 	}
 
-	log.Printf("INFO: Successfully fetched basic profile [id: %s, scores_count: %d]", userID, len(scores))
+	slog.InfoContext(ctx, "Exit: GetFullProfile", "user_id", userID, "scores_count", len(scores))
 	return response, nil
 }
 
 func (service *userService) GetSeasonScores(ctx context.Context, userID string) ([]models.UserScore, error) {
-	log.Printf("INFO: Calculating season scores for user [id: %s]", userID)
+	slog.InfoContext(ctx, "Entry: GetSeasonScores", "user_id", userID)
 
 	predictions, err := service.predictionService.GetUserPredictions(ctx, userID)
 	if err != nil {
@@ -95,6 +95,6 @@ func (service *userService) GetSeasonScores(ctx context.Context, userID string) 
 		})
 	}
 
-	log.Printf("INFO: Calculated scores for %d seasons for user [id: %s]", len(scores), userID)
+	slog.InfoContext(ctx, "Exit: GetSeasonScores", "user_id", userID, "seasons_count", len(scores))
 	return scores, nil
 }

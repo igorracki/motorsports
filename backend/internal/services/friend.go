@@ -134,5 +134,11 @@ func (service *friendService) HandleFriendRequest(ctx context.Context, userID st
 }
 
 func (service *friendService) GetFriends(ctx context.Context, userID string) ([]string, error) {
-	return service.friendRepo.GetFriendsByUserID(ctx, userID)
+	slog.InfoContext(ctx, "Entry: GetFriends", "user_id", userID)
+	friends, err := service.friendRepo.GetFriendsByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching friends: %w", err)
+	}
+	slog.InfoContext(ctx, "Exit: GetFriends", "user_id", userID, "count", len(friends))
+	return friends, nil
 }

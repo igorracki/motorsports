@@ -39,8 +39,9 @@ export function LoginForm({ onSuccess, className, hideContainer }: LoginFormProp
     try {
       await login(data);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setServerError(err.message || "Invalid email or password");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Invalid email or password";
+      setServerError(message);
     } finally {
       setIsSubmitting(false);
     }

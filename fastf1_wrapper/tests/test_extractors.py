@@ -123,13 +123,20 @@ class TestExtractors(unittest.TestCase):
         mock_session.get_circuit_info.return_value = mock_ci
         
         mock_lap = MagicMock()
-        mock_telemetry = pd.DataFrame({'Distance': [0, 1000, 2000]})
+        mock_telemetry = pd.DataFrame({
+            'Distance': [0, 1000, 2000],
+            'Speed': [100.0, 200.0, 300.0],
+            'Z': [10.0, 20.0, 30.0]
+        })
         mock_lap.get_telemetry.return_value = mock_telemetry
         mock_session.laps.pick_fastest.return_value = mock_lap
         
         result = extract_circuit_metrics(mock_session)
         self.assertEqual(result['corners'], 3)
         self.assertEqual(result['length_km'], 2.0)
+        self.assertEqual(result['max_speed_kmh'], 300.0)
+        self.assertEqual(result['max_altitude_m'], 30.0)
+        self.assertEqual(result['min_altitude_m'], 10.0)
 
     def test_extract_circuit_layout(self):
         mock_session = MagicMock()

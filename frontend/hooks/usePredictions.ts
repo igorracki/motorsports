@@ -134,7 +134,7 @@ export function usePredictions(initialDrivers: DriverInfo[], year: number, round
         entries: entries,
       };
 
-      const saved = await f1Api.submitPrediction(user.id, prediction as any);
+      const saved = await f1Api.submitPrediction(user.id, prediction);
       
       setSavedPredictions(prev => ({
         ...prev,

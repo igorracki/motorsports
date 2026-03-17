@@ -20,10 +20,10 @@ def to_milliseconds(delta: Any) -> Optional[int]:
             return int(delta.total_seconds() * 1000)
             
         # Try to convert to timedelta
-        td = pd.to_timedelta(delta)
-        if pd.isna(td):
+        time_delta = pd.to_timedelta(delta)
+        if pd.isna(time_delta):
             return None
-        return int(td.total_seconds() * 1000)
+        return int(time_delta.total_seconds() * 1000)
     except (ValueError, TypeError, AttributeError):
         return None
 
@@ -37,10 +37,10 @@ def to_datetime(value: Any) -> Optional[datetime]:
         return None
         
     if hasattr(value, 'to_pydatetime'):
-        dt = value.to_pydatetime()
-        if dt is None or pd.isna(dt):
+        date_time = value.to_pydatetime()
+        if date_time is None or pd.isna(date_time):
             return None
-        return dt
+        return date_time
         
     if isinstance(value, datetime):
         return value

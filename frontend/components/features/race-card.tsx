@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { StatusBadge } from "./ui/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RaceWeekend } from "@/types/f1";
 import { formatRaceRange } from "@/lib/date-utils";
 

@@ -7,6 +7,7 @@ import (
 	"github.com/igorracki/f1/backend/internal/models"
 	"github.com/igorracki/f1/backend/internal/services"
 	"github.com/labstack/echo/v4"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type FriendHandler struct {
@@ -46,6 +47,9 @@ func (handler *FriendHandler) SendFriendRequest(context echo.Context) error {
 			Message: "identifier is required",
 		})
 	}
+
+	sanitizer := bluemonday.StrictPolicy()
+	req.Identifier = sanitizer.Sanitize(req.Identifier)
 
 	err := handler.friendService.SendFriendRequest(ctx, userID, req.Identifier)
 	if err != nil {
@@ -90,6 +94,10 @@ func (handler *FriendHandler) GetPendingRequests(context echo.Context) error {
 		})
 	}
 
+	if requests == nil {
+		requests = []models.FriendRequest{}
+	}
+
 	slog.InfoContext(ctx, "Exit: GetPendingRequests", "user_id", userID, "count", len(requests))
 	return context.JSON(http.StatusOK, requests)
 }
@@ -115,6 +123,9 @@ func (handler *FriendHandler) HandleFriendRequest(context echo.Context) error {
 			Message: "invalid request body",
 		})
 	}
+
+	sanitizer := bluemonday.StrictPolicy()
+	req.Action = sanitizer.Sanitize(req.Action)
 
 	err := handler.friendService.HandleFriendRequest(ctx, userID, requestID, req.Action)
 	if err != nil {

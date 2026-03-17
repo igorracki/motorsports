@@ -1,10 +1,10 @@
 "use client";
 
-import { RegisterForm } from "@/components/auth/RegisterForm";
+import { RegisterForm } from "@/components/features/auth/RegisterForm";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
-import { MainNav } from "@/components/main-nav";
+import { MainNav } from "@/components/ui/main-nav";
 
 export default function RegisterPage() {
   const router = useRouter();

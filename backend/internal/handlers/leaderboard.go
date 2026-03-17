@@ -58,6 +58,10 @@ func (handler *LeaderboardHandler) GetLeaderboard(context echo.Context) error {
 		})
 	}
 
+	if entries == nil {
+		entries = []models.LeaderboardEntry{}
+	}
+
 	slog.InfoContext(ctx, "Exit: GetLeaderboard", "user_id", userID, "season", season, "count", len(entries))
 	return context.JSON(http.StatusOK, entries)
 }

@@ -43,6 +43,7 @@ func (repo *friendRepository) CreateFriendRequest(ctx context.Context, request *
 }
 
 func (repo *friendRepository) GetFriendRequestByID(ctx context.Context, id string) (*models.FriendRequest, error) {
+	slog.InfoContext(ctx, "Entry: GetFriendRequestByID", "request_id", id)
 	request := &models.FriendRequest{}
 	err := repo.database.QueryRowContext(ctx,
 		"SELECT id, sender_id, receiver_id, status, created_at FROM friend_requests WHERE id = ?",
@@ -51,11 +52,13 @@ func (repo *friendRepository) GetFriendRequestByID(ctx context.Context, id strin
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.InfoContext(ctx, "Exit: GetFriendRequestByID", "request_id", id, "found", false)
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying friend request %s: %w", id, err)
 	}
 
+	slog.InfoContext(ctx, "Exit: GetFriendRequestByID", "request_id", id, "found", true)
 	return request, nil
 }
 
@@ -135,6 +138,7 @@ func (repo *friendRepository) CreateFriendship(ctx context.Context, friendship *
 }
 
 func (repo *friendRepository) GetFriendsByUserID(ctx context.Context, userID string) ([]string, error) {
+	slog.InfoContext(ctx, "Entry: GetFriendsByUserID", "user_id", userID)
 	rows, err := repo.database.QueryContext(ctx,
 		"SELECT friend_id FROM friendships WHERE user_id = ?",
 		userID,
@@ -153,10 +157,12 @@ func (repo *friendRepository) GetFriendsByUserID(ctx context.Context, userID str
 		friendIDs = append(friendIDs, friendID)
 	}
 
+	slog.InfoContext(ctx, "Exit: GetFriendsByUserID", "user_id", userID, "count", len(friendIDs))
 	return friendIDs, nil
 }
 
 func (repo *friendRepository) AreFriends(ctx context.Context, user1ID, user2ID string) (bool, error) {
+	slog.InfoContext(ctx, "Entry: AreFriends", "user1_id", user1ID, "user2_id", user2ID)
 	var exists bool
 	err := repo.database.QueryRowContext(ctx,
 		"SELECT EXISTS(SELECT 1 FROM friendships WHERE user_id = ? AND friend_id = ?)",
@@ -167,5 +173,6 @@ func (repo *friendRepository) AreFriends(ctx context.Context, user1ID, user2ID s
 		return false, fmt.Errorf("checking friendship: %w", err)
 	}
 
+	slog.InfoContext(ctx, "Exit: AreFriends", "user1_id", user1ID, "user2_id", user2ID, "are_friends", exists)
 	return exists, nil
 }

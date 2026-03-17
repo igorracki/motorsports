@@ -1,6 +1,6 @@
 "use client";
 
-import { RaceCard } from "./race-card";
+import { RaceCard } from "@/components/features/race-card";
 import type { RaceWeekend } from "@/types/f1";
 
 interface RacesGridProps {

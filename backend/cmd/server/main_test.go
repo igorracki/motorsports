@@ -192,6 +192,9 @@ func TestGetSessionResults_Success(t *testing.T) {
 	}
 
 	clientMock := &mockF1DataClient{
+		scheduleResponse: []models.RaceWeekend{
+			{Round: 1, Name: "Test GP"},
+		},
 		resultsResponse: mockResults,
 		err:             nil,
 	}

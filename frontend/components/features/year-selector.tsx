@@ -1,10 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useSeason } from "@/hooks/SeasonContext";
+import { useRouter } from "next/navigation";
 
-export function YearSelector() {
-  const { selectedYear, setSelectedYear, availableYears } = useSeason();
+interface YearSelectorProps {
+  currentYear: number;
+}
+
+export function YearSelector({ currentYear }: YearSelectorProps) {
+  const availableYears = [2026, 2025];
+  const router = useRouter();
 
   return (
     <div className="border-b border-border/40 bg-secondary/30">
@@ -15,10 +20,10 @@ export function YearSelector() {
             {availableYears.map((year) => (
               <button
                 key={year}
-                onClick={() => setSelectedYear(year)}
+                onClick={() => router.push(`/calendar/${year}`)}
                 className={cn(
                   "rounded-md px-4 py-1.5 text-sm font-semibold transition-all duration-200",
-                  selectedYear === year
+                  currentYear === year
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}

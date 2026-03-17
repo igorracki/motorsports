@@ -138,19 +138,19 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
                         "md:table-cell text-right font-mono text-sm text-muted-foreground",
                         showDetails ? "table-cell" : "hidden"
                       )}>
-                        {result.qualifying_details?.q1 || "-"}
+                        {result.qualifyingDetails?.q1 || "-"}
                       </TableCell>
                       <TableCell className={cn(
                         "md:table-cell text-right font-mono text-sm text-muted-foreground",
                         showDetails ? "table-cell" : "hidden"
                       )}>
-                        {result.qualifying_details?.q2 || "-"}
+                        {result.qualifyingDetails?.q2 || "-"}
                       </TableCell>
                       <TableCell className={cn(
                         "md:table-cell text-right font-mono text-sm text-muted-foreground",
                         showDetails ? "table-cell" : "hidden"
                       )}>
-                        {result.qualifying_details?.q3 || "-"}
+                        {result.qualifyingDetails?.q3 || "-"}
                       </TableCell>
                     </>
                   )}

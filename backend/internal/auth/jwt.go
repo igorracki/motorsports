@@ -12,6 +12,8 @@ var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 func init() {
 	if len(jwtSecret) == 0 {
+		fmt.Println("CRITICAL: JWT_SECRET environment variable is not set. Falling back to development secret.")
+		fmt.Println("WARNING: THIS IS INSECURE FOR PRODUCTION DEPLOYMENTS.")
 		jwtSecret = []byte("default_secret_for_development_only")
 	}
 }
@@ -43,7 +45,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing token: %w", err)
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {

@@ -16,7 +16,8 @@ import {
   FriendRequest,
   FriendRequestSchema,
   LeaderboardEntry,
-  LeaderboardEntrySchema
+  LeaderboardEntrySchema,
+  SubmitPredictionRequest
 } from "@/types/f1";
 import { 
   LoginRequest, 
@@ -107,7 +108,7 @@ export const f1Api = {
    * Fetches the full list of drivers for a given year and round from the API.
    */
   async getDrivers(year: number, round: number): Promise<DriverInfo[]> {
-    const data = await this.fetchJson<any[]>(`${_BASE_URL}/schedule/${year}/${round}/drivers`);
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/schedule/${year}/${round}/drivers`);
     return z.array(DriverInfoSchema).parse(data || []);
   },
 
@@ -115,7 +116,7 @@ export const f1Api = {
    * Fetches the full schedule for a given year.
    */
   async getSchedule(year: number): Promise<RaceWeekend[]> {
-    const data = await this.fetchJson<{ schedule: any[] }>(`${_BASE_URL}/schedule/${year}`);
+    const data = await this.fetchJson<{ schedule: unknown[] }>(`${_BASE_URL}/schedule/${year}`);
     return z.array(RaceWeekendSchema).parse(data.schedule);
   },
 
@@ -133,7 +134,7 @@ export const f1Api = {
    * Fetches results for a specific session.
    */
   async getSessionResults(year: number, round: number, sessionCode: string): Promise<DriverResult[]> {
-    const data = await this.fetchJson<any>(
+    const data = await this.fetchJson<{ results: unknown[] }>(
       `${_BASE_URL}/schedule/${year}/${round}/${sessionCode}/results`
     );
     // The Backend returns a SessionResults object
@@ -144,7 +145,7 @@ export const f1Api = {
    * Fetches circuit details.
    */
   async getCircuit(year: number, round: number): Promise<Circuit> {
-    const data = await this.fetchJson<any>(`${_BASE_URL}/schedule/${year}/${round}/circuit`);
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/schedule/${year}/${round}/circuit`);
     return CircuitSchema.parse(data);
   },
 
@@ -152,7 +153,7 @@ export const f1Api = {
    * Auth: Login
    */
   async login(request: LoginRequest): Promise<AuthResponse> {
-    const data = await this.fetchJson<any>(`${_BASE_URL}/auth/login`, {
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/auth/login`, {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -163,7 +164,7 @@ export const f1Api = {
    * Auth: Register
    */
   async register(request: RegisterRequest): Promise<AuthResponse> {
-    const data = await this.fetchJson<any>(`${_BASE_URL}/auth/register`, {
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/auth/register`, {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -183,7 +184,7 @@ export const f1Api = {
    * Auth: Get current user
    */
   async getMe(): Promise<AuthResponse> {
-    const data = await this.fetchJson<any>(`${_BASE_URL}/auth/me`);
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/auth/me`);
     return AuthResponseSchema.parse(data);
   },
 
@@ -191,15 +192,15 @@ export const f1Api = {
    * User: Get full profile
    */
   async getUserProfile(userId: string): Promise<UserProfileResponse> {
-    const data = await this.fetchJson<any>(`${_BASE_URL}/users/${userId}`);
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/users/${userId}`);
     return UserProfileResponseSchema.parse(data);
   },
 
   /**
    * User: Get season scores/stats
    */
-  async getSeasonScores(userId: string): Promise<any[]> {
-    const data = await this.fetchJson<any[]>(`${_BASE_URL}/users/${userId}/stats/seasons`);
+  async getSeasonScores(userId: string): Promise<unknown[]> {
+    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/users/${userId}/stats/seasons`);
     return data || [];
   },
 
@@ -207,7 +208,7 @@ export const f1Api = {
    * Predictions: Get predictions for a specific round
    */
   async getRoundPredictions(userId: string, year: number, round: number): Promise<Prediction[]> {
-    const data = await this.fetchJson<any[]>(
+    const data = await this.fetchJson<unknown[]>(
       `${_BASE_URL}/users/${userId}/predictions/${year}/${round}`
     );
     return z.array(PredictionSchema).parse(data || []);
@@ -216,8 +217,8 @@ export const f1Api = {
   /**
    * Predictions: Submit a prediction
    */
-  async submitPrediction(userId: string, prediction: Partial<Prediction>): Promise<Prediction> {
-    const data = await this.fetchJson<any>(`${_BASE_URL}/users/${userId}/predictions`, {
+  async submitPrediction(userId: string, prediction: SubmitPredictionRequest): Promise<Prediction> {
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/users/${userId}/predictions`, {
       method: "POST",
       body: JSON.stringify(prediction),
     });
@@ -228,7 +229,7 @@ export const f1Api = {
    * Predictions: Get scoring rules
    */
   async getScoringRules(): Promise<SessionScoringRules[]> {
-    const data = await this.fetchJson<any[]>(`${_BASE_URL}/predictions/scoring-rules`);
+    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/predictions/scoring-rules`);
     return z.array(SessionScoringRulesSchema).parse(data || []);
   },
 
@@ -246,7 +247,7 @@ export const f1Api = {
    * Friends: Get pending requests
    */
   async getPendingRequests(): Promise<FriendRequest[]> {
-    const data = await this.fetchJson<any[]>(`${_BASE_URL}/users/friends/requests`);
+    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/users/friends/requests`);
     return z.array(FriendRequestSchema).parse(data || []);
   },
 
@@ -264,7 +265,7 @@ export const f1Api = {
    * Leaderboard: Get leaderboard for a season
    */
   async getLeaderboard(season: number): Promise<LeaderboardEntry[]> {
-    const data = await this.fetchJson<any[]>(`${_BASE_URL}/users/friends/leaderboard/${season}`);
+    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/users/friends/leaderboard/${season}`);
     return z.array(LeaderboardEntrySchema).parse(data || []);
   }
 };

@@ -158,7 +158,7 @@ func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Conte
 	}
 
 	if err := predictionRepo.fetchEntriesForPredictions(ctx, predictions); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching entries: %w", err)
 	}
 
 	slog.InfoContext(ctx, "Exit: GetUserPredictions", "user_id", userID, "count", len(predictions))
@@ -194,7 +194,7 @@ func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Cont
 	}
 
 	if err := predictionRepo.fetchEntriesForPredictions(ctx, predictions); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching entries: %w", err)
 	}
 
 	slog.InfoContext(ctx, "Exit: GetRoundPredictions", "user_id", userID, "count", len(predictions))

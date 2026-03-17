@@ -34,7 +34,7 @@ export function MainNav() {
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
             >
               <User className="h-4 w-4" />
-              <span className="hidden sm:inline">{profile?.display_name || "Profile"}</span>
+              <span className="hidden sm:inline">{profile?.displayName || "Profile"}</span>
             </Link>
           ) : (
             <Link

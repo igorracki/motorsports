@@ -16,9 +16,4 @@ class RaceWeekend:
     event_format: str
 
     def json(self) -> str:
-        def convert_datetime(original):
-            if isinstance(original, datetime) :
-                return original.isoformat()
-            return original
-
-        return json.dumps(asdict(self), default=convert_datetime, indent=2)
+        return json.dumps(asdict(self), indent=2)

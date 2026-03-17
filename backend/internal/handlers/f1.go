@@ -59,6 +59,10 @@ func (handler *F1Handler) GetSchedule(context echo.Context) error {
 		})
 	}
 
+	if schedule == nil {
+		schedule = []models.RaceWeekend{}
+	}
+
 	response := models.ScheduleResponse{
 		Schedule: schedule,
 	}
@@ -104,11 +108,19 @@ func (handler *F1Handler) GetSessionResults(context echo.Context) error {
 		})
 	}
 
-	count := 0
-	if results != nil {
-		count = len(results.Results)
+	if results == nil {
+		slog.WarnContext(ctx, "Session results not found", "year", year, "round", round, "session", sessionType)
+		return context.JSON(http.StatusNotFound, models.ErrorResponse{
+			Error:   "not_found",
+			Message: "session results not found",
+		})
 	}
 
+	if results.Results == nil {
+		results.Results = []models.DriverResult{}
+	}
+
+	count := len(results.Results)
 	slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "session", sessionType, "count", count)
 	return context.JSON(http.StatusOK, results)
 }
@@ -195,6 +207,10 @@ func (handler *F1Handler) GetDrivers(context echo.Context) error {
 			Error:   "internal_error",
 			Message: err.Error(),
 		})
+	}
+
+	if drivers == nil {
+		drivers = []models.DriverInfo{}
 	}
 
 	slog.InfoContext(ctx, "Exit: GetDrivers", "year", year, "round", round, "count", len(drivers))

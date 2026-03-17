@@ -22,6 +22,7 @@ services:
       - "8081:8081"
     volumes:
       - ./fastf1_wrapper:/app
+      - f1_wrapper_cache_dev:/app/.cache
     working_dir: /app
     command: uvicorn src.core.http.server:server --host 0.0.0.0 --port 8081 --reload
 
@@ -37,3 +38,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- -H 0.0.0.0
+
+volumes:
+  f1_wrapper_cache_dev:
+

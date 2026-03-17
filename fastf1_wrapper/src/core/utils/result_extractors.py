@@ -23,6 +23,7 @@ QUALIFYING_SESSION_TYPES = {
 
 def extract_driver_info(row: pd.Series) -> DriverInfo:
     id = str(get_scalar_value(row, 'Abbreviation') or "")
+    logger.info(f"Entry: extract_driver_info(driver_id={id})")
     
     # Ensure driver number is an integer string (avoiding 1.0)
     raw_number = get_scalar_value(row, 'DriverNumber')
@@ -34,13 +35,15 @@ def extract_driver_info(row: pd.Series) -> DriverInfo:
     except (ValueError, TypeError):
         driver_number = str(raw_number or "0")
 
-    return DriverInfo(
+    driver_info = DriverInfo(
         id=id,
         number=driver_number,
         full_name=str(get_scalar_value(row, 'FullName') or ""),
         country_code=str(get_scalar_value(row, 'CountryCode') or ""),
         team_name=str(get_scalar_value(row, 'TeamName') or "")
     )
+    logger.info(f"Exit: extract_driver_info(driver_id={id})")
+    return driver_info
 
 def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> DriverResult:
     driver_info = extract_driver_info(row)

@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Trophy, AlertCircle } from "lucide-react";
-import { CircuitMap } from "@/components/circuit-map";
-import { TrackStats } from "@/components/track-stats";
-import { SessionSelector } from "@/components/session-selector";
-import { ResultsTable } from "@/components/results-table";
-import { PredictionTable } from "@/components/prediction-table";
+import { CircuitMap } from "@/components/features/circuit-map";
+import { TrackStats } from "@/components/features/track-stats";
+import { SessionSelector } from "@/components/features/session-selector";
+import { ResultsTable } from "@/components/features/results-table";
+import { PredictionTable } from "@/components/features/prediction-table";
 import { usePredictions } from "@/hooks/usePredictions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { LoginModal } from "@/components/auth/LoginModal";
+import { LoginModal } from "@/components/features/auth/LoginModal";
 import { f1Api } from "@/services/f1-api";
 import { useAuth } from "@/hooks/useAuth";
-import { MainNav } from "@/components/main-nav";
+import { MainNav } from "@/components/ui/main-nav";
 import { cn } from "@/lib/utils";
 import type { RaceWeekend, DriverInfo, DriverResult, Circuit } from "@/types/f1";
 import { getRaceStatus, isSessionLive } from "@/lib/race-utils";
@@ -32,19 +32,39 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [circuit, setCircuit] = useState<Circuit | null>(null);
   const [sessionResults, setSessionResults] = useState<Record<string, DriverResult[]>>({});
-  const [loadingResults, setLoadingResults] = useState(false);
+  const [loadingResults, setLoadingResults] = useState<Record<string, boolean>>({});
   const [loadingCircuit, setLoadingCircuit] = useState(true);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
+  const [errorCircuit, setErrorCircuit] = useState<string | null>(null);
+  const [errorDrivers, setErrorDrivers] = useState<string | null>(null);
+  const [errorResults, setErrorResults] = useState<Record<string, string>>({});
   
-  useEffect(() => {
+  const fetchDashboardData = useCallback(() => {
     setLoadingDrivers(true);
     setLoadingCircuit(true);
+    setErrorDrivers(null);
+    setErrorCircuit(null);
 
-    Promise.all([
-      f1Api.getDrivers(year, raceWeekend.round).then(setDrivers).finally(() => setLoadingDrivers(false)),
-      f1Api.getCircuit(year, raceWeekend.round).then(setCircuit).finally(() => setLoadingCircuit(false))
-    ]);
+    f1Api.getDrivers(year, raceWeekend.round)
+      .then(setDrivers)
+      .catch(err => {
+        console.error("Failed to load drivers:", err);
+        setErrorDrivers("Failed to load driver entry list");
+      })
+      .finally(() => setLoadingDrivers(false));
+
+    f1Api.getCircuit(year, raceWeekend.round)
+      .then(setCircuit)
+      .catch(err => {
+        console.error("Failed to load circuit:", err);
+        setErrorCircuit("Failed to load track information");
+      })
+      .finally(() => setLoadingCircuit(false));
   }, [year, raceWeekend.round]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const {
     isPredictionMode,
@@ -59,6 +79,23 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
     updatePredictions
   } = usePredictions(drivers, year, raceWeekend.round);
 
+  const fetchSessionResults = useCallback((sessionCode: string, sessionType: string) => {
+    setLoadingResults(prev => ({ ...prev, [sessionType]: true }));
+    setErrorResults(prev => ({ ...prev, [sessionType]: "" }));
+    
+    f1Api.getSessionResults(year, raceWeekend.round, sessionCode)
+      .then(results => {
+        setSessionResults(prev => ({ ...prev, [sessionType]: results }));
+      })
+      .catch(err => {
+        console.error(`Failed to fetch results for ${sessionType}:`, err);
+        setErrorResults(prev => ({ ...prev, [sessionType]: "Failed to load session results" }));
+      })
+      .finally(() => {
+        setLoadingResults(prev => ({ ...prev, [sessionType]: false }));
+      });
+  }, [year, raceWeekend.round]);
+
   // Fetch all results for passed sessions on mount
   useEffect(() => {
     if (raceWeekend && !isPredictionMode) {
@@ -67,16 +104,20 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
       
       passedSessions.forEach(session => {
         const sessionCode = session.sessionCode || session.type;
-        // Only fetch if not already in state
-        if (!sessionResults[session.type]) {
-          f1Api.getSessionResults(year, raceWeekend.round, sessionCode)
-            .then(results => {
-              setSessionResults(prev => ({ ...prev, [session.type]: results }));
-            });
-        }
+        // Fetch logic wrapped in status check (ignoring current sessionResults/errorResults as dependencies to avoid loops)
+        // We use setSessionResults/setErrorResults functional updates inside the promise
+        setSessionResults(current => {
+          if (!current[session.type]) {
+             // Use internal record-based checking to avoid triggering effect again
+             // However, for mount-only (mostly) background fetch, we just trigger if missing
+             fetchSessionResults(sessionCode, session.type);
+          }
+          return current;
+        });
       });
     }
-  }, [raceWeekend, isPredictionMode, year, raceWeekend.round, sessionResults]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceWeekend, isPredictionMode, year, raceWeekend.round, fetchSessionResults]);
 
   // Auto-select last passed session for completed events
   useEffect(() => {
@@ -94,18 +135,26 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
 
   // Fetch results when session changes
   useEffect(() => {
-    if (selectedSession && !isPredictionMode && !sessionResults[selectedSession]) {
+    if (selectedSession && !isPredictionMode) {
       const session = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
       const sessionCode = session?.sessionCode || selectedSession;
       
-      setLoadingResults(true);
-      f1Api.getSessionResults(year, raceWeekend.round, sessionCode)
-        .then(results => {
-          setSessionResults(prev => ({ ...prev, [selectedSession]: results }));
-        })
-        .finally(() => setLoadingResults(false));
+      // Use setSessionResults to check existence without depending on it
+      setSessionResults(current => {
+        if (!current[selectedSession]) {
+          // Check loading state too
+          setLoadingResults(loading => {
+            if (!loading[selectedSession]) {
+               fetchSessionResults(sessionCode, selectedSession);
+            }
+            return loading;
+          });
+        }
+        return current;
+      });
     }
-  }, [selectedSession, isPredictionMode, year, raceWeekend.round, raceWeekend.sessions, sessionResults]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSession, isPredictionMode, raceWeekend.sessions, fetchSessionResults]);
 
   // Update predictions when drivers are finally loaded if they were empty
   useEffect(() => {
@@ -139,7 +188,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
       <header className="sticky top-14 z-50 border-b border-border/50 bg-background/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link
-            href={`/?year=${year}`}
+            href={`/calendar/${year}`}
             className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -175,6 +224,17 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
               )}>
                 {loadingCircuit ? (
                   <LoadingSpinner label="Loading track map..." />
+                ) : errorCircuit ? (
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 opacity-20" />
+                    <p className="text-sm">{errorCircuit}</p>
+                    <button 
+                      onClick={fetchDashboardData}
+                      className="text-xs text-primary hover:underline mt-2"
+                    >
+                      Try Again
+                    </button>
+                  </div>
                 ) : (
                   <CircuitMap 
                     layout={circuit?.layout} 
@@ -207,6 +267,10 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 {loadingCircuit ? (
                   <div className="rounded-xl border border-border/50 bg-card/50 p-8 h-full flex items-center justify-center">
                     <LoadingSpinner size="sm" label="Loading track stats..." />
+                  </div>
+                ) : errorCircuit ? (
+                  <div className="rounded-xl border border-border/50 bg-card/50 p-8 h-full flex items-center justify-center text-center">
+                    <p className="text-sm text-muted-foreground">{errorCircuit}</p>
                   </div>
                 ) : (
                   circuit && <TrackStats stats={circuit} />
@@ -291,17 +355,27 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                 <div className="rounded-xl border border-border/50 bg-card/50 p-24 text-center">
                   <LoadingSpinner label="Loading driver entry list..." />
                 </div>
-                ) : drivers.length > 0 ? (
-                  <PredictionTable
-                    key={selectedSession}
-                    drivers={currentPredictions}
-                    onPredictionsChange={updatePredictions}
-                    onSave={saveCurrentPredictions}
-                    readOnly={isSessionLocked}
-                    totalScore={selectedSession ? savedPredictions[selectedSession]?.score : undefined}
-                  />
-                ) : (
-
+              ) : errorDrivers ? (
+                <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
+                  <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive/50" />
+                  <p className="text-muted-foreground">{errorDrivers}</p>
+                  <button 
+                    onClick={fetchDashboardData}
+                    className="text-xs text-primary hover:underline mt-2"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : drivers.length > 0 ? (
+                <PredictionTable
+                  key={selectedSession}
+                  drivers={currentPredictions}
+                  onPredictionsChange={updatePredictions}
+                  onSave={saveCurrentPredictions}
+                  readOnly={isSessionLocked}
+                  totalScore={selectedSession ? savedPredictions[selectedSession]?.score : undefined}
+                />
+              ) : (
                 <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
                   <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
                   <p className="text-muted-foreground">No driver information available for this session yet.</p>
@@ -334,9 +408,24 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                   <span className="ml-auto text-[10px] opacity-70">Refreshing every minute</span>
                 </div>
               )}
-              {loadingResults ? (
+              {selectedSession && loadingResults[selectedSession] ? (
                 <div className="flex items-center justify-center py-24 rounded-xl border border-border/50 bg-card/50">
                   <LoadingSpinner label="Fetching session results..." />
+                </div>
+              ) : selectedSession && errorResults[selectedSession] ? (
+                <div className="rounded-xl border border-border/50 bg-card/50 p-12 text-center">
+                  <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive/50" />
+                  <p className="text-muted-foreground">{errorResults[selectedSession]}</p>
+                  <button 
+                    onClick={() => {
+                      const session = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
+                      const sessionCode = session?.sessionCode || selectedSession;
+                      fetchSessionResults(sessionCode, selectedSession);
+                    }}
+                    className="text-xs text-primary hover:underline mt-2"
+                  >
+                    Try Again
+                  </button>
                 </div>
               ) : currentResults && currentResults.length > 0 ? (
                 <ResultsTable

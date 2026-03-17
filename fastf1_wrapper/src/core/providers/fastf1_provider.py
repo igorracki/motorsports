@@ -141,9 +141,10 @@ class FastF1Provider(Provider):
 
     def _fetch_from_session(self, year: int, round_number: int, session_type: str) -> List[DriverInfo]:
         """Internal helper to fetch drivers from a specific session."""
+        logger.info(f"Entry: _fetch_from_session(year={year}, round={round_number}, session={session_type})")
         try:
             session = fastf1.get_session(year, round_number, session_type)
-            session.load(laps=False, telemetry=False, weather=False, messages=False)
+            session.load(laps=True, telemetry=False, weather=False, messages=False)
             
             if session.results is not None and not session.results.empty:
                 drivers = []
@@ -151,9 +152,12 @@ class FastF1Provider(Provider):
                     driver_info = extract_driver_info(row)
                     if driver_info.id:
                         drivers.append(driver_info)
+                logger.info(f"Exit: _fetch_from_session(year={year}, round={round_number}, session={session_type}) - Found {len(drivers)} drivers")
                 return drivers
         except Exception as e:
-            logger.warning(f"Could not load {session_type} session for drivers: {e}")
+            logger.exception(f"Could not load {session_type} session for drivers: {e}")
+        
+        logger.warning(f"Exit: _fetch_from_session(year={year}, round={round_number}, session={session_type}) - No drivers found")
         return []
 
     def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
@@ -202,11 +206,14 @@ class FastF1Provider(Provider):
             return None
 
     def _fetch_qualifying_session(self, year: int, round_number: int) -> Any:
+        logger.info(f"Entry: _fetch_qualifying_session(year={year}, round={round_number})")
         session = fastf1.get_session(year, round_number, 'Q')
         try:
             session.load(telemetry=True, laps=True, weather=False, messages=False)
         except Exception:
-            logger.warning(f"Could not load telemetry for {year} Round {round_number}")
+            logger.exception(f"Could not load telemetry for {year} Round {round_number}")
+        
+        logger.info(f"Exit: _fetch_qualifying_session(year={year}, round={round_number})")
         return session
 
     def _extract_circuit_metrics_and_layout(self, session: Any) -> tuple:
@@ -218,7 +225,7 @@ class FastF1Provider(Provider):
             if circuit_info is not None:
                 rotation = circuit_info.rotation
         except Exception:
-            pass
+            logger.exception("Error extracting circuit info rotation")
         return metrics, layout, rotation
 
     def _get_fallback_circuit_data(self, location_info: dict, year: int, metrics: dict, layout: list, rotation: float) -> tuple:
@@ -248,6 +255,7 @@ class FastF1Provider(Provider):
                         logger.info(f"Exit: _get_historical_session - Found valid historical data in {search_year}")
                         return historical_session
             except Exception:
+                logger.exception(f"Error checking historical data for {search_year}")
                 continue
         
         logger.info(f"Exit: _get_historical_session - No historical data found")

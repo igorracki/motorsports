@@ -84,6 +84,22 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 		return nil, fmt.Errorf("failed to fetch results for session %s in round %d (%d): %w", sessionType, round, year, err)
 	}
 
+	// Validate if round actually exists in schedule for this year to differentiate 404 from "no results yet"
+	schedule, scheduleErr := service.GetScheduleByYear(ctx, year)
+	if scheduleErr == nil {
+		roundFound := false
+		for _, rw := range schedule {
+			if rw.Round == round {
+				roundFound = true
+				break
+			}
+		}
+		if !roundFound {
+			slog.WarnContext(ctx, "Round not found in schedule", "year", year, "round", round)
+			return nil, nil
+		}
+	}
+
 	// Calculate Smart TTL
 	ttl := service.calculateSessionTTL(ctx, year, round, sessionType, results != nil && len(results.Results) > 0)
 
@@ -184,9 +200,11 @@ func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (
 
 		ttl := service.calculateWeekendTTL(ctx, year, round)
 		service.cache.Set(cacheKey, circuit, ttl)
+		slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
+	} else {
+		slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "found", false)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
 	return circuit, nil
 }
 

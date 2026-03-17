@@ -41,13 +41,13 @@ func (service *predictionService) SubmitPrediction(ctx context.Context, predicti
 
 	if err := service.validatePrediction(prediction); err != nil {
 		slog.WarnContext(ctx, "Prediction validation failed", "error", err)
-		return err
+		return fmt.Errorf("validating prediction: %w", err)
 	}
 
 	sessionTimeMS, err := service.getSessionStartTimeMS(ctx, prediction.Year, prediction.Round, prediction.SessionType)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to get session time for deadline check", "error", err)
-		return err
+		return fmt.Errorf("getting session start time: %w", err)
 	}
 
 	if time.Now().UTC().UnixMilli() >= sessionTimeMS {
@@ -108,7 +108,7 @@ func (service *predictionService) GetUserPredictions(ctx context.Context, userID
 
 	predictions, err := service.predictionRepository.GetUserPredictions(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching user predictions from repository: %w", err)
 	}
 
 	for i := range predictions {
@@ -124,7 +124,7 @@ func (service *predictionService) GetRoundPredictions(ctx context.Context, userI
 
 	predictions, err := service.predictionRepository.GetRoundPredictions(ctx, userID, year, round)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching round predictions from repository: %w", err)
 	}
 
 	for i := range predictions {
