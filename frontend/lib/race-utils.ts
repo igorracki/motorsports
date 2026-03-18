@@ -2,6 +2,9 @@ import { RaceWeekend } from "@/types/f1";
 
 export type RaceStatus = "completed" | "ongoing" | "upcoming";
 
+const SESSION_DURATION_MS = 2 * 60 * 60 * 1000; // Assume 2 hours max
+const PRE_SESSION_MS = 15 * 60 * 1000; // 15 minutes before
+
 /**
  * Determines the status of a race weekend based on its start and end times.
  */
@@ -16,11 +19,11 @@ export function getRaceStatus(year: number, round: number, raceWeekend?: RaceWee
 
   const now = Date.now();
   
-  if (now < raceWeekend.startDateUTCMS) {
+  if (now < raceWeekend.startDateUTCMS - PRE_SESSION_MS) {
     return "upcoming";
   }
   
-  if (now > raceWeekend.endDateUTCMS) {
+  if (now > raceWeekend.endDateUTCMS + SESSION_DURATION_MS) {
     return "completed";
   }
 
@@ -32,10 +35,7 @@ export function getRaceStatus(year: number, round: number, raceWeekend?: RaceWee
  */
 export function isSessionLive(sessionTimeUTCMS: number): boolean {
   const now = Date.now();
-  const sessionDurationMS = 2 * 60 * 60 * 1000; // Assume 2 hours max
-  const preSessionMS = 15 * 60 * 1000; // 15 minutes before
-  
-  return now >= sessionTimeUTCMS - preSessionMS && now <= sessionTimeUTCMS + sessionDurationMS;
+  return now >= sessionTimeUTCMS - PRE_SESSION_MS && now <= sessionTimeUTCMS + SESSION_DURATION_MS;
 }
 
 /**
