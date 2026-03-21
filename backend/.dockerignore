@@ -1,8 +1,0 @@
-tmp/
-bin/
-vendor/
-.git/
-.gitignore
-.air.toml
-Dockerfile
-docker-compose*
