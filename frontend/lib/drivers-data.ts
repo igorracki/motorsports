@@ -1,0 +1,29 @@
+export interface Driver {
+  id: string;
+  name: string;
+  team: string;
+  teamColor: string;
+}
+
+export const drivers: Driver[] = [
+  { id: "ver", name: "M. Verstappen", team: "Red Bull Racing", teamColor: "#3671C6" },
+  { id: "per", name: "S. Perez", team: "Red Bull Racing", teamColor: "#3671C6" },
+  { id: "nor", name: "L. Norris", team: "McLaren", teamColor: "#FF8000" },
+  { id: "pia", name: "O. Piastri", team: "McLaren", teamColor: "#FF8000" },
+  { id: "lec", name: "C. Leclerc", team: "Ferrari", teamColor: "#E80020" },
+  { id: "ham", name: "L. Hamilton", team: "Ferrari", teamColor: "#E80020" },
+  { id: "rus", name: "G. Russell", team: "Mercedes", teamColor: "#27F4D2" },
+  { id: "ant", name: "K. Antonelli", team: "Mercedes", teamColor: "#27F4D2" },
+  { id: "alo", name: "F. Alonso", team: "Aston Martin", teamColor: "#229971" },
+  { id: "str", name: "L. Stroll", team: "Aston Martin", teamColor: "#229971" },
+  { id: "gas", name: "P. Gasly", team: "Alpine", teamColor: "#0093CC" },
+  { id: "doo", name: "J. Doohan", team: "Alpine", teamColor: "#0093CC" },
+  { id: "alb", name: "A. Albon", team: "Williams", teamColor: "#64C4FF" },
+  { id: "sai", name: "C. Sainz", team: "Williams", teamColor: "#64C4FF" },
+  { id: "tsu", name: "Y. Tsunoda", team: "RB", teamColor: "#6692FF" },
+  { id: "had", name: "I. Hadjar", team: "RB", teamColor: "#6692FF" },
+  { id: "hul", name: "N. Hulkenberg", team: "Sauber", teamColor: "#52E252" },
+  { id: "bor", name: "G. Bortoleto", team: "Sauber", teamColor: "#52E252" },
+  { id: "oco", name: "E. Ocon", team: "Haas", teamColor: "#B6BABD" },
+  { id: "bea", name: "O. Bearman", team: "Haas", teamColor: "#B6BABD" },
+];
