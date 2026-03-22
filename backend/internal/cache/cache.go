@@ -34,18 +34,28 @@ func NewMemoryCache() Cache {
 
 func (cache *memoryCache) Get(key string) (any, bool) {
 	cache.mu.RLock()
-	defer cache.mu.RUnlock()
-
 	item, found := cache.items[key]
+
 	if !found {
+		cache.mu.RUnlock()
 		return nil, false
 	}
 
 	if item.expiration > 0 && time.Now().UnixNano() > item.expiration {
+		cache.mu.RUnlock()
+		cache.mu.Lock()
+		defer cache.mu.Unlock()
+
+		// Re-verify after getting write lock
+		if item, found = cache.items[key]; found && item.expiration > 0 && time.Now().UnixNano() > item.expiration {
+			delete(cache.items, key)
+		}
 		return nil, false
 	}
 
-	return item.value, true
+	value := item.value
+	cache.mu.RUnlock()
+	return value, true
 }
 
 func (cache *memoryCache) Set(key string, value any, duration time.Duration) {

@@ -5,6 +5,7 @@ import { Trophy, Radio } from "lucide-react";
 import type { Session, DriverInfo, DriverResult, Prediction } from "@/types/f1";
 import { formatSessionTime } from "@/lib/date-utils";
 import { isSessionLive } from "@/lib/race-utils";
+import { useState, useEffect } from "react";
 
 interface SessionSelectorProps {
   sessions: Session[];
@@ -23,7 +24,15 @@ export function SessionSelector({
   savedPredictions,
   sessionResults = {},
 }: SessionSelectorProps) {
-  const now = Date.now();
+  const [now, setNow] = useState<number>(0);
+
+  useEffect(() => {
+    // Avoid sync setState in effect to satisfy React 19 rules
+    const handle = requestAnimationFrame(() => {
+      setNow(Date.now());
+    });
+    return () => cancelAnimationFrame(handle);
+  }, []);
 
   return (
     <div className="grid grid-cols-5 gap-2">
@@ -33,8 +42,8 @@ export function SessionSelector({
         const hasResults = results && results.length > 0;
         const hasPrediction = !!savedPredictions[session.type];
         
-        const isStarted = session.timeUTCMS < now;
-        const isLive = isSessionLive(session.timeUTCMS);
+        const isStarted = now > 0 && session.timeUTCMS < now;
+        const isLive = now > 0 && isSessionLive(session.timeUTCMS);
         
         const isClickable = true
 

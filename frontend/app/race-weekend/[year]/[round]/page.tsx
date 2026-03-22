@@ -30,16 +30,17 @@ export default async function RaceWeekendPage({ params }: RaceWeekendPageProps) 
   const { round, year: yearStr } = await params;
   const year = Number(yearStr) || 2026;
   
+  let raceWeekend;
   try {
-    const raceWeekend = await f1Api.getRaceWeekend(year, round);
-
-    if (!raceWeekend) {
-      notFound();
-    }
-
-    return <RaceWeekendDashboard raceWeekend={raceWeekend} year={year} />;
+    raceWeekend = await f1Api.getRaceWeekend(year, round);
   } catch (error) {
     console.error("Failed to fetch race weekend:", error);
     notFound();
   }
+
+  if (!raceWeekend) {
+    notFound();
+  }
+
+  return <RaceWeekendDashboard raceWeekend={raceWeekend} year={year} />;
 }
