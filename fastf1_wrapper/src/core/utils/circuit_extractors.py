@@ -37,25 +37,30 @@ def extract_circuit_metrics(session: Any) -> dict:
     }
 
     try:
-        circuit_info = session.get_circuit_info()
-        if circuit_info is not None:
-            metrics["corners"] = len(circuit_info.corners)
+        # Check if session info is loaded before calling get_circuit_info
+        if hasattr(session, '_session_info') and session._session_info is not None:
+            circuit_info = session.get_circuit_info()
+            if circuit_info is not None:
+                metrics["corners"] = len(circuit_info.corners)
     except Exception:
-        logger.exception("Could not get circuit info (corners)")
+        logger.warning("Could not get circuit info (corners) - data may not be loaded")
 
     try:
-        fastest_lap = session.laps.pick_fastest()
-        telemetry = fastest_lap.get_telemetry()
-        if not telemetry.empty:
-            max_distance = telemetry['Distance'].max()
-            metrics["length_km"] = float(max_distance) / 1000.0
-            
-            # Additional metrics
-            metrics["max_speed_kmh"] = float(telemetry['Speed'].max())
-            metrics["max_altitude_m"] = float(telemetry['Z'].max())
-            metrics["min_altitude_m"] = float(telemetry['Z'].min())
+        # Check if laps are loaded
+        if hasattr(session, '_laps') and session._laps is not None and not session._laps.empty:
+            fastest_lap = session.laps.pick_fastest()
+            if fastest_lap is not None:
+                telemetry = fastest_lap.get_telemetry()
+                if not telemetry.empty:
+                    max_distance = telemetry['Distance'].max()
+                    metrics["length_km"] = float(max_distance) / 1000.0
+                    
+                    # Additional metrics
+                    metrics["max_speed_kmh"] = float(telemetry['Speed'].max())
+                    metrics["max_altitude_m"] = float(telemetry['Z'].max())
+                    metrics["min_altitude_m"] = float(telemetry['Z'].min())
     except Exception:
-        logger.exception("Could not calculate circuit metrics from telemetry")
+        logger.warning("Could not calculate circuit metrics from telemetry - data may not be loaded")
 
     logger.info(f"Exit: extract_circuit_metrics - {metrics['corners']} corners, {metrics['length_km']:.3f} km, {metrics['max_speed_kmh']} km/h")
     return metrics
@@ -63,10 +68,14 @@ def extract_circuit_metrics(session: Any) -> dict:
 def extract_circuit_layout(session: Any) -> List[CircuitLayoutPoint]:
     logger.info(f"Entry: extract_circuit_layout(session={session.event.EventName})")
     try:
-        if not hasattr(session, 'laps'):
+        # Check if laps are loaded
+        if not hasattr(session, '_laps') or session._laps is None or session._laps.empty:
             return []
             
         fastest_lap = session.laps.pick_fastest()
+        if fastest_lap is None:
+            return []
+            
         telemetry = fastest_lap.get_telemetry()
         
         if telemetry.empty:

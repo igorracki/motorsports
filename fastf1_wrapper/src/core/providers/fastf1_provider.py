@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import logging
 import time
+import unicodedata
 from typing import Any, List, Optional
 from .provider import Provider
 
@@ -43,6 +44,13 @@ class FastF1Provider(Provider):
 
     def _set_to_cache(self, key: str, value: Any, ttl: int = 600):
         self._memory_cache[key] = (value, time.time() + ttl)
+
+    def _normalize_string(self, text: str) -> str:
+        """Normalize string by removing accents and converting to lowercase."""
+        if not text:
+            return ""
+        normalized = unicodedata.normalize('NFD', text)
+        return "".join(c for c in normalized if unicodedata.category(c) != 'Mn').lower()
 
     def _setup_fastf1(self):
         # Configure FastF1 logging to reduce chatter
@@ -122,14 +130,23 @@ class FastF1Provider(Provider):
         logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
         
         drivers = []
-        if round_number > 1:
-            # For any round after the first, fetch from the previous round's race
-            logger.info(f"Fetching drivers from previous round race results ({year} Round {round_number-1} R)")
-            drivers = self._fetch_from_session(year, round_number - 1, 'R')
-        else:
-            # For the first round, try FP1 as it's the first session with data
-            logger.info(f"Fetching drivers from Round 1 FP1 ({year} Round 1 FP1)")
-            drivers = self._fetch_from_session(year, 1, 'FP1')
+        # Look back through previous rounds of the current year
+        for r in range(round_number - 1, 0, -1):
+            logger.info(f"Attempting to fetch drivers from {year} Round {r} R")
+            drivers = self._fetch_from_session(year, r, 'R')
+            if drivers:
+                break
+        
+        # If still no drivers, try the last round of the previous year
+        if not drivers:
+            logger.info(f"No drivers found in {year}, attempting last round of {year-1}")
+            try:
+                prev_schedule = fastf1.get_event_schedule(year - 1)
+                if not prev_schedule.empty:
+                    last_round = int(prev_schedule.iloc[-1]["RoundNumber"])
+                    drivers = self._fetch_from_session(year - 1, last_round, 'R')
+            except Exception:
+                logger.exception(f"Error fetching drivers from previous year {year-1}")
             
         if drivers:
             logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers")
@@ -242,10 +259,24 @@ class FastF1Provider(Provider):
 
     def _get_historical_session(self, location: str, country: str, current_year: int) -> Optional[Any]:
         logger.info(f"Entry: _get_historical_session(location={location}, country={country}, current_year={current_year})")
+        
+        norm_location = self._normalize_string(location)
+        norm_country = self._normalize_string(country)
+        
         for search_year in range(current_year - 1, current_year - 6, -1):
             try:
                 schedule = fastf1.get_event_schedule(search_year)
-                matches = schedule[(schedule["Location"] == location) & (schedule["Country"] == country)]
+                
+                # Apply normalization to schedule for matching
+                schedule_norm = schedule.copy()
+                schedule_norm['LocationNorm'] = schedule_norm['Location'].apply(self._normalize_string)
+                schedule_norm['CountryNorm'] = schedule_norm['Country'].apply(self._normalize_string)
+                
+                matches = schedule_norm[
+                    (schedule_norm["LocationNorm"] == norm_location) & 
+                    (schedule_norm["CountryNorm"] == norm_country)
+                ]
+                
                 if not matches.empty:
                     historical_round_number = int(matches.iloc[-1]["RoundNumber"])
                     historical_session = fastf1.get_session(search_year, historical_round_number, "Q")
