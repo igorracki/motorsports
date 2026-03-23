@@ -31,6 +31,7 @@ services:
     image: f1-frontend:dev
     build:
       context: ./frontend/
+      target: deps
     environment:
       - BACKEND_URL=http://backend:8080
     ports:

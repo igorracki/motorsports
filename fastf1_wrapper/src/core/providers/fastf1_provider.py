@@ -130,14 +130,20 @@ class FastF1Provider(Provider):
         logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
         
         drivers = []
-        # Look back through previous rounds of the current year
-        for r in range(round_number - 1, 0, -1):
-            logger.info(f"Attempting to fetch drivers from {year} Round {r} R")
-            drivers = self._fetch_from_session(year, r, 'R')
-            if drivers:
-                break
         
-        # If still no drivers, try the last round of the previous year
+        # 1. Try current round FP1 first - it often has the entry list even if no results
+        logger.info(f"Attempting to fetch drivers from current round {year} Round {round_number} FP1")
+        drivers = self._fetch_from_session(year, round_number, 'FP1')
+        
+        # 2. Look back through previous rounds of the current year
+        if not drivers:
+            for r in range(round_number - 1, 0, -1):
+                logger.info(f"Attempting to fetch drivers from {year} Round {r} R")
+                drivers = self._fetch_from_session(year, r, 'R')
+                if drivers:
+                    break
+        
+        # 3. If still no drivers, try the last round of the previous year
         if not drivers:
             logger.info(f"No drivers found in {year}, attempting last round of {year-1}")
             try:
@@ -161,18 +167,34 @@ class FastF1Provider(Provider):
         logger.info(f"Entry: _fetch_from_session(year={year}, round={round_number}, session={session_type})")
         try:
             session = fastf1.get_session(year, round_number, session_type)
-            session.load(laps=True, telemetry=False, weather=False, messages=False)
+            # Load without telemetry/laps to be faster and more resilient
+            session.load(laps=False, telemetry=False, weather=False, messages=False)
             
+            drivers = []
+            # Try to get from results first (Ergast)
             if session.results is not None and not session.results.empty:
-                drivers = []
                 for _, row in session.results.iterrows():
                     driver_info = extract_driver_info(row)
                     if driver_info.id:
                         drivers.append(driver_info)
+            
+            # If no results, try the entry list (F1 API via FastF1)
+            if not drivers and hasattr(session, 'drivers') and session.drivers:
+                logger.info(f"No results in {session_type}, trying entry list")
+                for driver_number in session.drivers:
+                    try:
+                        driver_data = session.get_driver(driver_number)
+                        driver_info = extract_driver_info(driver_data)
+                        if driver_info.id:
+                            drivers.append(driver_info)
+                    except Exception:
+                        continue
+
+            if drivers:
                 logger.info(f"Exit: _fetch_from_session(year={year}, round={round_number}, session={session_type}) - Found {len(drivers)} drivers")
                 return drivers
         except Exception as e:
-            logger.exception(f"Could not load {session_type} session for drivers: {e}")
+            logger.warning(f"Could not load {session_type} session for drivers: {e}")
         
         logger.warning(f"Exit: _fetch_from_session(year={year}, round={round_number}, session={session_type}) - No drivers found")
         return []
@@ -263,6 +285,21 @@ class FastF1Provider(Provider):
         norm_location = self._normalize_string(location)
         norm_country = self._normalize_string(country)
         
+        # Address Ergast vs FastF1 string mismatches
+        country_aliases = {
+            'usa': 'united states',
+            'uk': 'united kingdom',
+            'uae': 'united arab emirates'
+        }
+        location_aliases = {
+            'monte carlo': 'monaco',
+            'yas marina': 'yas island',
+            'spa': 'spa-francorchamps',
+        }
+        
+        search_country = country_aliases.get(norm_country, norm_country)
+        search_location = location_aliases.get(norm_location, norm_location)
+        
         for search_year in range(current_year - 1, current_year - 6, -1):
             try:
                 schedule = fastf1.get_event_schedule(search_year)
@@ -271,20 +308,38 @@ class FastF1Provider(Provider):
                 schedule_norm = schedule.copy()
                 schedule_norm['LocationNorm'] = schedule_norm['Location'].apply(self._normalize_string)
                 schedule_norm['CountryNorm'] = schedule_norm['Country'].apply(self._normalize_string)
+                schedule_norm['EventNameNorm'] = schedule_norm['EventName'].apply(self._normalize_string)
                 
-                matches = schedule_norm[
-                    (schedule_norm["LocationNorm"] == norm_location) & 
-                    (schedule_norm["CountryNorm"] == norm_country)
+                # 1. Filter by Country
+                country_matches = schedule_norm[schedule_norm['CountryNorm'] == search_country]
+                
+                if country_matches.empty:
+                    continue
+                    
+                # 2. Filter by Location (exact, contains, or in Event Name)
+                loc_matches = country_matches[
+                    (country_matches['LocationNorm'] == search_location) |
+                    (country_matches['LocationNorm'].str.contains(search_location, na=False)) |
+                    (country_matches['EventNameNorm'].str.contains(search_location, na=False))
                 ]
                 
-                if not matches.empty:
-                    historical_round_number = int(matches.iloc[-1]["RoundNumber"])
-                    historical_session = fastf1.get_session(search_year, historical_round_number, "Q")
-                    historical_session.load(telemetry=True, laps=True, weather=False, messages=False)
+                if not loc_matches.empty:
+                    historical_round_number = int(loc_matches.iloc[-1]["RoundNumber"])
                     
-                    if hasattr(historical_session, "laps") and not historical_session.laps.empty:
-                        logger.info(f"Exit: _get_historical_session - Found valid historical data in {search_year}")
-                        return historical_session
+                    # Try Qualifying first, then Race as fallback for circuit data
+                    for session_type in ["Q", "R"]:
+                        logger.info(f"Attempting historical {search_year} Round {historical_round_number} ({session_type})")
+                        historical_session = fastf1.get_session(search_year, historical_round_number, session_type)
+                        
+                        try:
+                            historical_session.load(telemetry=True, laps=True, weather=False, messages=False)
+                        except Exception as e:
+                            logger.warning(f"Failed to load historical session {search_year} {session_type}: {e}")
+                            continue
+                        
+                        if hasattr(historical_session, "_laps") and historical_session._laps is not None and not historical_session._laps.empty:
+                            logger.info(f"Exit: _get_historical_session - Found valid historical data in {search_year} ({session_type})")
+                            return historical_session
             except Exception:
                 logger.exception(f"Error checking historical data for {search_year}")
                 continue
