@@ -16,14 +16,12 @@ export default function ProfilePage() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [copied, setCopied] = useState(false);
   
-  // Friends state
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [friendIdentifier, setFriendIdentifier] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
   const [friendError, setFriendError] = useState("");
   const [friendSuccess, setFriendSuccess] = useState("");
 
-  // Leaderboard state
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const currentYear = new Date().getFullYear();
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
@@ -198,7 +196,6 @@ export default function ProfilePage() {
             </div>
           </main>
 
-          {/* Friends Section */}
           <section className="space-y-6">
             <div className="flex items-center gap-2">
               <Users className="h-6 w-6 text-red-500" />
@@ -206,7 +203,6 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Add Friend Panel */}
               <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-400 uppercase tracking-wider">
                   <UserPlus className="h-4 w-4" />
@@ -232,7 +228,6 @@ export default function ProfilePage() {
                 </form>
               </div>
 
-              {/* Pending Requests Table */}
               <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-4">
                 <div className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
                   Incoming Requests
@@ -281,7 +276,6 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          {/* Leaderboard Section */}
           <section className="space-y-6 pb-12">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">

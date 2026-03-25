@@ -19,8 +19,6 @@ def extract_race_weekend(weekend: pd.Series) -> Optional[RaceWeekend]:
         if isinstance(local_time, datetime) and isinstance(utc_time, datetime):
             utc_ms = datetime_to_ms(utc_time)
             
-            # Calculate track offset in ms: (Local Time - UTC Time)
-            # local_time from FastF1 is timezone-aware if available
             offset = local_time.utcoffset()
             offset_ms = int(offset.total_seconds() * 1000) if offset else 0
             

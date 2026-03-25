@@ -15,11 +15,9 @@ def to_milliseconds(delta: Any) -> Optional[int]:
         return None
         
     try:
-        # If it's already a timedelta-like object with total_seconds
         if hasattr(delta, 'total_seconds'):
             return int(delta.total_seconds() * 1000)
             
-        # Try to convert to timedelta
         time_delta = pd.to_timedelta(delta)
         if pd.isna(time_delta):
             return None
@@ -32,7 +30,6 @@ def to_datetime(value: Any) -> Optional[datetime]:
     if value is None:
         return None
     
-    # Handle pandas NaT
     if pd.isna(value):
         return None
         
@@ -52,7 +49,6 @@ def datetime_to_ms(date_time: Optional[datetime]) -> Optional[int]:
         return None
     
     try:
-        # pd.NaT is an instance of datetime but raises ValueError on timestamp()
         return int(date_time.timestamp() * 1000)
     except (ValueError, AttributeError):
         return None

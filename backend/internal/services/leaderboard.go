@@ -31,30 +31,25 @@ func NewLeaderboardService(friendRepo repository.FriendRepository, userRepo repo
 func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID string, season int) ([]models.LeaderboardEntry, error) {
 	slog.InfoContext(ctx, "Entry: GetLeaderboard", "user_id", userID, "season", season)
 
-	// Get friends
 	friendIDs, err := service.friendRepo.GetFriendsByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching friends: %w", err)
 	}
 
-	// Include self
 	allUserIDs := make([]string, len(friendIDs)+1)
 	copy(allUserIDs, friendIDs)
 	allUserIDs[len(friendIDs)] = userID
 
-	// Bulk fetch profiles
 	profiles, err := service.userRepo.GetProfilesByUserIDs(ctx, allUserIDs)
 	if err != nil {
 		return nil, fmt.Errorf("fetching profiles: %w", err)
 	}
 
-	// Bulk fetch scores
 	scores, err := service.scoreRepo.GetSeasonScoresByUserIDs(ctx, allUserIDs, season)
 	if err != nil {
 		return nil, fmt.Errorf("fetching scores: %w", err)
 	}
 
-	// Map scores for easy lookup
 	userScores := make(map[string]int)
 	for _, s := range scores {
 		userScores[s.UserID] = s.Value
@@ -65,11 +60,10 @@ func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID st
 		entries = append(entries, models.LeaderboardEntry{
 			UserID:      p.UserID,
 			DisplayName: p.DisplayName,
-			Score:       userScores[p.UserID], // Defaults to 0 if not found
+			Score:       userScores[p.UserID],
 		})
 	}
 
-	// Sort by score descending
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].Score != entries[j].Score {
 			return entries[i].Score > entries[j].Score
@@ -77,7 +71,6 @@ func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID st
 		return entries[i].DisplayName < entries[j].DisplayName
 	})
 
-	// Assign positions
 	for i := range entries {
 		entries[i].Position = i + 1
 	}

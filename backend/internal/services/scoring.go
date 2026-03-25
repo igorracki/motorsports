@@ -24,7 +24,6 @@ func NewScoringService() ScoringService {
 }
 
 func (s *scoringService) initializeRules() {
-	// Practice Sessions
 	practiceRules := map[int]int{
 		1: 3, 2: 2, 3: 1,
 	}
@@ -35,7 +34,6 @@ func (s *scoringService) initializeRules() {
 	s.rules["FP2"] = practiceRules
 	s.rules["FP3"] = practiceRules
 
-	// Qualifying and Sprint Qualifying
 	qualiRules := make(map[int]int)
 	for i := 1; i <= 12; i++ {
 		qualiRules[i] = 13 - i
@@ -45,7 +43,6 @@ func (s *scoringService) initializeRules() {
 	s.rules[models.SessionTypeSprintQualifying] = qualiRules
 	s.rules[models.SessionTypeSprintQualifyingShort] = qualiRules
 
-	// Sprint Race
 	sprintRules := map[int]int{
 		1: 18, 2: 17, 3: 16, 4: 15, 5: 14, 6: 13, 7: 12,
 		8: 10, 9: 9, 10: 8, 11: 7, 12: 6, 13: 5, 14: 4, 15: 3, 16: 2, 17: 1,
@@ -53,7 +50,6 @@ func (s *scoringService) initializeRules() {
 	s.rules[models.SessionTypeSprint] = sprintRules
 	s.rules[models.SessionTypeSprintShort] = sprintRules
 
-	// Race
 	raceRules := map[int]int{
 		1: 25, 2: 24, 3: 23, 4: 20, 5: 18, 6: 17, 7: 16, 8: 15, 9: 14, 10: 13,
 		11: 12, 12: 11, 13: 10, 14: 9, 15: 8, 16: 7, 17: 6, 18: 5, 19: 4, 20: 3, 21: 2, 22: 1,
@@ -125,7 +121,6 @@ func (s *scoringService) GetScoringRules() []models.SessionScoringRules {
 		}
 
 		posPoints := make([]models.PositionPoints, 0, len(rules))
-		// We want these sorted by position for the API
 		maxPos := 0
 		for pos := range rules {
 			if pos > maxPos {

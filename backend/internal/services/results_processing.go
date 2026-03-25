@@ -25,10 +25,6 @@ func formatSessionResults(results *models.SessionResults) {
 		results.SessionType == models.SessionTypeSprintQualifyingShort ||
 		results.SessionType == models.SessionTypeSprintQualifying
 
-	// Ensure results are sorted correctly.
-	// For Practice sessions, we always sort by FastestLapMS.
-	// For Race and Qualifying, we trust the Position column if it's populated for all drivers.
-	// If any positions are missing (0), we fall back to FastestLapMS for sorting in non-race sessions.
 	allPositionsSet := true
 	for _, r := range results.Results {
 		if r.Position <= 0 {
@@ -53,7 +49,6 @@ func formatSessionResults(results *models.SessionResults) {
 			}
 		}
 
-		// Fallback or explicit lap time sort
 		if results.Results[i].FastestLapMS == nil {
 			return false
 		}
@@ -63,15 +58,12 @@ func formatSessionResults(results *models.SessionResults) {
 		return *results.Results[i].FastestLapMS < *results.Results[j].FastestLapMS
 	})
 
-	// Re-assign positions if they were missing or if it's a practice session
 	if !allPositionsSet || (!isRaceType && !isQualifyingType) {
 		for i := range results.Results {
 			results.Results[i].Position = i + 1
 		}
 	}
 
-	// Find the reference lap for gap calculations in non-race sessions.
-	// After potential sorting, the first driver is always the leader.
 	var sessionBestLapMS int64 = -1
 	if !isRaceType && len(results.Results) > 0 {
 		if results.Results[0].FastestLapMS != nil {

@@ -53,11 +53,9 @@ class FastF1Provider(Provider):
         return "".join(c for c in normalized if unicodedata.category(c) != 'Mn').lower()
 
     def _setup_fastf1(self):
-        # Configure FastF1 logging to reduce chatter
         fastf1_logger = logging.getLogger('fastf1')
         fastf1_logger.setLevel(logging.WARNING)
         
-        # Configure cache
         cache_directory = os.path.join(os.getcwd(), '.cache')
         if not os.path.exists(cache_directory):
             os.makedirs(cache_directory)

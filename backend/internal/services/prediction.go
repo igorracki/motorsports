@@ -106,7 +106,6 @@ func (service *predictionService) GetRoundPredictions(ctx context.Context, userI
 func (service *predictionService) processPredictionScore(ctx context.Context, prediction *models.Prediction) {
 	now := time.Now().UTC().UnixMilli()
 
-	// Short-circuit if we already have a score and we are past the revalidation window
 	if prediction.Score != nil && prediction.RevalidateUntil != nil && now > prediction.RevalidateUntil.UnixMilli() {
 		return
 	}
@@ -116,22 +115,18 @@ func (service *predictionService) processPredictionScore(ctx context.Context, pr
 		return
 	}
 
-	// If revalidate_until is missing, it's an old record. Set it now for future optimization.
 	if prediction.RevalidateUntil == nil {
 		revalidateUntil := time.UnixMilli(sessionTimeMS + (48 * 3600 * 1000)).UTC()
 		prediction.RevalidateUntil = &revalidateUntil
 	}
 
-	// Session is considered "potentially completed" if it started more than 2 hours ago
 	isCompleted := now > sessionTimeMS+(2*3600*1000)
-	// We re-validate scores for 48 hours after the session start
 	isInRevalidationWindow := now < sessionTimeMS+(48*3600*1000)
 
 	if !isCompleted {
 		return
 	}
 
-	// Calculate if score is missing or we are in the revalidation window
 	if prediction.Score == nil || isInRevalidationWindow {
 		service.syncScoreWithResults(ctx, prediction)
 	}
@@ -195,7 +190,7 @@ func (service *predictionService) hasPredictionChanged(prediction *models.Predic
 	}
 
 	if len(correctness) != len(prediction.Entries) {
-		return true // Consider changed if lengths don't match
+		return true
 	}
 
 	for j, entry := range prediction.Entries {

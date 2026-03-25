@@ -69,7 +69,6 @@ func (service *authService) Register(ctx context.Context, request models.Registe
 		return nil, nil, "", time.Time{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Generate token for immediate authentication after registration
 	expiresAt := time.Now().Add(24 * time.Hour)
 	token, err := auth.GenerateToken(userID, expiresAt)
 	if err != nil {

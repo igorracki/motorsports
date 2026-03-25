@@ -98,7 +98,6 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 		return nil, fmt.Errorf("failed to fetch results for session %s in round %d (%d): %w", sessionType, round, year, err)
 	}
 
-	// Validate if round actually exists in schedule for this year to differentiate 404 from "no results yet"
 	schedule, scheduleErr := service.GetScheduleByYear(ctx, year)
 	if scheduleErr == nil {
 		roundFound := false
@@ -114,7 +113,6 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 		}
 	}
 
-	// Calculate Smart TTL
 	ttl := service.calculateSessionTTL(ctx, year, round, sessionType, results != nil && len(results.Results) > 0)
 
 	if results == nil || len(results.Results) == 0 {
@@ -172,23 +170,19 @@ func (service *f1Service) calculateSessionTTL(ctx context.Context, year int, rou
 	}
 
 	if !found {
-		return 10 * time.Minute // Fallback
+		return 10 * time.Minute
 	}
 
 	now := time.Now().UnixMilli()
 
-	// Define "Active Window": from 30 minutes before start to 6 hours after start
-	// This covers the session duration and any post-session adjustments.
 	if now >= sessionTimeMS-activeWindowBefore.Milliseconds() && now <= sessionTimeMS+activeWindowAfter.Milliseconds() {
 		return 1 * time.Minute
 	}
 
-	// If it's a historical session (completed > 6 hours ago), cache for a long time
 	if now > sessionTimeMS+activeWindowAfter.Milliseconds() {
 		return historicalTTL
 	}
 
-	// Future sessions that aren't in the active window yet
 	return futureTTL
 }
 
@@ -285,16 +279,13 @@ func (service *f1Service) calculateWeekendTTL(ctx context.Context, year int, rou
 
 	now := time.Now().UnixMilli()
 
-	// During the weekend (from 24h before start to 12h after end)
 	if now >= startMS-(24*3600*1000) && now <= endMS+(12*3600*1000) {
 		return 5 * time.Minute
 	}
 
-	// Historical
 	if now > endMS {
 		return 7 * 24 * time.Hour
 	}
 
-	// Future
 	return 24 * time.Hour
 }

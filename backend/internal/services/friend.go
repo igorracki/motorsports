@@ -46,11 +46,9 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 	var targetUser *models.User
 	var err error
 
-	// Try to find by UUID first
 	if _, uuidErr := uuid.Parse(identifier); uuidErr == nil {
 		targetUser, err = service.userRepo.GetUserByID(ctx, identifier)
 	} else {
-		// Try to find by email
 		targetUser, _, err = service.userRepo.GetUserByEmail(ctx, identifier)
 	}
 
@@ -66,7 +64,6 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 		return ErrCannotAddSelf
 	}
 
-	// Check if already friends
 	alreadyFriends, err := service.friendRepo.AreFriends(ctx, senderID, targetUser.ID)
 	if err != nil {
 		return fmt.Errorf("checking friendship status: %w", err)
@@ -75,7 +72,6 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 		return ErrAlreadyFriends
 	}
 
-	// Check if a request is already pending in either direction
 	hasPending, err := service.friendRepo.HasPendingRequest(ctx, senderID, targetUser.ID)
 	if err != nil {
 		return fmt.Errorf("checking pending request status: %w", err)
@@ -84,7 +80,6 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 		return ErrRequestAlreadyPending
 	}
 
-	// Create request
 	request := &models.FriendRequest{
 		ID:         uuid.New().String(),
 		SenderID:   senderID,

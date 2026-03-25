@@ -49,7 +49,6 @@ func (service *userService) GetFullProfile(ctx context.Context, userID string) (
 		return nil, fmt.Errorf("profile not found")
 	}
 
-	// Fetch explicit scores from score repository
 	scores, err := service.scoreRepository.GetUserScores(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching scores for user %s: %w", userID, err)

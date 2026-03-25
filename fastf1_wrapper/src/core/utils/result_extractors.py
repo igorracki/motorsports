@@ -25,7 +25,6 @@ def extract_driver_info(row: pd.Series) -> DriverInfo:
     id = str(get_scalar_value(row, 'Abbreviation') or "")
     logger.info(f"Entry: extract_driver_info(driver_id={id})")
     
-    # Ensure driver number is an integer string (avoiding 1.0)
     raw_number = get_scalar_value(row, 'DriverNumber')
     try:
         if raw_number and not pd.isna(raw_number):
@@ -59,7 +58,6 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
     laps_completed = int(
         laps_val) if laps_val is not None and pd.notna(laps_val) else 0
     
-    # Position can be float or int in FastF1, handle carefully
     raw_position = get_scalar_value(row, 'Position')
     if pd.notna(raw_position):
         try:
@@ -115,9 +113,6 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
         )
 
     elif normalized_session_type in QUALIFYING_SESSION_TYPES:
-        # For Qualifying and Sprint Qualifying, extract segment times.
-        # FastF1 uses Q1/Q2/Q3 for Qualifying and sometimes SQ1/SQ2/SQ3 for Sprint Qualifying.
-        # We try both sets of column names.
         q1_val = get_scalar_value(row, 'Q1')
         if pd.isna(q1_val): q1_val = get_scalar_value(row, 'SQ1')
         q1_ms = to_milliseconds(q1_val)
@@ -136,9 +131,6 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
             q3_ms=q3_ms
         )
         
-        # Ensure we have a representative best lap for the summary table.
-        # Primary: The absolute fastest lap recorded in the session.
-        # Secondary: The time from the latest qualifying segment reached.
         if driver_result.fastest_lap_ms is None:
             if q3_ms is not None: driver_result.fastest_lap_ms = q3_ms
             elif q2_ms is not None: driver_result.fastest_lap_ms = q2_ms

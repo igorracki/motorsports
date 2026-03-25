@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -120,28 +119,6 @@ func (manager *Manager) setup() error {
 
 	if _, err := manager.databaseConnection.Exec(schema); err != nil {
 		return fmt.Errorf("creating schema: %w", err)
-	}
-
-	// Migration: Add correct column to prediction_entries if it doesn't exist
-	if _, err := manager.databaseConnection.Exec("ALTER TABLE prediction_entries ADD COLUMN correct INTEGER NOT NULL DEFAULT 0"); err != nil {
-		if !strings.Contains(err.Error(), "duplicate column name") {
-			return fmt.Errorf("migrating prediction_entries: %w", err)
-		}
-	}
-
-	// Migration: Add revalidate_until column to predictions if it doesn't exist
-	if _, err := manager.databaseConnection.Exec("ALTER TABLE predictions ADD COLUMN revalidate_until TIMESTAMP"); err != nil {
-		if !strings.Contains(err.Error(), "duplicate column name") {
-			return fmt.Errorf("migrating predictions: %w", err)
-		}
-	}
-
-	// Migration: Add indexes for user_scores
-	if _, err := manager.databaseConnection.Exec("CREATE INDEX IF NOT EXISTS idx_user_scores_user_id ON user_scores(user_id)"); err != nil {
-		return fmt.Errorf("creating index idx_user_scores_user_id: %w", err)
-	}
-	if _, err := manager.databaseConnection.Exec("CREATE INDEX IF NOT EXISTS idx_user_scores_type_season ON user_scores(score_type, season)"); err != nil {
-		return fmt.Errorf("creating index idx_user_scores_type_season: %w", err)
 	}
 
 	return nil
