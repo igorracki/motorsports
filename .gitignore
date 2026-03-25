@@ -2,6 +2,7 @@ frontend_remote/
 **/tmp/
 .opencode/
 **/bin/
+backend/main
 
 *.db*
 */package-lock.json

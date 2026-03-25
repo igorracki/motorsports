@@ -3,6 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"context"
 
 	"github.com/go-playground/validator/v10"
 	f1middleware "github.com/igorracki/f1/backend/internal/api/middleware"
@@ -107,5 +114,25 @@ func main() {
 
 	address := fmt.Sprintf(":%d", configuration.ServerPort)
 	log.Printf("Starting server on %s", address)
-	log.Fatal(server.Start(address))
+
+	go func() {
+		if err := server.Start(address); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Shutting down the server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shut down the server with a timeout of 10 seconds.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	log.Println("Shutting down gracefully...")
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server shutdown failed: %v", err)
+	}
+
+	log.Println("Server gracefully stopped")
 }

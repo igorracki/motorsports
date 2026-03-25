@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
@@ -14,6 +16,11 @@ type Manager struct {
 
 func NewManager(databasePath string) (*Manager, error) {
 	log.Printf("INFO: Initializing database at %s", databasePath)
+
+	dir := filepath.Dir(databasePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("creating database directory: %w", err)
+	}
 
 	databaseConnection, err := sql.Open("sqlite", databasePath)
 	if err != nil {
