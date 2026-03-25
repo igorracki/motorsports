@@ -101,7 +101,7 @@ func main() {
 	apiGroup.PUT("/users/friends/requests/:id", friendHandler.HandleFriendRequest, f1middleware.AuthMiddleware)
 	apiGroup.GET("/users/friends/leaderboard/:season", leaderboardHandler.GetLeaderboard, f1middleware.AuthMiddleware)
 
-	server.GET("/health", func(context echo.Context) error {
+	server.HEAD("/health", func(context echo.Context) error {
 		return context.JSON(200, map[string]string{"status": "ok"})
 	})
 

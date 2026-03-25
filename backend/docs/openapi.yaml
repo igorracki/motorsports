@@ -10,7 +10,7 @@ security:
   - bearerAuth: []
 paths:
   /health:
-    get:
+    head:
       summary: Health check
       security: []
       responses:

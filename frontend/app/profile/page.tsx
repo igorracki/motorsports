@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, User as UserIcon, Mail, Calendar, Trophy, Copy, Check, UserPlus, Users, ChevronRight, ChevronLeft } from "lucide-react";
 import { MainNav } from "@/components/ui/main-nav";
+import { Footer } from "@/components/ui/Footer";
 import { f1Api } from "@/services/f1-api";
 import type { FriendRequest, LeaderboardEntry } from "@/types/f1";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -133,10 +134,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white pb-20">
+    <div className="min-h-screen bg-background text-white flex flex-col">
       <MainNav />
 
-      <div className="p-4 md:p-8">
+      <div className="flex-1 p-4 md:p-8">
         <div className="max-w-2xl mx-auto space-y-8">
           <main className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             <div className="p-8 space-y-6">
@@ -383,6 +384,8 @@ export default function ProfilePage() {
           </section>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
+

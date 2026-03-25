@@ -6,6 +6,7 @@ import type { Session, DriverInfo, DriverResult, Prediction } from "@/types/f1";
 import { formatSessionTime } from "@/lib/date-utils";
 import { isSessionLive } from "@/lib/race-utils";
 import { useState, useEffect } from "react";
+import { useSettings } from "@/hooks/useSettings";
 
 interface SessionSelectorProps {
   sessions: Session[];
@@ -24,6 +25,7 @@ export function SessionSelector({
   savedPredictions,
   sessionResults = {},
 }: SessionSelectorProps) {
+  const { useBrowserTime } = useSettings();
   const [now, setNow] = useState<number>(0);
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export function SessionSelector({
                   : isSelected ? "text-primary" : "text-muted-foreground"
               )}
             >
-              {formatSessionTime(session.timeUTCMS)}
+              {formatSessionTime(useBrowserTime ? session.timeUTCMS : (session.timeLocal || session.timeUTCMS))}
             </span>
             
             <span

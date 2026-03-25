@@ -16,6 +16,7 @@ import { LoginModal } from "@/components/features/auth/LoginModal";
 import { f1Api } from "@/services/f1-api";
 import { useAuth } from "@/hooks/useAuth";
 import { MainNav } from "@/components/ui/main-nav";
+import { Footer } from "@/components/ui/Footer";
 import { cn } from "@/lib/utils";
 import type { RaceWeekend, DriverInfo, DriverResult, Circuit } from "@/types/f1";
 import { getRaceStatus, isSessionLive } from "@/lib/race-utils";
@@ -183,7 +184,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   const hasSavedPrediction = selectedSession ? !!savedPredictions[selectedSession] : false;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <MainNav />
       <header className="sticky top-14 z-50 border-b border-border/50 bg-background/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -214,7 +215,7 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-1 w-full">
         <section className="mb-8">
           <div className="grid gap-8 lg:grid-cols-2 items-stretch">
             <div className="flex flex-col">
@@ -441,6 +442,8 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
           )}
         </section>
       </main>
+
+      <Footer />
 
       <LoginModal 
         isOpen={showLoginModal} 

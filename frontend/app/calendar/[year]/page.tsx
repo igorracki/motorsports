@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { MainNav } from "@/components/ui/main-nav";
+import { Footer } from "@/components/ui/Footer";
 import { YearSelector } from "@/components/features/year-selector";
 import { RacesGrid } from "@/components/features/races-grid";
 import { f1Api } from "@/services/f1-api";
@@ -79,21 +80,17 @@ export default async function CalendarPage({ params }: CalendarPageProps) {
   const year = Number(yearStr) || 2026;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <MainNav />
       <YearSelector currentYear={year} />
 
-      <main className="container mx-auto px-4 py-8 md:px-6">
+      <main className="container mx-auto px-4 py-8 md:px-6 flex-1">
         <Suspense fallback={<CalendarFallback year={year} />}>
           <CalendarContent year={year} />
         </Suspense>
-
-        <footer className="mt-16 border-t border-border/40 pt-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            This is just a fun little project!
-          </p>
-        </footer>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -1,11 +1,14 @@
 /**
- * Formats a UTC millisecond timestamp to the browser's local time string.
+ * Formats a date (UTC ms or local string) to the standard session time format.
  * Format: "March 14, 15:00"
  */
-export function formatSessionTime(utcMs: number): string {
-  if (!utcMs) return "TBC";
+export function formatSessionTime(value: number | string): string {
+  if (!value) return "TBC";
   
-  const date = new Date(utcMs);
+  // Per the ECMAScript specification, when a date-time string lacks an offset (no Z or +00:00),
+  // it is interpreted as local time. By passing this "offset-less" string into the Date constructor,
+  // we essentially trick the browser into treating the track's local hours as if they were the browser's local hours
+  const date = new Date(value);
   
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
