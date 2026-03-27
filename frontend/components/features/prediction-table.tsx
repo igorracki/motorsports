@@ -96,16 +96,14 @@ export function PredictionTable({
   const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
 
   const handleDoubleClick = useCallback((index: number) => {
-    if (readOnly || index === 0) return;
+    if (readOnly) return;
 
     const newPredictions = [...drivers];
-    const [selectedItem] = newPredictions.splice(index, 1);
+    newPredictions[index] = {
+      ...newPredictions[index],
+      isPredicted: !newPredictions[index].isPredicted
+    };
     
-    // Mark as predicted
-    selectedItem.isPredicted = true;
-    
-    // Move to first position
-    newPredictions.unshift(selectedItem);
     updatePredictions(newPredictions);
   }, [drivers, readOnly, updatePredictions]);
 
