@@ -9,7 +9,8 @@ RUN CGO_ENABLED=0 go build -o server ./cmd/server
 FROM alpine:3.19
 RUN apk add --no-cache wget
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN mkdir -p /data && chown -R appuser:appgroup /data
+# Create directory and ensure permissions before the volume is mounted
+RUN mkdir -p /data && chown -R appuser:appgroup /data && chmod 777 /data
 WORKDIR /app
 COPY --from=builder --chown=appuser:appuser /app/server .
 EXPOSE 8080

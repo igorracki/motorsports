@@ -17,7 +17,7 @@ RUN pip install . --no-cache-dir
 
 # Copy source and set ownership
 COPY src/ ./src/
-RUN mkdir -p /app/.cache && chown -R appuser:appgroup /app
+RUN mkdir -p /app/.cache && chown -R appuser:appgroup /app && chmod 777 /app/.cache
 
 EXPOSE 8081
 
