@@ -3,7 +3,7 @@ package services
 import (
 	"math"
 
-	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/models"
 )
 
 func transformLayout(circuit *models.Circuit) {

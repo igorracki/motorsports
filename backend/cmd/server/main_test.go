@@ -7,11 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/igorracki/f1/backend/internal/cache"
-	"github.com/igorracki/f1/backend/internal/clients"
-	"github.com/igorracki/f1/backend/internal/handlers"
-	"github.com/igorracki/f1/backend/internal/models"
-	"github.com/igorracki/f1/backend/internal/services"
+	"github.com/igorracki/motorsports/backend/internal/cache"
+	"github.com/igorracki/motorsports/backend/internal/clients"
+	"github.com/igorracki/motorsports/backend/internal/handlers"
+	"github.com/igorracki/motorsports/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/services"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )

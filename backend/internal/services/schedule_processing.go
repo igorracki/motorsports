@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/igorracki/f1/backend/internal/formatters"
-	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/formatters"
+	"github.com/igorracki/motorsports/backend/internal/models"
 )
 
 func calculateWeekendBoundaries(weekend *models.RaceWeekend) {

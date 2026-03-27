@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/igorracki/f1/backend/internal/auth"
-	"github.com/igorracki/f1/backend/internal/models"
-	"github.com/igorracki/f1/backend/internal/repository"
+	"github.com/igorracki/motorsports/backend/internal/auth"
+	"github.com/igorracki/motorsports/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/repository"
 	"github.com/microcosm-cc/bluemonday"
 )
 

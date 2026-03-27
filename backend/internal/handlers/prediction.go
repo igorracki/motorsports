@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/igorracki/f1/backend/internal/models"
-	"github.com/igorracki/f1/backend/internal/services"
+	"github.com/igorracki/motorsports/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/services"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
 )

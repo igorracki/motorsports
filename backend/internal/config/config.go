@@ -24,7 +24,7 @@ func Load() *Configuration {
 
 	serverPort := getEnvAsInt("SERVER_PORT", 8080)
 	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8081/wrapper")
-	databasePath := getEnv("DATABASE_PATH", "f1_data.db")
+	databasePath := getEnv("DATABASE_PATH", "motorsports_data.db")
 	allowedOrigins := getEnvAsSlice("ALLOWED_ORIGINS", []string{"http://localhost:3000"})
 	cookieSecure := getEnvAsBool("COOKIE_SECURE", false)
 

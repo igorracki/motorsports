@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"sort"
 
-	"github.com/igorracki/f1/backend/internal/formatters"
-	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/formatters"
+	"github.com/igorracki/motorsports/backend/internal/models"
 )
 
 func formatSessionResults(results *models.SessionResults) {

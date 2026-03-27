@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	f1context "github.com/igorracki/f1/backend/internal/context"
-	"github.com/igorracki/f1/backend/internal/models"
-	"github.com/igorracki/f1/backend/internal/services"
+	f1context "github.com/igorracki/motorsports/backend/internal/context"
+	"github.com/igorracki/motorsports/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/services"
 	"github.com/labstack/echo/v4"
 )
 

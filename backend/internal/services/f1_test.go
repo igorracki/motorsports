@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/igorracki/f1/backend/internal/cache"
-	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/cache"
+	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

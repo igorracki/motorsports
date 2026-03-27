@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/igorracki/f1/backend/internal/database"
-	"github.com/igorracki/f1/backend/internal/models"
-	"github.com/igorracki/f1/backend/internal/repository"
+	"github.com/igorracki/motorsports/backend/internal/database"
+	"github.com/igorracki/motorsports/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

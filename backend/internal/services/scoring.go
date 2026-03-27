@@ -3,7 +3,7 @@ package services
 import (
 	"log/slog"
 
-	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/models"
 )
 
 type ScoringService interface {

@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/igorracki/f1/backend/internal/auth"
-	f1context "github.com/igorracki/f1/backend/internal/context"
-	"github.com/igorracki/f1/backend/internal/models"
+	"github.com/igorracki/motorsports/backend/internal/auth"
+	f1context "github.com/igorracki/motorsports/backend/internal/context"
+	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/labstack/echo/v4"
 )
 
