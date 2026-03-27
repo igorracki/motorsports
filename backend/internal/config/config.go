@@ -25,8 +25,12 @@ func Load() *Configuration {
 	serverPort := getEnvAsInt("SERVER_PORT", 8080)
 	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8081/wrapper")
 	databasePath := getEnv("DATABASE_PATH", "motorsports_data.db")
-	allowedOrigins := getEnvAsSlice("ALLOWED_ORIGINS", []string{"http://localhost:3000"})
+	allowedOrigins := getEnvAsSlice("ALLOWED_ORIGINS", nil)
 	cookieSecure := getEnvAsBool("COOKIE_SECURE", false)
+
+	if len(allowedOrigins) == 0 {
+		log.Println("Warning: ALLOWED_ORIGINS is empty. CORS will block all requests.")
+	}
 
 	return &Configuration{
 		ServerPort:     serverPort,

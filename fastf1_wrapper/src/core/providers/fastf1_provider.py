@@ -56,12 +56,25 @@ class FastF1Provider(Provider):
         fastf1_logger = logging.getLogger('fastf1')
         fastf1_logger.setLevel(logging.WARNING)
         
-        cache_directory = os.path.join(os.getcwd(), '.cache')
-        if not os.path.exists(cache_directory):
-            os.makedirs(cache_directory)
+        cache_directory = os.environ.get('FASTF1_CACHE_DIR', os.path.join(os.getcwd(), '.cache'))
         
-        logger.info(f"Initializing FastF1 cache at {cache_directory}")
-        fastf1.Cache.enable_cache(cache_directory)
+        try:
+            if not os.path.exists(cache_directory):
+                logger.info(f"Creating cache directory at {cache_directory}")
+                os.makedirs(cache_directory, exist_ok=True)
+            
+            test_file = os.path.join(cache_directory, '.write_test')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            
+            logger.info(f"Initializing FastF1 cache at {cache_directory}")
+            fastf1.Cache.enable_cache(cache_directory)
+        except Exception as e:
+            logger.error(f"Failed to initialize persistent cache at {cache_directory}: {e}")
+            logger.warning("Falling back to memory-only cache or temporary directory")
+            # FastF1 still works without persistent cache, but it's slower.
+            # We don't call enable_cache if it fails.
 
     def get_weekend_events(self, year: int) -> List[RaceWeekend]:
         cache_key = f"events_{year}"

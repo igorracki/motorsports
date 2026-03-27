@@ -1,15 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"context"
 
 	"github.com/go-playground/validator/v10"
 	f1middleware "github.com/igorracki/motorsports/backend/internal/api/middleware"
@@ -35,6 +35,8 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	configuration := config.Load()
 
 	if err := auth.InitJWTSecret(); err != nil {
@@ -50,14 +52,37 @@ func main() {
 	server := echo.New()
 	server.Validator = &CustomValidator{validator: validator.New()}
 
-	server.Use(middleware.RequestLogger())
+	server.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus:   true,
+		LogURI:      true,
+		LogMethod:   true,
+		LogRemoteIP: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			slog.InfoContext(c.Request().Context(), "request",
+				slog.Int("status", v.Status),
+				slog.String("method", v.Method),
+				slog.String("uri", v.URI),
+				slog.String("remote_ip", v.RemoteIP),
+			)
+			return nil
+		},
+	}))
 	server.Use(middleware.Recover())
 	server.Use(middleware.Secure())
 	server.Use(middleware.BodyLimit("1M"))
+	server.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(30))) // 30 requests per second
+	server.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+		TokenLookup:    "header:X-CSRF-Token",
+		CookieName:     "csrf_token",
+		CookieHTTPOnly: false, // Allow frontend to read the token
+		CookieSameSite: http.SameSiteLaxMode,
+		CookieSecure:   configuration.CookieSecure,
+		CookiePath:     "/",
+	}))
 	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     configuration.AllowedOrigins,
 		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-CSRF-Token"},
 		AllowCredentials: true,
 	}))
 

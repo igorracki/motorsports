@@ -33,11 +33,22 @@ const getBaseUrl = () => {
     const backendUrl = process.env.BACKEND_URL || "http://backend:8080";
     return `${backendUrl}/api`;
   }
-  // Client-side (Browser): Use public-facing URL
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+  // Client-side (Browser): Use relative path to be proxied by Next.js
+  return "/api";
 };
 
 const _BASE_URL = getBaseUrl();
+
+/**
+ * Helper to get a cookie value by name on the client-side.
+ */
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
+  return null;
+};
 
 /**
  * Custom Error class for API related errors
@@ -63,12 +74,30 @@ export const f1Api = {
    */
   async fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     try {
+      const csrfToken = getCookie("csrf_token");
+      const headers = new Headers(options?.headers);
+      
+      if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      // Add CSRF token for state-changing requests (POST, PUT, DELETE)
+      if (
+        csrfToken && 
+        options?.method && 
+        ["POST", "PUT", "DELETE", "PATCH"].includes(options.method.toUpperCase())
+      ) {
+        headers.set("X-CSRF-Token", csrfToken);
+      }
+
       const response = await fetch(url, {
         ...options,
         credentials: options?.credentials || "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...options?.headers,
+        headers,
+        // Next.js specific cache configuration
+        next: {
+          revalidate: 60,
+          ...(options as any)?.next,
         },
       });
 

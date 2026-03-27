@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: F1 Prediction League API
+  title: Motorsport F1 Backend
   description: API for fetching F1 data and managing user predictions.
   version: 1.0.0
 servers:
