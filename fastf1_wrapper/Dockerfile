@@ -4,8 +4,9 @@ FROM python:3.14-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN addgroup --system appgroup && adduser --system --group appuser
+# Create a non-root user with UID 1000 for volume compatibility
+RUN groupadd -g 1000 appgroup && \
+    useradd -u 1000 -g appgroup -m -s /bin/sh appuser
 
 WORKDIR /app
 

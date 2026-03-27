@@ -18,8 +18,16 @@ func NewManager(databasePath string) (*Manager, error) {
 	log.Printf("INFO: Initializing database at %s", databasePath)
 
 	dir := filepath.Dir(databasePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0777); err != nil {
 		return nil, fmt.Errorf("creating database directory: %w", err)
+	}
+
+	// Check if the directory is writable
+	testFile := filepath.Join(dir, ".perm_test")
+	if err := os.WriteFile(testFile, []byte("test"), 0666); err != nil {
+		log.Printf("ERROR: Database directory %s is not writable: %v", dir, err)
+	} else {
+		os.Remove(testFile)
 	}
 
 	databaseConnection, err := sql.Open("sqlite", databasePath)
