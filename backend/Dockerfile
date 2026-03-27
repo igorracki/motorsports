@@ -8,14 +8,11 @@ RUN CGO_ENABLED=0 go build -o server ./cmd/server
 
 FROM alpine:3.19
 RUN apk add --no-cache wget
-RUN addgroup -g 1000 appgroup && \
-    adduser -u 1000 -G appgroup -S -D appuser
-# Create directory and ensure permissions before the volume is mounted
-RUN mkdir -p /data && chown -R appuser:appgroup /data && chmod 777 /data
+# Ensure the /data directory exists for the volume
+RUN mkdir -p /data
 WORKDIR /app
-COPY --from=builder --chown=appuser:appuser /app/server .
+COPY --from=builder /app/server .
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
-USER appuser
 CMD ["./server"]

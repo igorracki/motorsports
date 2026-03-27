@@ -52,7 +52,7 @@ func NewManager(databasePath string) (*Manager, error) {
 func (manager *Manager) setup() error {
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON;",
-		"PRAGMA journal_mode = DELETE;",
+		"PRAGMA journal_mode = WAL;",
 		"PRAGMA synchronous = NORMAL;",
 	}
 
