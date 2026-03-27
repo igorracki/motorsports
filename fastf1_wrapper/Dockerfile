@@ -20,6 +20,6 @@ EXPOSE 8081
 
 # Healthcheck to probe liveness
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:8081/health || exit 1
+    CMD sh -c "curl --fail http://localhost:${PORT:-8081}/health || exit 1"
 
 CMD ["python", "-m", "src.core.http.server"]
