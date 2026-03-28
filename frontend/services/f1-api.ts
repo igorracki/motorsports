@@ -97,7 +97,7 @@ export const f1Api = {
         // Next.js specific cache configuration
         next: {
           revalidate: 60,
-          ...(options as any)?.next,
+          ...((options as any)?.next || {}),
         },
       });
 
@@ -137,7 +137,9 @@ export const f1Api = {
    * Fetches the full list of drivers for a given year and round from the API.
    */
   async getDrivers(year: number, round: number): Promise<DriverInfo[]> {
-    const data = await this.fetchJson<unknown>(`${_BASE_URL}/schedule/${year}/${round}/drivers`);
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/schedule/${year}/${round}/drivers`, {
+      next: { revalidate: 3600 } // Revalidate every hour
+    });
     return z.array(DriverInfoSchema).parse(data || []);
   },
 
@@ -174,7 +176,9 @@ export const f1Api = {
    * Fetches circuit details.
    */
   async getCircuit(year: number, round: number): Promise<Circuit> {
-    const data = await this.fetchJson<unknown>(`${_BASE_URL}/schedule/${year}/${round}/circuit`);
+    const data = await this.fetchJson<unknown>(`${_BASE_URL}/schedule/${year}/${round}/circuit`, {
+      next: { revalidate: 86400 } // Revalidate every 24 hours
+    });
     return CircuitSchema.parse(data);
   },
 
@@ -258,7 +262,9 @@ export const f1Api = {
    * Predictions: Get scoring rules
    */
   async getScoringRules(): Promise<SessionScoringRules[]> {
-    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/predictions/scoring-rules`);
+    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/predictions/scoring-rules`, {
+      next: { revalidate: 86400 } // Revalidate every 24 hours
+    });
     return z.array(SessionScoringRulesSchema).parse(data || []);
   },
 

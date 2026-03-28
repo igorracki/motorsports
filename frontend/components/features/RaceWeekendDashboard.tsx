@@ -41,8 +41,13 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   const [errorResults, setErrorResults] = useState<Record<string, string>>({});
   
   const fetchDashboardData = useCallback(() => {
-    setLoadingDrivers(true);
-    setLoadingCircuit(true);
+    // Only show loading if we don't have the data yet to avoid flickering on re-fetches
+    if (!drivers || drivers.length === 0) {
+      setLoadingDrivers(true);
+    }
+    if (!circuit) {
+      setLoadingCircuit(true);
+    }
     setErrorDrivers(null);
     setErrorCircuit(null);
 

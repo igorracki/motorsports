@@ -24,6 +24,7 @@ type F1Service interface {
 	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
 	GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error)
 	GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error)
+	getDriversFromPastSessions(ctx context.Context, year int, round int) ([]models.DriverInfo, bool, error)
 	Close()
 }
 
@@ -209,7 +210,8 @@ func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (
 		roundCircuitMetrics(circuit)
 		transformLayout(circuit)
 
-		ttl := service.calculateWeekendTTL(ctx, year, round)
+		// Circuits are static, use a very long TTL (30 days)
+		ttl := 30 * 24 * time.Hour
 		service.cache.Set(cacheKey, circuit, ttl)
 		slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
 	} else {
@@ -231,9 +233,21 @@ func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) (
 		slog.ErrorContext(ctx, "Cache type mismatch: GetDrivers", "year", year, "round", round, "expected", "[]models.DriverInfo", "actual", fmt.Sprintf("%T", cached))
 	}
 
+	if pastDrivers, found, err := service.getDriversFromPastSessions(ctx, year, round); err == nil && found {
+		slog.InfoContext(ctx, "Found drivers from past session", "year", year, "round", round, "count", len(pastDrivers))
+		for i := range pastDrivers {
+			pastDrivers[i].CountryCode = formatters.GetDriverCountryCode(pastDrivers[i].CountryCode, pastDrivers[i].ID)
+		}
+		ttl := service.calculateWeekendTTL(ctx, year, round)
+		service.cache.Set(cacheKey, pastDrivers, ttl)
+		return pastDrivers, nil
+	} else if err != nil {
+		slog.WarnContext(ctx, "Error fetching drivers from past sessions", "error", err)
+	}
+
 	drivers, err := service.client.GetDrivers(ctx, year, round)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch drivers", "error", err)
+		slog.ErrorContext(ctx, "Failed to fetch drivers from source", "error", err)
 		return nil, fmt.Errorf("failed to fetch drivers for round %d (%d): %w", round, year, err)
 	}
 
@@ -250,6 +264,57 @@ func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) (
 
 	slog.InfoContext(ctx, "Exit: GetDrivers", "year", year, "round", round, "count", len(drivers))
 	return drivers, nil
+}
+
+func (service *f1Service) getDriversFromPastSessions(ctx context.Context, year int, round int) ([]models.DriverInfo, bool, error) {
+	schedule, err := service.GetScheduleByYear(ctx, year)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var relevantWeekend *models.RaceWeekend
+	for i := range schedule {
+		if schedule[i].Round == round {
+			relevantWeekend = &schedule[i]
+			break
+		}
+	}
+
+	if relevantWeekend == nil {
+		return nil, false, nil
+	}
+
+	now := time.Now().UnixMilli()
+	// Sort sessions by start time descending (newest first)
+	sessions := append([]models.Session{}, relevantWeekend.Sessions...)
+	for i := 0; i < len(sessions); i++ {
+		for j := i + 1; j < len(sessions); j++ {
+			if sessions[i].TimeUTCMS < sessions[j].TimeUTCMS {
+				sessions[i], sessions[j] = sessions[j], sessions[i]
+			}
+		}
+	}
+
+	for _, session := range sessions {
+		// Only check sessions that have already started
+		if session.TimeUTCMS < now {
+			sessionCode := session.SessionCode
+			if sessionCode == "" {
+				sessionCode = formatters.GetSessionCode(session.Type)
+			}
+
+			results, err := service.GetSessionResults(ctx, year, round, sessionCode)
+			if err == nil && results != nil && len(results.Results) > 0 {
+				drivers := make([]models.DriverInfo, 0, len(results.Results))
+				for _, res := range results.Results {
+					drivers = append(drivers, res.Driver)
+				}
+				return drivers, true, nil
+			}
+		}
+	}
+
+	return nil, false, nil
 }
 
 func (service *f1Service) Close() {
@@ -280,7 +345,7 @@ func (service *f1Service) calculateWeekendTTL(ctx context.Context, year int, rou
 	now := time.Now().UnixMilli()
 
 	if now >= startMS-(24*3600*1000) && now <= endMS+(12*3600*1000) {
-		return 5 * time.Minute
+		return 1 * time.Hour
 	}
 
 	if now > endMS {

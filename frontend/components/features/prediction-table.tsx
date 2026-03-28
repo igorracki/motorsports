@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { GripVertical, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DriverInfo } from "@/types/f1";
@@ -32,6 +32,37 @@ export function PredictionTable({
   );
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Touch support for mobile (Hold-to-drag)
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
+  const [isLongPressActive, setIsLongPressActive] = useState(false);
+  const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPositionRef = useRef<{ x: number, y: number } | null>(null);
+
+  const clearTouchTimeout = useCallback(() => {
+    if (touchTimeoutRef.current) {
+      clearTimeout(touchTimeoutRef.current);
+      touchTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearTouchTimeout();
+  }, [clearTouchTimeout]);
+
+  const handleDoubleClick = useCallback((index: number) => {
+    if (readOnly) return;
+
+    const newPredictions = [...drivers];
+    newPredictions[index] = {
+      ...newPredictions[index],
+      isPredicted: !newPredictions[index].isPredicted
+    };
+    
+    updatePredictions(newPredictions);
+  }, [drivers, readOnly, updatePredictions]);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
@@ -91,23 +122,7 @@ export function PredictionTable({
     [drivers, updatePredictions]
   );
 
-  // Touch support for mobile
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
-
-  const handleDoubleClick = useCallback((index: number) => {
-    if (readOnly) return;
-
-    const newPredictions = [...drivers];
-    newPredictions[index] = {
-      ...newPredictions[index],
-      isPredicted: !newPredictions[index].isPredicted
-    };
-    
-    updatePredictions(newPredictions);
-  }, [drivers, readOnly, updatePredictions]);
-
-  // Touch support for double tap
+  // Touch support for double tap and hold-to-drag
   const [lastTap, setLastTap] = useState<{ time: number, index: number } | null>(null);
 
   const handleTouchStart = useCallback(
@@ -119,42 +134,77 @@ export function PredictionTable({
         // Double tap detected
         handleDoubleClick(index);
         setLastTap(null);
+        clearTouchTimeout();
         return;
       }
       setLastTap({ time: now, index });
 
-      setTouchStartY(e.touches[0].clientY);
+      const touch = e.touches[0];
+      setTouchStartY(touch.clientY);
       setTouchedIndex(index);
+      touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY };
+
+      // Long press detection: 500ms
+      clearTouchTimeout();
+      touchTimeoutRef.current = setTimeout(() => {
+        setIsLongPressActive(true);
+        // Vibrate if supported
+        if ("vibrate" in navigator) {
+          navigator.vibrate(50);
+        }
+      }, 500);
     },
-    [readOnly, lastTap, handleDoubleClick]
+    [readOnly, lastTap, handleDoubleClick, clearTouchTimeout]
   );
 
   const handleTouchMove = useCallback(
     (e: React.TouchEvent<HTMLTableRowElement>) => {
-      if (touchStartY === null || touchedIndex === null) return;
+      if (touchedIndex === null) return;
 
-      const currentY = e.touches[0].clientY;
-      const rows = document.querySelectorAll("[data-row-index]");
+      const touch = e.touches[0];
       
-      for (const row of rows) {
-        const rect = row.getBoundingClientRect();
-        if (currentY >= rect.top && currentY <= rect.bottom) {
-          const newIndex = parseInt(
-            row.getAttribute("data-row-index") || "0",
-            10
-          );
-          if (newIndex !== touchedIndex) {
-            setDragOverIndex(newIndex);
+      // Check for movement before long press threshold is reached
+      if (!isLongPressActive && touchStartPositionRef.current) {
+        const deltaX = Math.abs(touch.clientX - touchStartPositionRef.current.x);
+        const deltaY = Math.abs(touch.clientY - touchStartPositionRef.current.y);
+        
+        // If they move significantly, assume they are scrolling and cancel long press
+        if (deltaX > 10 || deltaY > 10) {
+          clearTouchTimeout();
+        }
+      }
+
+      if (isLongPressActive) {
+        // Prevent default only during an active drag-and-drop
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+
+        const currentY = touch.clientY;
+        const rows = document.querySelectorAll("[data-row-index]");
+        
+        for (const row of rows) {
+          const rect = row.getBoundingClientRect();
+          if (currentY >= rect.top && currentY <= rect.bottom) {
+            const newIndex = parseInt(
+              row.getAttribute("data-row-index") || "0",
+              10
+            );
+            if (newIndex !== touchedIndex) {
+              setDragOverIndex(newIndex);
+            }
+            break;
           }
-          break;
         }
       }
     },
-    [touchStartY, touchedIndex]
+    [touchedIndex, isLongPressActive, clearTouchTimeout]
   );
 
   const handleTouchEnd = useCallback(() => {
-    if (touchedIndex !== null && dragOverIndex !== null && touchedIndex !== dragOverIndex) {
+    clearTouchTimeout();
+    
+    if (isLongPressActive && touchedIndex !== null && dragOverIndex !== null && touchedIndex !== dragOverIndex) {
       const newPredictions = [...drivers];
       const [draggedItem] = newPredictions.splice(touchedIndex, 1);
       
@@ -164,10 +214,13 @@ export function PredictionTable({
       newPredictions.splice(dragOverIndex, 0, draggedItem);
       updatePredictions(newPredictions);
     }
+
     setTouchStartY(null);
     setTouchedIndex(null);
     setDragOverIndex(null);
-  }, [touchedIndex, dragOverIndex, drivers, updatePredictions]);
+    setIsLongPressActive(false);
+    touchStartPositionRef.current = null;
+  }, [clearTouchTimeout, isLongPressActive, touchedIndex, dragOverIndex, drivers, updatePredictions]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
@@ -219,16 +272,18 @@ export function PredictionTable({
                 onTouchStart={(e) => handleTouchStart(e, index)}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className={cn(
-                   "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
-                   draggedIndex === index && "opacity-50",
-                   dragOverIndex === index &&
-                     draggedIndex !== null &&
-                     "bg-primary/10 border-primary/50",
-                   dragOverIndex !== index && "hover:bg-secondary/30",
-                   driver.isPredicted && !driver.correct && "bg-blue-500/5 border-blue-500/20",
-                   driver.correct && "bg-success/10 border-success/30"
-                 )}
+                 className={cn(
+                    "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
+                    draggedIndex === index && "opacity-50",
+                    touchedIndex === index && isLongPressActive && "opacity-50 scale-[1.02] shadow-xl bg-primary/20 z-10",
+                    dragOverIndex === index &&
+                      (draggedIndex !== null || isLongPressActive) &&
+                      "bg-primary/10 border-primary/50",
+                    dragOverIndex !== index && "hover:bg-secondary/30",
+                    driver.isPredicted && !driver.correct && "bg-blue-500/5 border-blue-500/20",
+                    driver.correct && "bg-success/10 border-success/30"
+                  )}
+
                >
 
                 <td className="px-3 py-3 text-center">
