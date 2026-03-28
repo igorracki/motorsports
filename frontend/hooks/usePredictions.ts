@@ -103,6 +103,15 @@ export function usePredictions(initialDrivers: DriverInfo[], year: number, round
     return result;
   }, [initialDrivers, savedPredictions, scoringRules]);
 
+  // Sync currentPredictions when savedPredictions are loaded or session changes while in prediction mode
+  useEffect(() => {
+    if (isPredictionMode && selectedSession) {
+      const drivers = getDriverListWithPredictions(selectedSession);
+      setCurrentPredictions(drivers);
+      initialSessionState.current = JSON.stringify(drivers);
+    }
+  }, [isPredictionMode, selectedSession, savedPredictions, getDriverListWithPredictions]);
+
   const handleSessionSelect = useCallback((sessionCode: string | null) => {
     if (sessionCode) {
       const drivers = getDriverListWithPredictions(sessionCode);

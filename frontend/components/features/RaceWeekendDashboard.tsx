@@ -169,6 +169,20 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
     }
   }, [drivers, currentPredictions.length, updatePredictions]);
 
+  // Auto-select first upcoming session when entering prediction mode if nothing selected
+  useEffect(() => {
+    if (isPredictionMode && !selectedSession && raceWeekend.sessions.length > 0) {
+      const now = Date.now();
+      // Find first session that hasn't started yet, or the last session if all started
+      const nextSession = raceWeekend.sessions.find(s => s.timeUTCMS > now) || 
+                         raceWeekend.sessions[raceWeekend.sessions.length - 1];
+      
+      if (nextSession) {
+        handleSessionSelect(nextSession.type);
+      }
+    }
+  }, [isPredictionMode, selectedSession, raceWeekend.sessions, handleSessionSelect]);
+
   const handlePredictClick = () => {
     if (!isAuthenticated) {
       setShowLoginModal(true);

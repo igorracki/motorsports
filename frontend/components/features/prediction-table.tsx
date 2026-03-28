@@ -135,6 +135,12 @@ export function PredictionTable({
         handleDoubleClick(index);
         setLastTap(null);
         clearTouchTimeout();
+        
+        // IMPORTANT: Prevent default browser behavior for double-taps
+        // This stops synthetic dblclick events from firing and causing a double-toggle
+        if (e.cancelable) {
+          e.preventDefault();
+        }
         return;
       }
       setLastTap({ time: now, index });
