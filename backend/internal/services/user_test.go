@@ -19,14 +19,13 @@ func TestUserService(t *testing.T) {
 	defer databaseManager.Close()
 
 	userRepo := repository.NewUserRepository(databaseManager.DB())
-	scoreRepo := repository.NewScoreRepository(databaseManager.DB())
 	predictionRepo := repository.NewPredictionRepository(databaseManager.DB())
 
 	f1Mock := &mockF1Service{} // Need a basic mock or real service if tests call it
 	scoringService := NewScoringService()
 	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService)
 
-	userService := NewUserService(userRepo, scoreRepo, predictionService)
+	userService := NewUserService(userRepo, predictionService)
 
 	ctx := context.Background()
 

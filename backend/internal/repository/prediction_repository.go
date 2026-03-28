@@ -14,6 +14,7 @@ type PredictionRepository interface {
 	GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error)
 	GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error)
 	GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error)
+	GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) (map[string]int, error)
 }
 
 type predictionRepository struct {
@@ -211,6 +212,49 @@ func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Cont
 
 	slog.InfoContext(ctx, "Exit: GetRoundPredictions", "user_id", userID, "count", len(predictions))
 	return predictions, nil
+}
+
+func (predictionRepo *predictionRepository) GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) (map[string]int, error) {
+	slog.InfoContext(ctx, "Entry: GetSeasonScoresByUserIDs", "count", len(userIDs), "season", season)
+
+	if len(userIDs) == 0 {
+		return make(map[string]int), nil
+	}
+
+	query := "SELECT user_id, SUM(score) FROM predictions WHERE year = ? AND user_id IN ("
+	args := make([]interface{}, len(userIDs)+1)
+	args[0] = season
+	for i, id := range userIDs {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args[i+1] = id
+	}
+	query += ") GROUP BY user_id"
+
+	rows, err := predictionRepo.database.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying season scores from predictions: %w", err)
+	}
+	defer rows.Close()
+
+	userScores := make(map[string]int)
+	for rows.Next() {
+		var userID string
+		var totalScore int
+		if err := rows.Scan(&userID, &totalScore); err != nil {
+			return nil, fmt.Errorf("scanning aggregated score: %w", err)
+		}
+		userScores[userID] = totalScore
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating aggregated scores: %w", err)
+	}
+
+	slog.InfoContext(ctx, "Exit: GetSeasonScoresByUserIDs", "found", len(userScores))
+	return userScores, nil
 }
 
 func (predictionRepo *predictionRepository) fetchEntriesForPredictions(ctx context.Context, predictions []models.Prediction) error {

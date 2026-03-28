@@ -92,16 +92,15 @@ func main() {
 	f1DataService := services.NewF1Service(f1DataClient, f1MemoryCache)
 
 	userRepository := repository.NewUserRepository(databaseManager.DB())
-	scoreRepository := repository.NewScoreRepository(databaseManager.DB())
 	predictionRepository := repository.NewPredictionRepository(databaseManager.DB())
 	friendRepository := repository.NewFriendRepository(databaseManager.DB())
 
 	scoringService := services.NewScoringService()
 	predictionService := services.NewPredictionService(predictionRepository, f1DataService, scoringService)
-	userService := services.NewUserService(userRepository, scoreRepository, predictionService)
+	userService := services.NewUserService(userRepository, predictionService)
 	authService := services.NewAuthService(userRepository)
 	friendService := services.NewFriendService(friendRepository, userRepository)
-	leaderboardService := services.NewLeaderboardService(friendRepository, userRepository, scoreRepository)
+	leaderboardService := services.NewLeaderboardService(friendRepository, userRepository, predictionRepository)
 
 	f1DataHandler := handlers.NewF1Handler(f1DataService)
 	userHandler := handlers.NewUserHandler(userService)

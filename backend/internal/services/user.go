@@ -16,14 +16,12 @@ type UserService interface {
 
 type userService struct {
 	userRepository    repository.UserRepository
-	scoreRepository   repository.ScoreRepository
 	predictionService PredictionService
 }
 
-func NewUserService(userRepo repository.UserRepository, scoreRepo repository.ScoreRepository, predictionService PredictionService) UserService {
+func NewUserService(userRepo repository.UserRepository, predictionService PredictionService) UserService {
 	return &userService{
 		userRepository:    userRepo,
-		scoreRepository:   scoreRepo,
 		predictionService: predictionService,
 	}
 }
@@ -49,13 +47,9 @@ func (service *userService) GetFullProfile(ctx context.Context, userID string) (
 		return nil, fmt.Errorf("profile not found")
 	}
 
-	scores, err := service.scoreRepository.GetUserScores(ctx, userID)
+	scores, err := service.GetSeasonScores(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("fetching scores for user %s: %w", userID, err)
-	}
-
-	if scores == nil {
-		scores = []models.UserScore{}
+		return nil, fmt.Errorf("fetching aggregated scores for user %s: %w", userID, err)
 	}
 
 	response := &models.UserProfileResponse{

@@ -15,16 +15,16 @@ type LeaderboardService interface {
 }
 
 type leaderboardService struct {
-	friendRepo repository.FriendRepository
-	userRepo   repository.UserRepository
-	scoreRepo  repository.ScoreRepository
+	friendRepo     repository.FriendRepository
+	userRepo       repository.UserRepository
+	predictionRepo repository.PredictionRepository
 }
 
-func NewLeaderboardService(friendRepo repository.FriendRepository, userRepo repository.UserRepository, scoreRepo repository.ScoreRepository) LeaderboardService {
+func NewLeaderboardService(friendRepo repository.FriendRepository, userRepo repository.UserRepository, predictionRepo repository.PredictionRepository) LeaderboardService {
 	return &leaderboardService{
-		friendRepo: friendRepo,
-		userRepo:   userRepo,
-		scoreRepo:  scoreRepo,
+		friendRepo:     friendRepo,
+		userRepo:       userRepo,
+		predictionRepo: predictionRepo,
 	}
 }
 
@@ -45,14 +45,9 @@ func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID st
 		return nil, fmt.Errorf("fetching profiles: %w", err)
 	}
 
-	scores, err := service.scoreRepo.GetSeasonScoresByUserIDs(ctx, allUserIDs, season)
+	userScores, err := service.predictionRepo.GetSeasonScoresByUserIDs(ctx, allUserIDs, season)
 	if err != nil {
-		return nil, fmt.Errorf("fetching scores: %w", err)
-	}
-
-	userScores := make(map[string]int)
-	for _, s := range scores {
-		userScores[s.UserID] = s.Value
+		return nil, fmt.Errorf("fetching aggregated scores from predictions: %w", err)
 	}
 
 	entries := make([]models.LeaderboardEntry, 0, len(profiles))
