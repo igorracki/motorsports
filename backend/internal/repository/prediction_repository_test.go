@@ -167,4 +167,37 @@ func TestPredictionRepository(t *testing.T) {
 		assert.NotNil(tt, round)
 		assert.Equal(tt, 0, len(round))
 	})
+
+	t.Run("GetSeasonScoresByUserIDs - Handles NULL scores from unscored predictions", func(tt *testing.T) {
+		// Given: A user with a prediction that has not been scored yet (score is NULL)
+		unscoredUserID := uuid.New().String()
+		err = userRepo.CreateUser(ctx, &models.User{
+			ID: unscoredUserID, Email: "unscored@example.com", CreatedAt: time.Now(),
+		}, "hash", &models.Profile{UserID: unscoredUserID, DisplayName: "Unscored"})
+		require.NoError(tt, err)
+
+		prediction := &models.Prediction{
+			ID:          uuid.New().String(),
+			UserID:      unscoredUserID,
+			Year:        2026,
+			Round:       1,
+			SessionType: "race",
+			Score:       nil, // Important: Score is NULL
+			CreatedAt:   time.Now().UTC(),
+			UpdatedAt:   time.Now().UTC(),
+			Entries: []models.PredictionEntry{
+				{Position: 1, DriverID: "verstappen"},
+			},
+		}
+		err = predictionRepo.SavePrediction(ctx, prediction)
+		require.NoError(tt, err)
+
+		// When: Fetching season scores
+		userScores, err := predictionRepo.GetSeasonScoresByUserIDs(ctx, []string{unscoredUserID}, 2026)
+
+		// Then: Should succeed and return 0 instead of failing with a scan error
+		require.NoError(tt, err)
+		assert.Contains(tt, userScores, unscoredUserID)
+		assert.Equal(tt, 0, userScores[unscoredUserID])
+	})
 }

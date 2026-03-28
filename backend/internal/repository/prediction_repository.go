@@ -221,10 +221,19 @@ func (predictionRepo *predictionRepository) GetSeasonScoresByUserIDs(ctx context
 		return make(map[string]int), nil
 	}
 
-	query := "SELECT user_id, SUM(score) FROM predictions WHERE year = ? AND user_id IN ("
-	args := make([]interface{}, len(userIDs)+1)
+	uniqueUserIDs := make([]string, 0, len(userIDs))
+	seen := make(map[string]struct{})
+	for _, id := range userIDs {
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			uniqueUserIDs = append(uniqueUserIDs, id)
+		}
+	}
+
+	query := "SELECT user_id, COALESCE(SUM(score), 0) FROM predictions WHERE year = ? AND user_id IN ("
+	args := make([]interface{}, len(uniqueUserIDs)+1)
 	args[0] = season
-	for i, id := range userIDs {
+	for i, id := range uniqueUserIDs {
 		if i > 0 {
 			query += ","
 		}
