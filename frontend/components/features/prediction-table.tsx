@@ -33,6 +33,9 @@ export function PredictionTable({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // To prevent double toggling on mobile (both touch double-tap and synthetic dblclick)
+  const lastTouchToggleTimeRef = useRef<number>(0);
+
   // Touch support for mobile (Hold-to-drag)
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
@@ -52,7 +55,7 @@ export function PredictionTable({
     return () => clearTouchTimeout();
   }, [clearTouchTimeout]);
 
-  const handleDoubleClick = useCallback((index: number) => {
+  const togglePrediction = useCallback((index: number) => {
     if (readOnly) return;
 
     const newPredictions = [...drivers];
@@ -63,6 +66,15 @@ export function PredictionTable({
     
     updatePredictions(newPredictions);
   }, [drivers, readOnly, updatePredictions]);
+
+  const handleDoubleClick = useCallback((index: number) => {
+    // If we just toggled via touch, ignore the synthetic dblclick
+    if (Date.now() - lastTouchToggleTimeRef.current < 500) {
+      return;
+    }
+    togglePrediction(index);
+  }, [togglePrediction]);
+
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
@@ -132,7 +144,8 @@ export function PredictionTable({
       const now = Date.now();
       if (lastTap && now - lastTap.time < 300 && lastTap.index === index) {
         // Double tap detected
-        handleDoubleClick(index);
+        lastTouchToggleTimeRef.current = now;
+        togglePrediction(index);
         setLastTap(null);
         clearTouchTimeout();
         
@@ -160,7 +173,7 @@ export function PredictionTable({
         }
       }, 500);
     },
-    [readOnly, lastTap, handleDoubleClick, clearTouchTimeout]
+    [readOnly, lastTap, togglePrediction, clearTouchTimeout]
   );
 
   const handleTouchMove = useCallback(
