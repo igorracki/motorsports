@@ -5,7 +5,7 @@ import Image from "next/image";
 import { GripVertical, Trophy } from "lucide-react";
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -40,6 +40,9 @@ interface SortableDriverRowProps {
   onToggle: (index: number) => void;
 }
 
+// Fixed grid layout for consistency between header and rows
+const GRID_LAYOUT = "grid grid-cols-[48px_48px_minmax(150px,1fr)_48px_minmax(150px,1fr)_80px_40px]";
+
 function DriverRowContent({
   driver,
   index,
@@ -49,7 +52,7 @@ function DriverRowContent({
 }) {
   return (
     <>
-      <td className="px-3 py-3 text-center">
+      <div className="flex items-center justify-center px-3 py-3">
         <span
           className={cn(
             "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
@@ -64,10 +67,10 @@ function DriverRowContent({
         >
           {driver.isPredicted ? index + 1 : "-"}
         </span>
-      </td>
-      <td className="px-3 py-3 text-center">
+      </div>
+      <div className="flex items-center justify-center px-3 py-3">
         {driver.countryCode && (
-          <div className="mx-auto relative h-3 w-5 overflow-hidden rounded-sm ring-1 ring-border/50">
+          <div className="relative h-3 w-5 overflow-hidden rounded-sm ring-1 ring-border/50">
             <Image
               src={`https://flagcdn.com/w80/${driver.countryCode.toLowerCase()}.png`}
               alt={`${driver.countryCode} flag`}
@@ -77,27 +80,27 @@ function DriverRowContent({
             />
           </div>
         )}
-      </td>
-      <td className="px-4 py-3">
-        <span className="font-medium text-foreground">{driver.fullName}</span>
-      </td>
-      <td className="px-3 py-3 text-center font-mono text-sm font-bold text-muted-foreground/80">
+      </div>
+      <div className="flex items-center px-4 py-3 truncate">
+        <span className="font-medium text-foreground truncate">{driver.fullName}</span>
+      </div>
+      <div className="flex items-center justify-center px-3 py-3 font-mono text-sm font-bold text-muted-foreground/80">
         {driver.number}
-      </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground">
-        {driver.teamName}
-      </td>
-      <td className="px-3 py-3 text-right">
+      </div>
+      <div className="flex items-center px-4 py-3 text-sm text-muted-foreground truncate">
+        <span className="truncate">{driver.teamName}</span>
+      </div>
+      <div className="flex items-center justify-end px-3 py-3 text-right">
         {driver.correct && driver.points > 0 && (
           <div className="flex items-center justify-end gap-1 font-bold text-success animate-in fade-in zoom-in duration-500">
             <span className="text-sm">+{driver.points}</span>
             <Trophy className="h-3 w-3 fill-success/20" />
           </div>
         )}
-      </td>
-      <td className="px-2 py-3 text-right">
+      </div>
+      <div className="flex items-center justify-end px-2 py-3">
         <GripVertical className="h-5 w-5 text-muted-foreground/30" />
-      </td>
+      </div>
     </>
   );
 }
@@ -121,21 +124,23 @@ function SortableDriverRow({
   });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
+    transform: CSS.Transform.toString(transform),
+    transition: transition || undefined,
+    zIndex: isDragging ? 50 : undefined,
+    position: isDragging ? "relative" as const : undefined,
   };
 
   return (
-    <tr
+    <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
       onDoubleClick={() => onToggle(index)}
       className={cn(
-        "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
-        isDragging &&
-          "opacity-50 scale-[1.02] shadow-xl bg-primary/20 z-10 relative",
+        GRID_LAYOUT,
+        "cursor-grab border-b border-border/30 transition-colors duration-150 active:cursor-grabbing bg-card",
+        isDragging && "shadow-2xl scale-[1.02] border-primary/50 z-50 backdrop-blur-sm",
         driver.isPredicted &&
           !driver.correct &&
           "bg-blue-500/5 border-blue-500/20",
@@ -144,7 +149,7 @@ function SortableDriverRow({
       )}
     >
       <DriverRowContent driver={driver} index={index} />
-    </tr>
+    </div>
   );
 }
 
@@ -157,14 +162,10 @@ export function PredictionTable({
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Hydration guard: dnd-kit and many of our complex UI hooks use window sensors 
-    // and generated IDs that won't match between server and client during hydration.
-    // We render a simple skeleton first to ensure a stable hydration pass.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
-  // Notify parent of changes
   const updatePredictions = useCallback(
     (newPredictions: DriverInfo[]) => {
       if (readOnly) return;
@@ -212,7 +213,6 @@ export function PredictionTable({
 
       const newDrivers = arrayMove([...drivers], oldIndex, newIndex);
 
-      // Mark the moved item as predicted
       newDrivers[newIndex] = {
         ...newDrivers[newIndex],
         isPredicted: true,
@@ -224,8 +224,6 @@ export function PredictionTable({
 
   const driverIds = useMemo(() => drivers.map((d) => d.id), [drivers]);
 
-  // If not mounted, render a stable, non-interactive skeleton 
-  // to ensure server-side and client-side HTML matches perfectly.
   if (!isMounted) {
     return (
       <div className="flex h-96 items-center justify-center rounded-xl border border-border/50 bg-card/50">
@@ -237,51 +235,37 @@ export function PredictionTable({
   return (
     <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
       <div className="overflow-x-auto">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-          modifiers={[restrictToVerticalAxis]}
-        >
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border/50 bg-secondary/50">
-                <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Pos
-                </th>
-                <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Flag
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Driver
-                </th>
-                <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  #
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Team
-                </th>
-                <th className="w-20 px-3 py-3 text-right text-xs font-bold tracking-wider text-foreground">
-                  {totalScore !== undefined && totalScore !== null ? (
-                    <div className="flex items-center justify-end gap-1.5 text-success">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">
-                        Total:
-                      </span>
-                      <span>{totalScore}</span>
-                      <Trophy className="h-3 w-3 fill-success/20" />
-                    </div>
-                  ) : (
-                    "Points"
-                  )}
-                </th>
-                <th className="w-10 px-2 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <SortableContext
-                items={driverIds}
-                strategy={verticalListSortingStrategy}
-              >
+        <div className="min-w-[700px]">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis]}
+          >
+            {/* Header */}
+            <div className={cn(GRID_LAYOUT, "border-b border-border/50 bg-secondary/50")}>
+              <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pos</div>
+              <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flag</div>
+              <div className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Driver</div>
+              <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">#</div>
+              <div className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team</div>
+              <div className="px-3 py-3 text-right text-xs font-bold tracking-wider text-foreground">
+                {totalScore !== undefined && totalScore !== null ? (
+                  <div className="flex items-center justify-end gap-1.5 text-success">
+                    <span className="text-[10px] text-muted-foreground font-semibold uppercase">Total:</span>
+                    <span>{totalScore}</span>
+                    <Trophy className="h-3 w-3 fill-success/20" />
+                  </div>
+                ) : (
+                  "Points"
+                )}
+              </div>
+              <div className="px-2 py-3"></div>
+            </div>
+
+            {/* List */}
+            <SortableContext items={driverIds} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col">
                 {drivers.map((driver, index) => (
                   <SortableDriverRow
                     key={driver.id}
@@ -291,10 +275,10 @@ export function PredictionTable({
                     onToggle={togglePrediction}
                   />
                 ))}
-              </SortableContext>
-            </tbody>
-          </table>
-        </DndContext>
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
       </div>
     </div>
   );

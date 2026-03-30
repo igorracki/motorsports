@@ -32,7 +32,6 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
   const [showLoginModal, setShowLoginModal] = useState(false);
