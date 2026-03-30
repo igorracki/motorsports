@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Trophy, AlertCircle } from "lucide-react";
@@ -28,7 +28,13 @@ interface RaceWeekendDashboardProps {
 }
 
 export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboardProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+  }, []);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [circuit, setCircuit] = useState<Circuit | null>(null);
@@ -191,15 +197,22 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
     togglePredictionMode();
   };
 
-  const status = getRaceStatus(year, raceWeekend.round, raceWeekend);
+  const status = isMounted
+    ? getRaceStatus(year, raceWeekend.round, raceWeekend)
+    : "upcoming";
   const isWeekendCompleted = status === "completed";
   
   const selectedSessionData = raceWeekend.sessions.find(s => s.sessionCode === selectedSession || s.type === selectedSession);
-  const isSelectedSessionLive = selectedSessionData ? isSessionLive(selectedSessionData.timeUTCMS) : false;
+  const isSelectedSessionLive =
+    isMounted && selectedSessionData
+      ? isSessionLive(selectedSessionData.timeUTCMS)
+      : false;
   const currentResults = selectedSession ? sessionResults[selectedSession] : undefined;
   
-  const now = Date.now();
-  const isSessionLocked = selectedSessionData ? selectedSessionData.timeUTCMS < now : false;
+  const isSessionLocked = useMemo(() => {
+    if (!isMounted || !selectedSessionData) return false;
+    return selectedSessionData.timeUTCMS < Date.now();
+  }, [isMounted, selectedSessionData]);
   const hasSavedPrediction = selectedSession ? !!savedPredictions[selectedSession] : false;
 
   return (
@@ -391,7 +404,6 @@ export function RaceWeekendDashboard({ raceWeekend, year }: RaceWeekendDashboard
                   key={selectedSession}
                   drivers={currentPredictions}
                   onPredictionsChange={updatePredictions}
-                  onSave={saveCurrentPredictions}
                   readOnly={isSessionLocked}
                   totalScore={selectedSession ? savedPredictions[selectedSession]?.score : undefined}
                 />

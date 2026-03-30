@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useState, useEffect } from "react";
 import Image from "next/image";
 import { GripVertical, Trophy } from "lucide-react";
 import {
@@ -24,11 +24,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { cn } from "@/lib/utils";
 import type { DriverInfo } from "@/types/f1";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 interface PredictionTableProps {
   drivers: DriverInfo[];
   onPredictionsChange: (predictions: DriverInfo[]) => void;
-  onSave: (predictions: DriverInfo[]) => void;
   readOnly?: boolean;
   totalScore?: number;
 }
@@ -38,54 +38,25 @@ interface SortableDriverRowProps {
   index: number;
   readOnly: boolean;
   onToggle: (index: number) => void;
-  isCorrect?: boolean;
-  points?: number;
 }
 
-function SortableDriverRow({
+function DriverRowContent({
   driver,
   index,
-  readOnly,
-  onToggle,
-}: SortableDriverRowProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: driver.id,
-    disabled: readOnly,
-  });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
-
+}: {
+  driver: DriverInfo;
+  index: number;
+}) {
   return (
-    <tr
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onDoubleClick={() => onToggle(index)}
-      className={cn(
-        "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
-        isDragging && "opacity-50 scale-[1.02] shadow-xl bg-primary/20 z-10 relative",
-        driver.isPredicted && !driver.correct && "bg-blue-500/5 border-blue-500/20",
-        driver.correct && "bg-success/10 border-success/30",
-        !isDragging && "hover:bg-secondary/30"
-      )}
-    >
+    <>
       <td className="px-3 py-3 text-center">
         <span
           className={cn(
             "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
             !driver.isPredicted && "text-muted-foreground/30",
-            driver.isPredicted && index === 0 && "bg-yellow-500/20 text-yellow-500",
+            driver.isPredicted &&
+              index === 0 &&
+              "bg-yellow-500/20 text-yellow-500",
             driver.isPredicted && index === 1 && "bg-gray-400/20 text-gray-400",
             driver.isPredicted && index === 2 && "bg-amber-600/20 text-amber-600",
             driver.isPredicted && index > 2 && "text-muted-foreground"
@@ -127,6 +98,52 @@ function SortableDriverRow({
       <td className="px-2 py-3 text-right">
         <GripVertical className="h-5 w-5 text-muted-foreground/30" />
       </td>
+    </>
+  );
+}
+
+function SortableDriverRow({
+  driver,
+  index,
+  readOnly,
+  onToggle,
+}: SortableDriverRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: driver.id,
+    disabled: readOnly,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onDoubleClick={() => onToggle(index)}
+      className={cn(
+        "cursor-grab border-b border-border/30 transition-all duration-150 active:cursor-grabbing",
+        isDragging &&
+          "opacity-50 scale-[1.02] shadow-xl bg-primary/20 z-10 relative",
+        driver.isPredicted &&
+          !driver.correct &&
+          "bg-blue-500/5 border-blue-500/20",
+        driver.correct && "bg-success/10 border-success/30",
+        !isDragging && "hover:bg-secondary/30"
+      )}
+    >
+      <DriverRowContent driver={driver} index={index} />
     </tr>
   );
 }
@@ -134,10 +151,19 @@ function SortableDriverRow({
 export function PredictionTable({
   drivers,
   onPredictionsChange,
-  onSave,
   readOnly = false,
   totalScore,
 }: PredictionTableProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    // Hydration guard: dnd-kit and many of our complex UI hooks use window sensors 
+    // and generated IDs that won't match between server and client during hydration.
+    // We render a simple skeleton first to ensure a stable hydration pass.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+  }, []);
+
   // Notify parent of changes
   const updatePredictions = useCallback(
     (newPredictions: DriverInfo[]) => {
@@ -197,6 +223,16 @@ export function PredictionTable({
   };
 
   const driverIds = useMemo(() => drivers.map((d) => d.id), [drivers]);
+
+  // If not mounted, render a stable, non-interactive skeleton 
+  // to ensure server-side and client-side HTML matches perfectly.
+  if (!isMounted) {
+    return (
+      <div className="flex h-96 items-center justify-center rounded-xl border border-border/50 bg-card/50">
+        <LoadingSpinner label="Initializing prediction table..." />
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
