@@ -3,6 +3,7 @@ package services
 import (
 	"testing"
 
+	"github.com/igorracki/motorsports/backend/internal/mappers"
 	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,7 +32,7 @@ func TestFormatSessionResults_PracticeSorting(t *testing.T) {
 	}
 
 	// When
-	formatSessionResults(results)
+	mappers.MapSessionResults(results)
 
 	// Then: Results should be sorted by FastestLapMS and positions re-assigned
 	assert.Equal(t, "Oscar Piastri", results.Results[0].Driver.FullName)
@@ -67,7 +68,7 @@ func TestFormatSessionResults_RaceOrderPreserved(t *testing.T) {
 	}
 
 	// When
-	formatSessionResults(results)
+	mappers.MapSessionResults(results)
 
 	// Then: Order should be preserved as per classification from the provider
 	assert.Equal(t, "Winner", results.Results[0].Driver.FullName)

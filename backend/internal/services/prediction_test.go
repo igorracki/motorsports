@@ -43,8 +43,8 @@ func TestPredictionService(t *testing.T) {
 	}
 	f1Mock := &mockF1Service{schedule: futureSchedule}
 
-	predictionRepo := repository.NewPredictionRepository(databaseManager.DB())
-	userRepo := repository.NewUserRepository(databaseManager.DB())
+	predictionRepo := repository.NewPredictionRepository(databaseManager)
+	userRepo := repository.NewUserRepository(databaseManager)
 	scoringService := NewScoringService()
 	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService)
 
@@ -156,30 +156,6 @@ func TestPredictionService(t *testing.T) {
 					},
 				},
 				wantErr: "driver_id cannot be empty",
-			},
-			{
-				name: "Invalid Year",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 1900, Round: 1, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 2, DriverID: "PER"},
-						{Position: 3, DriverID: "ALO"},
-					},
-				},
-				wantErr: "invalid year: 1900",
-			},
-			{
-				name: "Invalid Round",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 2024, Round: 0, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 2, DriverID: "PER"},
-						{Position: 3, DriverID: "ALO"},
-					},
-				},
-				wantErr: "invalid round: 0",
 			},
 		}
 

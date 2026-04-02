@@ -2,21 +2,25 @@ package auth
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret []byte
+type TokenManager interface {
+	GenerateToken(userID string, duration time.Duration) (string, time.Time, error)
+	ValidateToken(tokenString string) (*Claims, error)
+}
 
-func InitJWTSecret() error {
-	secret := os.Getenv("JWT_SECRET")
+type tokenManager struct {
+	secret []byte
+}
+
+func NewTokenManager(secret string) (TokenManager, error) {
 	if secret == "" {
-		return fmt.Errorf("JWT_SECRET environment variable is not set")
+		return nil, fmt.Errorf("JWT secret cannot be empty")
 	}
-	jwtSecret = []byte(secret)
-	return nil
+	return &tokenManager{secret: []byte(secret)}, nil
 }
 
 type Claims struct {
@@ -24,7 +28,8 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID string, expiresAt time.Time) (string, error) {
+func (m *tokenManager) GenerateToken(userID string, duration time.Duration) (string, time.Time, error) {
+	expiresAt := time.Now().Add(duration)
 	claims := &Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -34,15 +39,16 @@ func GenerateToken(userID string, expiresAt time.Time) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	tokenString, err := token.SignedString(m.secret)
+	return tokenString, expiresAt, err
 }
 
-func ValidateToken(tokenString string) (*Claims, error) {
+func (m *tokenManager) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return jwtSecret, nil
+		return m.secret, nil
 	})
 
 	if err != nil {

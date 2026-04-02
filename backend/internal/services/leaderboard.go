@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sort"
 
 	"github.com/igorracki/motorsports/backend/internal/models"
@@ -29,8 +28,6 @@ func NewLeaderboardService(friendRepo repository.FriendRepository, userRepo repo
 }
 
 func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID string, season int) ([]models.LeaderboardEntry, error) {
-	slog.InfoContext(ctx, "Entry: GetLeaderboard", "user_id", userID, "season", season)
-
 	friendIDs, err := service.friendRepo.GetFriendsByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching friends: %w", err)
@@ -51,11 +48,11 @@ func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID st
 	}
 
 	entries := make([]models.LeaderboardEntry, 0, len(profiles))
-	for _, p := range profiles {
+	for _, profile := range profiles {
 		entries = append(entries, models.LeaderboardEntry{
-			UserID:      p.UserID,
-			DisplayName: p.DisplayName,
-			Score:       userScores[p.UserID],
+			UserID:      profile.UserID,
+			DisplayName: profile.DisplayName,
+			Score:       userScores[profile.UserID],
 		})
 	}
 
@@ -70,6 +67,5 @@ func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID st
 		entries[i].Position = i + 1
 	}
 
-	slog.InfoContext(ctx, "Exit: GetLeaderboard", "user_id", userID, "season", season, "count", len(entries))
 	return entries, nil
 }

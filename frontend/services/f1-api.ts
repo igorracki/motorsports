@@ -230,14 +230,6 @@ export const f1Api = {
   },
 
   /**
-   * User: Get season scores/stats
-   */
-  async getSeasonScores(userId: string): Promise<unknown[]> {
-    const data = await this.fetchJson<unknown[]>(`${_BASE_URL}/users/${userId}/stats/seasons`);
-    return data || [];
-  },
-
-  /**
    * Predictions: Get predictions for a specific round
    */
   async getRoundPredictions(userId: string, year: number, round: number): Promise<Prediction[]> {

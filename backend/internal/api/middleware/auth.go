@@ -2,49 +2,52 @@ package middleware
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"github.com/igorracki/motorsports/backend/internal/auth"
 	f1context "github.com/igorracki/motorsports/backend/internal/context"
-	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/labstack/echo/v4"
 )
 
-func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		cookie, err := c.Cookie("auth_token")
-		if err != nil {
-			slog.WarnContext(c.Request().Context(), "Authentication failure",
-				"reason", "missing authentication token",
-				"ip", c.RealIP(),
-				"path", c.Request().URL.Path,
-			)
-			return c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-				Error:   "unauthorized",
-				Message: "missing authentication token",
-			})
+func AuthMiddleware(tokenManager auth.TokenManager) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(contextObj echo.Context) error {
+			cookie, err := contextObj.Cookie("auth_token")
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing authentication token")
+			}
+
+			claims, err := tokenManager.ValidateToken(cookie.Value)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid or expired token")
+			}
+
+			contextObj.Set("user_id", claims.UserID)
+
+			ctx := context.WithValue(contextObj.Request().Context(), f1context.UserIDKey, claims.UserID)
+			contextObj.SetRequest(contextObj.Request().WithContext(ctx))
+
+			return next(contextObj)
 		}
+	}
+}
 
-		claims, err := auth.ValidateToken(cookie.Value)
-		if err != nil {
-			slog.WarnContext(c.Request().Context(), "Authentication failure",
-				"reason", err.Error(),
-				"ip", c.RealIP(),
-				"path", c.Request().URL.Path,
-			)
-			return c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-				Error:   "unauthorized",
-				Message: "invalid or expired token",
-			})
+// RequireResourceOwnerMiddleware ensures that the authenticated user matches the "id" path parameter.
+func RequireResourceOwnerMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			authUserIDVal := c.Get("user_id")
+			authUserID, ok := authUserIDVal.(string)
+			if !ok || authUserID == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
+			}
+
+			resourceID := c.Param("id")
+			if resourceID != "" && resourceID != authUserID {
+				return echo.NewHTTPError(http.StatusForbidden, "permission denied")
+			}
+
+			return next(c)
 		}
-
-		// Inject user_id into both echo context and request context
-		c.Set("user_id", claims.UserID)
-
-		ctx := context.WithValue(c.Request().Context(), f1context.UserIDKey, claims.UserID)
-		c.SetRequest(c.Request().WithContext(ctx))
-
-		return next(c)
 	}
 }

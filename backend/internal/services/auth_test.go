@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/igorracki/motorsports/backend/internal/auth"
 	"github.com/igorracki/motorsports/backend/internal/database"
 	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/igorracki/motorsports/backend/internal/repository"
@@ -16,8 +17,11 @@ func TestAuthService(t *testing.T) {
 	require.NoError(t, err)
 	defer databaseManager.Close()
 
-	userRepo := repository.NewUserRepository(databaseManager.DB())
-	authService := NewAuthService(userRepo)
+	tokenManager, err := auth.NewTokenManager("test_secret_key_long_enough_for_jwt")
+	require.NoError(t, err)
+
+	userRepo := repository.NewUserRepository(databaseManager)
+	authService := NewAuthService(userRepo, tokenManager)
 
 	ctx := context.Background()
 
@@ -77,16 +81,5 @@ func TestAuthService(t *testing.T) {
 		assert.Nil(tt, profile)
 		assert.Empty(tt, token)
 		assert.Contains(tt, err.Error(), "invalid email or password")
-	})
-
-	t.Run("Register - Invalid Email", func(tt *testing.T) {
-		request := models.RegisterUserRequest{
-			Email:       "invalid-email",
-			Password:    "password123",
-			DisplayName: "Invalid",
-		}
-		_, _, _, _, err := authService.Register(ctx, request)
-		assert.Error(tt, err)
-		assert.Contains(tt, err.Error(), "invalid email address format")
 	})
 }

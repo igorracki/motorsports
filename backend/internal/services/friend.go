@@ -2,23 +2,12 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/igorracki/motorsports/backend/internal/repository"
-)
-
-var (
-	ErrUserNotFound          = errors.New("user not found")
-	ErrCannotAddSelf         = errors.New("cannot add yourself as a friend")
-	ErrAlreadyFriends        = errors.New("already friends with this user")
-	ErrRequestAlreadyPending = errors.New("friend request already pending")
-	ErrInvalidFriendRequest  = errors.New("invalid friend request")
-	ErrInvalidAction         = errors.New("invalid action")
 )
 
 type FriendService interface {
@@ -41,8 +30,6 @@ func NewFriendService(friendRepo repository.FriendRepository, userRepo repositor
 }
 
 func (service *friendService) SendFriendRequest(ctx context.Context, senderID string, identifier string) error {
-	slog.InfoContext(ctx, "Entry: SendFriendRequest", "sender_id", senderID, "identifier", identifier)
-
 	var targetUser *models.User
 	var err error
 
@@ -57,11 +44,11 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 	}
 
 	if targetUser == nil {
-		return ErrUserNotFound
+		return fmt.Errorf("%w: user %s", models.ErrNotFound, identifier)
 	}
 
 	if targetUser.ID == senderID {
-		return ErrCannotAddSelf
+		return fmt.Errorf("%w: cannot add yourself", models.ErrInvalidInput)
 	}
 
 	alreadyFriends, err := service.friendRepo.AreFriends(ctx, senderID, targetUser.ID)
@@ -69,7 +56,7 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 		return fmt.Errorf("checking friendship status: %w", err)
 	}
 	if alreadyFriends {
-		return ErrAlreadyFriends
+		return fmt.Errorf("%w: already friends", models.ErrConflict)
 	}
 
 	hasPending, err := service.friendRepo.HasPendingRequest(ctx, senderID, targetUser.ID)
@@ -77,7 +64,7 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 		return fmt.Errorf("checking pending request status: %w", err)
 	}
 	if hasPending {
-		return ErrRequestAlreadyPending
+		return fmt.Errorf("%w: request already pending", models.ErrConflict)
 	}
 
 	request := &models.FriendRequest{
@@ -88,35 +75,29 @@ func (service *friendService) SendFriendRequest(ctx context.Context, senderID st
 		CreatedAt:  time.Now().UTC(),
 	}
 
-	err = service.friendRepo.CreateFriendRequest(ctx, request)
-	if err != nil {
+	if err := service.friendRepo.CreateFriendRequest(ctx, request); err != nil {
 		return fmt.Errorf("creating friend request: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Exit: SendFriendRequest", "sender_id", senderID, "receiver_id", targetUser.ID)
 	return nil
 }
 
 func (service *friendService) GetPendingRequests(ctx context.Context, userID string) ([]models.FriendRequest, error) {
-	slog.InfoContext(ctx, "Entry: GetPendingRequests", "user_id", userID)
 	requests, err := service.friendRepo.GetPendingFriendRequestsByReceiverID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching pending requests: %w", err)
 	}
-	slog.InfoContext(ctx, "Exit: GetPendingRequests", "user_id", userID, "count", len(requests))
 	return requests, nil
 }
 
 func (service *friendService) HandleFriendRequest(ctx context.Context, userID string, requestID string, action string) error {
-	slog.InfoContext(ctx, "Entry: HandleFriendRequest", "user_id", userID, "request_id", requestID, "action", action)
-
 	request, err := service.friendRepo.GetFriendRequestByID(ctx, requestID)
 	if err != nil {
 		return fmt.Errorf("fetching friend request: %w", err)
 	}
 
 	if request == nil || request.ReceiverID != userID || request.Status != models.FriendRequestPending {
-		return ErrInvalidFriendRequest
+		return fmt.Errorf("%w: invalid friend request", models.ErrNotFound)
 	}
 
 	if action == "accept" {
@@ -125,29 +106,24 @@ func (service *friendService) HandleFriendRequest(ctx context.Context, userID st
 			FriendID:  request.ReceiverID,
 			CreatedAt: time.Now().UTC(),
 		}
-		err = service.friendRepo.AcceptFriendRequest(ctx, requestID, friendship)
-		if err != nil {
+		if err := service.friendRepo.AcceptFriendRequest(ctx, requestID, friendship); err != nil {
 			return fmt.Errorf("accepting friend request: %w", err)
 		}
 	} else if action == "deny" {
-		err = service.friendRepo.UpdateFriendRequestStatus(ctx, requestID, models.FriendRequestDenied)
-		if err != nil {
+		if err := service.friendRepo.UpdateFriendRequestStatus(ctx, requestID, models.FriendRequestDenied); err != nil {
 			return fmt.Errorf("denying request: %w", err)
 		}
 	} else {
-		return ErrInvalidAction
+		return fmt.Errorf("%w: invalid action %s", models.ErrInvalidInput, action)
 	}
 
-	slog.InfoContext(ctx, "Exit: HandleFriendRequest", "user_id", userID, "request_id", requestID)
 	return nil
 }
 
 func (service *friendService) GetFriends(ctx context.Context, userID string) ([]string, error) {
-	slog.InfoContext(ctx, "Entry: GetFriends", "user_id", userID)
 	friends, err := service.friendRepo.GetFriendsByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching friends: %w", err)
 	}
-	slog.InfoContext(ctx, "Exit: GetFriends", "user_id", userID, "count", len(friends))
 	return friends, nil
 }

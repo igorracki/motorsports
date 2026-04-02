@@ -27,11 +27,11 @@ type Friendship struct {
 }
 
 type SendFriendRequestRequest struct {
-	Identifier string `json:"identifier"` // Email or UUID
+	Identifier string `json:"identifier" validate:"required"` // Email or UUID
 }
 
 type HandleFriendRequestRequest struct {
-	Action string `json:"action"` // "accept" or "deny"
+	Action string `json:"action" validate:"required,oneof=accept deny"`
 }
 
 type LeaderboardEntry struct {

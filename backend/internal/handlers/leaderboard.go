@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/igorracki/motorsports/backend/internal/services"
@@ -20,48 +18,34 @@ func NewLeaderboardHandler(leaderboardService services.LeaderboardService) *Lead
 	}
 }
 
+type LeaderboardParam struct {
+	Season int `param:"season" validate:"required,min=1950,max=2100"`
+}
+
 func (handler *LeaderboardHandler) GetLeaderboard(context echo.Context) error {
 	ctx := context.Request().Context()
-	slog.InfoContext(ctx, "Entry: GetLeaderboard")
 
-	userIDVal := context.Get("user_id")
-	userID, ok := userIDVal.(string)
-	if !ok || userID == "" {
-		return context.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   "unauthorized",
-			Message: "user not authenticated",
-		})
-	}
-
-	seasonStr := context.Param("season")
-	season, err := strconv.Atoi(seasonStr)
+	userID, err := GetAuthenticatedUserID(context)
 	if err != nil {
-		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "invalid_parameter",
-			Message: "season must be a number",
-		})
+		return err
 	}
 
-	if season < 1950 || season > 2100 {
-		return context.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "invalid_parameter",
-			Message: "season must be between 1950 and 2100",
-		})
+	var params LeaderboardParam
+	if err := context.Bind(&params); err != nil {
+		return models.ErrInvalidInput
+	}
+	if err := context.Validate(&params); err != nil {
+		return models.ErrInvalidInput
 	}
 
-	entries, err := handler.leaderboardService.GetLeaderboard(ctx, userID, season)
+	entries, err := handler.leaderboardService.GetLeaderboard(ctx, userID, params.Season)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch leaderboard", "error", err, "season", season)
-		return context.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   "fetch_failed",
-			Message: "Failed to retrieve leaderboard data",
-		})
+		return err
 	}
 
 	if entries == nil {
 		entries = []models.LeaderboardEntry{}
 	}
 
-	slog.InfoContext(ctx, "Exit: GetLeaderboard", "user_id", userID, "season", season, "count", len(entries))
 	return context.JSON(http.StatusOK, entries)
 }

@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -10,11 +12,14 @@ import (
 )
 
 type Configuration struct {
-	ServerPort     int
-	ExternalAPIURL string
-	DatabasePath   string
-	AllowedOrigins []string
-	CookieSecure   bool
+	ServerPort         int
+	ExternalAPIURL     string
+	ExternalAPITimeout int
+	DatabasePath       string
+	AllowedOrigins     []string
+	CookieSecure       bool
+	JWTSecret          string
+	TraceLogging       bool
 }
 
 func Load() *Configuration {
@@ -24,21 +29,43 @@ func Load() *Configuration {
 
 	serverPort := getEnvAsInt("SERVER_PORT", 8080)
 	externalAPIURL := getEnv("EXTERNAL_API_URL", "http://localhost:8081/wrapper")
+	externalAPITimeout := getEnvAsInt("EXTERNAL_API_TIMEOUT", 30)
 	databasePath := getEnv("DATABASE_PATH", "motorsports_data.db")
 	allowedOrigins := getEnvAsSlice("ALLOWED_ORIGINS", nil)
 	cookieSecure := getEnvAsBool("COOKIE_SECURE", false)
-
-	if len(allowedOrigins) == 0 {
-		log.Println("Warning: ALLOWED_ORIGINS is empty. CORS will block all requests.")
-	}
+	jwtSecret := getEnv("JWT_SECRET", "")
+	traceLogging := getEnvAsBool("TRACE_LOGGING", false)
 
 	return &Configuration{
-		ServerPort:     serverPort,
-		ExternalAPIURL: externalAPIURL,
-		DatabasePath:   databasePath,
-		AllowedOrigins: allowedOrigins,
-		CookieSecure:   cookieSecure,
+		ServerPort:         serverPort,
+		ExternalAPIURL:     externalAPIURL,
+		ExternalAPITimeout: externalAPITimeout,
+		DatabasePath:       databasePath,
+		AllowedOrigins:     allowedOrigins,
+		CookieSecure:       cookieSecure,
+		JWTSecret:          jwtSecret,
+		TraceLogging:       traceLogging,
 	}
+}
+
+func (c *Configuration) Validate() error {
+	if c.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET environment variable is required")
+	}
+
+	if c.ServerPort < 1 || c.ServerPort > 65535 {
+		return fmt.Errorf("invalid SERVER_PORT: %d", c.ServerPort)
+	}
+
+	if _, err := url.ParseRequestURI(c.ExternalAPIURL); err != nil {
+		return fmt.Errorf("invalid EXTERNAL_API_URL: %w", err)
+	}
+
+	if c.DatabasePath == "" {
+		return fmt.Errorf("DATABASE_PATH cannot be empty")
+	}
+
+	return nil
 }
 
 func getEnv(key, defaultValue string) string {
@@ -54,7 +81,6 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 		return defaultValue
 	}
 
-	// Split by comma
 	origins := strings.Split(valueStr, ",")
 	for i, origin := range origins {
 		origins[i] = strings.TrimSpace(origin)

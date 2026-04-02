@@ -2,18 +2,25 @@ package repository
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
+	"github.com/igorracki/motorsports/backend/internal/database"
 	"github.com/igorracki/motorsports/backend/internal/models"
 )
 
 var (
 	ErrDuplicateEmail = errors.New("email already registered")
+)
+
+const (
+	insertUserSQL         = "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)"
+	insertProfileSQL      = "INSERT INTO profiles (user_id, display_name) VALUES (?, ?)"
+	getUserByIDSQL        = "SELECT id, email, created_at FROM users WHERE id = ?"
+	getUserByEmailSQL     = "SELECT id, email, password_hash, created_at FROM users WHERE email = ?"
+	getProfileByUserIDSQL = "SELECT user_id, display_name FROM profiles WHERE user_id = ?"
 )
 
 type UserRepository interface {
@@ -25,155 +32,98 @@ type UserRepository interface {
 }
 
 type userRepository struct {
-	database *sql.DB
+	manager *database.Manager
 }
 
-func NewUserRepository(db *sql.DB) UserRepository {
-	return &userRepository{database: db}
+func NewUserRepository(manager *database.Manager) UserRepository {
+	return &userRepository{manager: manager}
 }
 
-func hashEmail(email string) string {
-	hash := sha256.Sum256([]byte(email))
-	return fmt.Sprintf("%x", hash)
-}
-
-func (userRepo *userRepository) CreateUser(ctx context.Context, user *models.User, passwordHash string, profile *models.Profile) error {
-	slog.InfoContext(ctx, "Entry: CreateUser", "email_hash", hashEmail(user.Email))
-
-	transaction, err := userRepo.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("starting transaction for user creation: %w", err)
-	}
-	defer transaction.Rollback()
-
-	_, err = transaction.ExecContext(ctx,
-		"INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-		user.ID, user.Email, passwordHash, user.CreatedAt,
-	)
-	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.email") {
-			return ErrDuplicateEmail
+func (repo *userRepository) CreateUser(ctx context.Context, user *models.User, passwordHash string, profile *models.Profile) error {
+	return repo.manager.Transaction(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, insertUserSQL, user.ID, user.Email, passwordHash, user.CreatedAt); err != nil {
+			if strings.Contains(err.Error(), "UNIQUE constraint failed: users.email") {
+				return ErrDuplicateEmail
+			}
+			return fmt.Errorf("inserting user %s: %w", user.ID, err)
 		}
-		return fmt.Errorf("inserting user %s: %w", user.ID, err)
-	}
 
-	_, err = transaction.ExecContext(ctx,
-		"INSERT INTO profiles (user_id, display_name) VALUES (?, ?)",
-		profile.UserID, profile.DisplayName,
-	)
-	if err != nil {
-		return fmt.Errorf("inserting profile for user %s: %w", profile.UserID, err)
-	}
-
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("committing transaction for user %s: %w", user.ID, err)
-	}
-
-	slog.InfoContext(ctx, "Exit: CreateUser", "user_id", user.ID, "email_hash", hashEmail(user.Email))
-	return nil
+		if _, err := tx.ExecContext(ctx, insertProfileSQL, profile.UserID, profile.DisplayName); err != nil {
+			return fmt.Errorf("inserting profile for user %s: %w", profile.UserID, err)
+		}
+		return nil
+	})
 }
 
-func (userRepo *userRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
-	slog.InfoContext(ctx, "Entry: GetUserByID", "user_id", id)
-
+func (repo *userRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	user := &models.User{}
-	err := userRepo.database.QueryRowContext(ctx,
-		"SELECT id, email, created_at FROM users WHERE id = ?",
-		id,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt)
+	err := repo.manager.DB().QueryRowContext(ctx, getUserByIDSQL, id).Scan(&user.ID, &user.Email, &user.CreatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			slog.InfoContext(ctx, "User not found", "user_id", id)
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying user %s: %w", id, err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetUserByID", "user_id", id)
 	return user, nil
 }
 
-func (userRepo *userRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, string, error) {
-	slog.InfoContext(ctx, "Entry: GetUserByEmail", "email_hash", hashEmail(email))
-
+func (repo *userRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, string, error) {
 	user := &models.User{}
 	var passwordHash string
-	err := userRepo.database.QueryRowContext(ctx,
-		"SELECT id, email, password_hash, created_at FROM users WHERE email = ?",
-		email,
-	).Scan(&user.ID, &user.Email, &passwordHash, &user.CreatedAt)
+	err := repo.manager.DB().QueryRowContext(ctx, getUserByEmailSQL, email).Scan(&user.ID, &user.Email, &passwordHash, &user.CreatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			slog.InfoContext(ctx, "User not found", "email_hash", hashEmail(email))
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", nil
 		}
 		return nil, "", fmt.Errorf("querying user by email: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetUserByEmail", "user_id", user.ID, "email_hash", hashEmail(user.Email))
 	return user, passwordHash, nil
 }
 
-func (userRepo *userRepository) GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error) {
-	slog.InfoContext(ctx, "Entry: GetProfileByUserID", "user_id", userID)
-
+func (repo *userRepository) GetProfileByUserID(ctx context.Context, userID string) (*models.Profile, error) {
 	profile := &models.Profile{}
-	err := userRepo.database.QueryRowContext(ctx,
-		"SELECT user_id, display_name FROM profiles WHERE user_id = ?",
-		userID,
-	).Scan(&profile.UserID, &profile.DisplayName)
+	err := repo.manager.DB().QueryRowContext(ctx, getProfileByUserIDSQL, userID).Scan(&profile.UserID, &profile.DisplayName)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			slog.InfoContext(ctx, "Profile not found", "user_id", userID)
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying profile for user %s: %w", userID, err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetProfileByUserID", "user_id", userID)
 	return profile, nil
 }
 
-func (userRepo *userRepository) GetProfilesByUserIDs(ctx context.Context, userIDs []string) ([]models.Profile, error) {
-	slog.InfoContext(ctx, "Entry: GetProfilesByUserIDs", "count", len(userIDs))
-
+func (repo *userRepository) GetProfilesByUserIDs(ctx context.Context, userIDs []string) ([]models.Profile, error) {
 	if len(userIDs) == 0 {
 		return []models.Profile{}, nil
 	}
 
-	query := "SELECT user_id, display_name FROM profiles WHERE user_id IN ("
-	args := make([]interface{}, len(userIDs))
-	for i, id := range userIDs {
-		if i > 0 {
-			query += ","
-		}
-		query += "?"
-		args[i] = id
-	}
-	query += ")"
+	placeholders := database.GeneratePlaceholders(len(userIDs))
+	query := fmt.Sprintf("SELECT user_id, display_name FROM profiles WHERE user_id IN (%s)", placeholders)
 
-	rows, err := userRepo.database.QueryContext(ctx, query, args...)
+	rows, err := repo.manager.DB().QueryContext(ctx, query, database.ToAnySlice(userIDs)...)
 	if err != nil {
 		return nil, fmt.Errorf("querying profiles: %w", err)
 	}
 	defer rows.Close()
 
-	profiles := []models.Profile{}
+	profiles := make([]models.Profile, 0)
 	for rows.Next() {
-		var p models.Profile
-		if err := rows.Scan(&p.UserID, &p.DisplayName); err != nil {
+		var profile models.Profile
+		if err := rows.Scan(&profile.UserID, &profile.DisplayName); err != nil {
 			return nil, fmt.Errorf("scanning profile: %w", err)
 		}
-		profiles = append(profiles, p)
+		profiles = append(profiles, profile)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating profiles: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetProfilesByUserIDs", "found", len(profiles))
 	return profiles, nil
 }

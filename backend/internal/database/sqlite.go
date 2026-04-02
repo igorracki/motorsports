@@ -1,9 +1,10 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -11,41 +12,37 @@ import (
 )
 
 type Manager struct {
-	databaseConnection *sql.DB
+	db *sql.DB
 }
 
 func NewManager(databasePath string) (*Manager, error) {
-	log.Printf("INFO: Initializing database at %s", databasePath)
+	slog.Info("Initializing database", "path", databasePath)
 
 	dir := filepath.Dir(databasePath)
-	if err := os.MkdirAll(dir, 0777); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("creating database directory: %w", err)
 	}
 
-	// Check if the directory is writable
-	testFile := filepath.Join(dir, ".perm_test")
-	if err := os.WriteFile(testFile, []byte("test"), 0666); err != nil {
-		log.Printf("ERROR: Database directory %s is not writable: %v", dir, err)
-	} else {
-		os.Remove(testFile)
-	}
-
-	databaseConnection, err := sql.Open("sqlite", databasePath)
+	db, err := sql.Open("sqlite", databasePath)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	if err := databaseConnection.Ping(); err != nil {
+	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
-	manager := &Manager{databaseConnection: databaseConnection}
+	manager := &Manager{db: db}
 
 	if err := manager.setup(); err != nil {
 		return nil, fmt.Errorf("setting up database: %w", err)
 	}
 
-	log.Printf("INFO: Database initialized successfully")
+	if err := manager.migrate(); err != nil {
+		return nil, fmt.Errorf("migrating database: %w", err)
+	}
+
+	slog.Info("Database initialized and migrated successfully")
 	return manager, nil
 }
 
@@ -57,7 +54,7 @@ func (manager *Manager) setup() error {
 	}
 
 	for _, pragma := range pragmas {
-		if _, err := manager.databaseConnection.Exec(pragma); err != nil {
+		if _, err := manager.db.Exec(pragma); err != nil {
 			return fmt.Errorf("executing pragma %s: %w", pragma, err)
 		}
 	}
@@ -75,19 +72,6 @@ func (manager *Manager) setup() error {
 		display_name TEXT NOT NULL,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);
-
-	CREATE TABLE IF NOT EXISTS user_scores (
-		user_id TEXT NOT NULL,
-		score_type TEXT NOT NULL,
-		season INTEGER,
-		value INTEGER NOT NULL DEFAULT 0,
-		updated_at TIMESTAMP NOT NULL,
-		PRIMARY KEY (user_id, score_type, season),
-		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_user_scores_user_id ON user_scores(user_id);
-	CREATE INDEX IF NOT EXISTS idx_user_scores_type_season ON user_scores(score_type, season);
 
 	CREATE TABLE IF NOT EXISTS predictions (
 		id TEXT PRIMARY KEY,
@@ -132,18 +116,50 @@ func (manager *Manager) setup() error {
 		FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
-	if _, err := manager.databaseConnection.Exec(schema); err != nil {
+	if _, err := manager.db.Exec(schema); err != nil {
 		return fmt.Errorf("creating schema: %w", err)
 	}
 
 	return nil
 }
 
+func (manager *Manager) migrate() error {
+	if _, err := manager.db.Exec("DROP TABLE IF EXISTS user_scores"); err != nil {
+		return fmt.Errorf("dropping user_scores table: %w", err)
+	}
+	return nil
+}
+
 func (manager *Manager) Close() error {
-	log.Println("INFO: Closing database connection")
-	return manager.databaseConnection.Close()
+	slog.Info("Closing database connection")
+	return manager.db.Close()
 }
 
 func (manager *Manager) DB() *sql.DB {
-	return manager.databaseConnection
+	return manager.db
+}
+
+func (manager *Manager) Transaction(ctx context.Context, fn func(*sql.Tx) error) error {
+	transaction, err := manager.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			transaction.Rollback()
+			panic(p)
+		}
+	}()
+
+	if err := fn(transaction); err != nil {
+		transaction.Rollback()
+		return err
+	}
+
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return nil
 }

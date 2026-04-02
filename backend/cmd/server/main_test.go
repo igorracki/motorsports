@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/igorracki/motorsports/backend/internal/cache"
+	"github.com/igorracki/motorsports/backend/internal/api"
 	"github.com/igorracki/motorsports/backend/internal/clients"
 	"github.com/igorracki/motorsports/backend/internal/handlers"
 	"github.com/igorracki/motorsports/backend/internal/models"
@@ -40,17 +40,20 @@ func (mock *mockF1DataClient) GetDrivers(ctx context.Context, year int, round in
 }
 
 func setupTestServer(client clients.F1DataClient) *echo.Echo {
-	server := echo.New()
+	e := echo.New()
+	e.Validator = api.NewCustomValidator()
+	e.HTTPErrorHandler = api.HTTPErrorHandler
 
-	eventsService := services.NewF1Service(client, cache.NewMemoryCache())
-	eventsHandler := handlers.NewF1Handler(eventsService)
+	baseService := services.NewF1Service(client)
+	f1DataService := services.NewF1CachingService(baseService)
+	f1DataHandler := handlers.NewF1Handler(f1DataService)
 
-	api := server.Group("/api")
-	api.GET("/schedule/:year", eventsHandler.GetSchedule)
-	api.GET("/schedule/:year/:round/:session/results", eventsHandler.GetSessionResults)
-	api.GET("/schedule/:year/:round/circuit", eventsHandler.GetCircuit)
+	apiGroup := e.Group("/api")
+	apiGroup.GET("/schedule/:year", f1DataHandler.GetSchedule)
+	apiGroup.GET("/schedule/:year/:round/:session/results", f1DataHandler.GetSessionResults)
+	apiGroup.GET("/schedule/:year/:round/circuit", f1DataHandler.GetCircuit)
 
-	return server
+	return e
 }
 
 func TestGetSchedule_Success(t *testing.T) {
@@ -91,6 +94,7 @@ func TestGetSchedule_Success(t *testing.T) {
 	assert.Len(t, response.Schedule[0].Sessions, 1)
 	assert.Equal(t, "Race", response.Schedule[0].Sessions[0].Type)
 }
+
 func TestGetSchedule_InvalidYear(t *testing.T) {
 	server := setupTestServer(&mockF1DataClient{})
 
@@ -104,8 +108,9 @@ func TestGetSchedule_InvalidYear(t *testing.T) {
 	var response models.ErrorResponse
 	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "invalid_parameter", response.Error)
+	assert.Equal(t, "invalid_input", response.Error)
 }
+
 func TestGetSchedule_NegativeYear(t *testing.T) {
 	server := setupTestServer(&mockF1DataClient{})
 
@@ -116,6 +121,7 @@ func TestGetSchedule_NegativeYear(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 }
+
 func TestGetSchedule_ExternalAPIError(t *testing.T) {
 	clientMock := &mockF1DataClient{
 		scheduleResponse: nil,
@@ -136,6 +142,7 @@ func TestGetSchedule_ExternalAPIError(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "internal_error", response.Error)
 }
+
 func TestGetSchedule_MultipleEvents(t *testing.T) {
 	clientMock := &mockF1DataClient{
 		scheduleResponse: []models.RaceWeekend{

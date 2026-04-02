@@ -18,10 +18,10 @@ func TestUserService(t *testing.T) {
 	require.NoError(t, err)
 	defer databaseManager.Close()
 
-	userRepo := repository.NewUserRepository(databaseManager.DB())
-	predictionRepo := repository.NewPredictionRepository(databaseManager.DB())
+	userRepo := repository.NewUserRepository(databaseManager)
+	predictionRepo := repository.NewPredictionRepository(databaseManager)
 
-	f1Mock := &mockF1Service{} // Need a basic mock or real service if tests call it
+	f1Mock := &mockF1Service{}
 	scoringService := NewScoringService()
 	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService)
 

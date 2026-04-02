@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/igorracki/motorsports/backend/internal/cache"
 	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -48,7 +47,8 @@ func (m *MockF1DataClient) GetDrivers(ctx context.Context, year int, round int) 
 
 func TestGetScheduleByYear(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	baseService := NewF1Service(mockClient)
+	service := NewF1CachingService(baseService)
 	defer service.Close()
 	ctx := context.Background()
 
@@ -96,7 +96,7 @@ func TestGetScheduleByYear(t *testing.T) {
 
 func TestGetSessionResults_Formatting(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -158,7 +158,7 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 
 func TestGetSessionResults_Qualifying(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -216,7 +216,7 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 
 func TestGetSessionResults_NilCheck(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -256,7 +256,7 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 
 func TestGetCircuit(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -298,7 +298,7 @@ func TestGetCircuit(t *testing.T) {
 
 func TestGetSessionResults_DerivedGaps(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -340,7 +340,7 @@ func TestGetSessionResults_DerivedGaps(t *testing.T) {
 
 func TestGetSessionResults_Sprint(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -387,7 +387,7 @@ func TestGetSessionResults_Sprint(t *testing.T) {
 
 func TestGetSessionResults_QualifyingReference(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -430,7 +430,7 @@ func TestGetSessionResults_QualifyingReference(t *testing.T) {
 
 func TestGetSessionResults_QualifyingGaps(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -477,7 +477,7 @@ func TestGetSessionResults_QualifyingGaps(t *testing.T) {
 
 func TestGetSessionResults_QualifyingFallback(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1Service(mockClient, cache.NewMemoryCache())
+	service := NewF1CachingService(NewF1Service(mockClient))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{

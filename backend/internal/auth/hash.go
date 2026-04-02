@@ -18,6 +18,10 @@ type Params struct {
 	KeyLength   uint32
 }
 
+const (
+	argon2idFormat = "$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s"
+)
+
 var DefaultParams = &Params{
 	Memory:      19456,
 	Iterations:  2,
@@ -44,7 +48,7 @@ func HashPassword(password string) (string, error) {
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
-	encodedHash := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+	encodedHash := fmt.Sprintf(argon2idFormat,
 		argon2.Version,
 		DefaultParams.Memory,
 		DefaultParams.Iterations,
@@ -63,8 +67,7 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	}
 
 	var version int
-	_, err := fmt.Sscanf(parts[2], "v=%d", &version)
-	if err != nil {
+	if _, err := fmt.Sscanf(parts[2], "v=%d", &version); err != nil {
 		return false, fmt.Errorf("parsing version: %w", err)
 	}
 	if version != argon2.Version {
@@ -72,8 +75,7 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	}
 
 	var params Params
-	_, err = fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &params.Memory, &params.Iterations, &params.Parallelism)
-	if err != nil {
+	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &params.Memory, &params.Iterations, &params.Parallelism); err != nil {
 		return false, fmt.Errorf("parsing params: %w", err)
 	}
 
@@ -97,9 +99,5 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		params.KeyLength,
 	)
 
-	if subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1 {
-		return true, nil
-	}
-
-	return false, nil
+	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }

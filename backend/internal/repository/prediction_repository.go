@@ -3,10 +3,45 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
-	"log/slog"
 
+	"github.com/igorracki/motorsports/backend/internal/database"
 	"github.com/igorracki/motorsports/backend/internal/models"
+)
+
+const (
+	upsertPredictionSQL = `
+		INSERT INTO predictions (id, user_id, year, round, session_type, score, revalidate_until, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, year, round, session_type) DO UPDATE SET
+			score = excluded.score,
+			revalidate_until = excluded.revalidate_until,
+			updated_at = excluded.updated_at`
+	getPredictionMetadataSQL = `
+		SELECT id, created_at FROM predictions 
+		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`
+	deletePredictionEntriesSQL = "DELETE FROM prediction_entries WHERE prediction_id = ?"
+	insertPredictionEntrySQL   = "INSERT INTO prediction_entries (prediction_id, position, driver_id, correct) VALUES (?, ?, ?, ?)"
+	getPredictionSQL           = `
+		SELECT id, score, revalidate_until, created_at, updated_at 
+		FROM predictions 
+		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`
+	getPredictionEntriesSQL = `
+		SELECT position, driver_id, correct 
+		FROM prediction_entries 
+		WHERE prediction_id = ? 
+		ORDER BY position ASC`
+	getUserPredictionsSQL = `
+		SELECT id, year, round, session_type, score, revalidate_until, created_at, updated_at 
+		FROM predictions 
+		WHERE user_id = ?
+		ORDER BY year DESC, round DESC, session_type ASC`
+	getRoundPredictionsSQL = `
+		SELECT id, session_type, score, revalidate_until, created_at, updated_at 
+		FROM predictions 
+		WHERE user_id = ? AND year = ? AND round = ?
+		ORDER BY session_type ASC`
 )
 
 type PredictionRepository interface {
@@ -18,72 +53,40 @@ type PredictionRepository interface {
 }
 
 type predictionRepository struct {
-	database *sql.DB
+	manager *database.Manager
 }
 
-func NewPredictionRepository(db *sql.DB) PredictionRepository {
-	return &predictionRepository{database: db}
+func NewPredictionRepository(manager *database.Manager) PredictionRepository {
+	return &predictionRepository{manager: manager}
 }
 
-func (predictionRepo *predictionRepository) SavePrediction(ctx context.Context, prediction *models.Prediction) error {
-	slog.InfoContext(ctx, "Entry: SavePrediction", "user_id", prediction.UserID, "year", prediction.Year, "round", prediction.Round, "session", prediction.SessionType)
-
-	transaction, err := predictionRepo.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("starting transaction for prediction: %w", err)
-	}
-	defer transaction.Rollback()
-
-	_, err = transaction.ExecContext(ctx, `
-		INSERT INTO predictions (id, user_id, year, round, session_type, score, revalidate_until, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, year, round, session_type) DO UPDATE SET
-			score = excluded.score,
-			revalidate_until = excluded.revalidate_until,
-			updated_at = excluded.updated_at
-	`, prediction.ID, prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType,
-		prediction.Score, prediction.RevalidateUntil, prediction.CreatedAt, prediction.UpdatedAt)
-
-	if err != nil {
-		return fmt.Errorf("upserting prediction header: %w", err)
-	}
-
-	// Fetch the final ID and CreatedAt (handles retrieving original values if it was an update)
-	err = transaction.QueryRowContext(ctx, `
-		SELECT id, created_at FROM predictions 
-		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`,
-		prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType,
-	).Scan(&prediction.ID, &prediction.CreatedAt)
-	if err != nil {
-		return fmt.Errorf("retrieving prediction metadata: %w", err)
-	}
-
-	_, err = transaction.ExecContext(ctx, "DELETE FROM prediction_entries WHERE prediction_id = ?", prediction.ID)
-	if err != nil {
-		return fmt.Errorf("clearing old prediction entries: %w", err)
-	}
-
-	for _, entry := range prediction.Entries {
-		_, err = transaction.ExecContext(ctx,
-			"INSERT INTO prediction_entries (prediction_id, position, driver_id, correct) VALUES (?, ?, ?, ?)",
-			prediction.ID, entry.Position, entry.DriverID, entry.Correct,
-		)
+func (repo *predictionRepository) SavePrediction(ctx context.Context, prediction *models.Prediction) error {
+	return repo.manager.Transaction(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, upsertPredictionSQL, prediction.ID, prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType,
+			prediction.Score, prediction.RevalidateUntil, prediction.CreatedAt, prediction.UpdatedAt)
 		if err != nil {
-			return fmt.Errorf("inserting prediction entry [pos: %d, driver: %s]: %w", entry.Position, entry.DriverID, err)
+			return fmt.Errorf("upserting prediction header: %w", err)
 		}
-	}
 
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("committing prediction [id: %s]: %w", prediction.ID, err)
-	}
+		err = tx.QueryRowContext(ctx, getPredictionMetadataSQL, prediction.UserID, prediction.Year, prediction.Round, prediction.SessionType).Scan(&prediction.ID, &prediction.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("retrieving prediction metadata: %w", err)
+		}
 
-	slog.InfoContext(ctx, "Exit: SavePrediction", "prediction_id", prediction.ID)
-	return nil
+		if _, err := tx.ExecContext(ctx, deletePredictionEntriesSQL, prediction.ID); err != nil {
+			return fmt.Errorf("clearing old prediction entries: %w", err)
+		}
+
+		for _, entry := range prediction.Entries {
+			if _, err := tx.ExecContext(ctx, insertPredictionEntrySQL, prediction.ID, entry.Position, entry.DriverID, entry.Correct); err != nil {
+				return fmt.Errorf("inserting prediction entry [pos: %d, driver: %s]: %w", entry.Position, entry.DriverID, err)
+			}
+		}
+		return nil
+	})
 }
 
-func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error) {
-	slog.InfoContext(ctx, "Entry: GetPrediction", "user_id", userID, "year", year, "round", round, "session", sessionType)
-
+func (repo *predictionRepository) GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error) {
 	prediction := &models.Prediction{
 		UserID:      userID,
 		Year:        year,
@@ -92,28 +95,16 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 		Entries:     []models.PredictionEntry{},
 	}
 
-	err := predictionRepo.database.QueryRowContext(ctx, `
-		SELECT id, score, revalidate_until, created_at, updated_at 
-		FROM predictions 
-		WHERE user_id = ? AND year = ? AND round = ? AND session_type = ?`,
-		userID, year, round, sessionType,
-	).Scan(&prediction.ID, &prediction.Score, &prediction.RevalidateUntil, &prediction.CreatedAt, &prediction.UpdatedAt)
+	err := repo.manager.DB().QueryRowContext(ctx, getPredictionSQL, userID, year, round, sessionType).Scan(&prediction.ID, &prediction.Score, &prediction.RevalidateUntil, &prediction.CreatedAt, &prediction.UpdatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			slog.InfoContext(ctx, "No prediction found", "user_id", userID, "year", year, "round", round)
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("querying prediction: %w", err)
 	}
 
-	rows, err := predictionRepo.database.QueryContext(ctx, `
-		SELECT position, driver_id, correct 
-		FROM prediction_entries 
-		WHERE prediction_id = ? 
-		ORDER BY position ASC`,
-		prediction.ID,
-	)
+	rows, err := repo.manager.DB().QueryContext(ctx, getPredictionEntriesSQL, prediction.ID)
 	if err != nil {
 		return nil, fmt.Errorf("querying prediction entries: %w", err)
 	}
@@ -132,26 +123,17 @@ func (predictionRepo *predictionRepository) GetPrediction(ctx context.Context, u
 		return nil, fmt.Errorf("iterating prediction entries: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetPrediction", "prediction_id", prediction.ID)
 	return prediction, nil
 }
 
-func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error) {
-	slog.InfoContext(ctx, "Entry: GetUserPredictions", "user_id", userID)
-
-	rows, err := predictionRepo.database.QueryContext(ctx, `
-		SELECT id, year, round, session_type, score, revalidate_until, created_at, updated_at 
-		FROM predictions 
-		WHERE user_id = ?
-		ORDER BY year DESC, round DESC, session_type ASC`,
-		userID,
-	)
+func (repo *predictionRepository) GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error) {
+	rows, err := repo.manager.DB().QueryContext(ctx, getUserPredictionsSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying user predictions: %w", err)
 	}
 	defer rows.Close()
 
-	predictions := []models.Prediction{}
+	predictions := make([]models.Prediction, 0)
 	for rows.Next() {
 		var p models.Prediction
 		p.UserID = userID
@@ -162,34 +144,21 @@ func (predictionRepo *predictionRepository) GetUserPredictions(ctx context.Conte
 		predictions = append(predictions, p)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating user predictions: %w", err)
-	}
-
-	if err := predictionRepo.fetchEntriesForPredictions(ctx, predictions); err != nil {
+	if err := repo.fetchEntriesForPredictions(ctx, predictions); err != nil {
 		return nil, fmt.Errorf("fetching entries: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetUserPredictions", "user_id", userID, "count", len(predictions))
 	return predictions, nil
 }
 
-func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error) {
-	slog.InfoContext(ctx, "Entry: GetRoundPredictions", "user_id", userID, "year", year, "round", round)
-
-	rows, err := predictionRepo.database.QueryContext(ctx, `
-		SELECT id, session_type, score, revalidate_until, created_at, updated_at 
-		FROM predictions 
-		WHERE user_id = ? AND year = ? AND round = ?
-		ORDER BY session_type ASC`,
-		userID, year, round,
-	)
+func (repo *predictionRepository) GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error) {
+	rows, err := repo.manager.DB().QueryContext(ctx, getRoundPredictionsSQL, userID, year, round)
 	if err != nil {
 		return nil, fmt.Errorf("querying round predictions: %w", err)
 	}
 	defer rows.Close()
 
-	predictions := []models.Prediction{}
+	predictions := make([]models.Prediction, 0)
 	for rows.Next() {
 		var p models.Prediction
 		p.UserID = userID
@@ -202,47 +171,35 @@ func (predictionRepo *predictionRepository) GetRoundPredictions(ctx context.Cont
 		predictions = append(predictions, p)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating round predictions: %w", err)
-	}
-
-	if err := predictionRepo.fetchEntriesForPredictions(ctx, predictions); err != nil {
+	if err := repo.fetchEntriesForPredictions(ctx, predictions); err != nil {
 		return nil, fmt.Errorf("fetching entries: %w", err)
 	}
 
-	slog.InfoContext(ctx, "Exit: GetRoundPredictions", "user_id", userID, "count", len(predictions))
 	return predictions, nil
 }
 
-func (predictionRepo *predictionRepository) GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) (map[string]int, error) {
-	slog.InfoContext(ctx, "Entry: GetSeasonScoresByUserIDs", "count", len(userIDs), "season", season)
-
+func (repo *predictionRepository) GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) (map[string]int, error) {
 	if len(userIDs) == 0 {
 		return make(map[string]int), nil
 	}
 
-	uniqueUserIDs := make([]string, 0, len(userIDs))
+	uniqueIDs := make([]string, 0, len(userIDs))
 	seen := make(map[string]struct{})
 	for _, id := range userIDs {
 		if _, ok := seen[id]; !ok {
 			seen[id] = struct{}{}
-			uniqueUserIDs = append(uniqueUserIDs, id)
+			uniqueIDs = append(uniqueIDs, id)
 		}
 	}
 
-	query := "SELECT user_id, COALESCE(SUM(score), 0) FROM predictions WHERE year = ? AND user_id IN ("
-	args := make([]interface{}, len(uniqueUserIDs)+1)
-	args[0] = season
-	for i, id := range uniqueUserIDs {
-		if i > 0 {
-			query += ","
-		}
-		query += "?"
-		args[i+1] = id
-	}
-	query += ") GROUP BY user_id"
+	placeholders := database.GeneratePlaceholders(len(uniqueIDs))
+	query := fmt.Sprintf("SELECT user_id, COALESCE(SUM(score), 0) FROM predictions WHERE year = ? AND user_id IN (%s) GROUP BY user_id", placeholders)
 
-	rows, err := predictionRepo.database.QueryContext(ctx, query, args...)
+	args := make([]any, 0, len(uniqueIDs)+1)
+	args = append(args, season)
+	args = append(args, database.ToAnySlice(uniqueIDs)...)
+
+	rows, err := repo.manager.DB().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying season scores from predictions: %w", err)
 	}
@@ -258,27 +215,16 @@ func (predictionRepo *predictionRepository) GetSeasonScoresByUserIDs(ctx context
 		userScores[userID] = totalScore
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating aggregated scores: %w", err)
-	}
-
-	slog.InfoContext(ctx, "Exit: GetSeasonScoresByUserIDs", "found", len(userScores))
 	return userScores, nil
 }
 
-func (predictionRepo *predictionRepository) fetchEntriesForPredictions(ctx context.Context, predictions []models.Prediction) error {
+func (repo *predictionRepository) fetchEntriesForPredictions(ctx context.Context, predictions []models.Prediction) error {
 	if len(predictions) == 0 {
 		return nil
 	}
 
 	for i := range predictions {
-		rows, err := predictionRepo.database.QueryContext(ctx, `
-			SELECT position, driver_id, correct 
-			FROM prediction_entries 
-			WHERE prediction_id = ? 
-			ORDER BY position ASC`,
-			predictions[i].ID,
-		)
+		rows, err := repo.manager.DB().QueryContext(ctx, getPredictionEntriesSQL, predictions[i].ID)
 		if err != nil {
 			return fmt.Errorf("querying entries for prediction %s: %w", predictions[i].ID, err)
 		}
@@ -291,11 +237,6 @@ func (predictionRepo *predictionRepository) fetchEntriesForPredictions(ctx conte
 				return fmt.Errorf("scanning entry for prediction %s: %w", predictions[i].ID, err)
 			}
 			predictions[i].Entries = append(predictions[i].Entries, entry)
-		}
-
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return fmt.Errorf("iterating entries for prediction %s: %w", predictions[i].ID, err)
 		}
 		rows.Close()
 	}

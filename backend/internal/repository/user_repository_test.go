@@ -17,7 +17,7 @@ func TestUserRepository(t *testing.T) {
 	require.NoError(t, err)
 	defer databaseManager.Close()
 
-	userRepo := NewUserRepository(databaseManager.DB())
+	userRepo := NewUserRepository(databaseManager)
 	ctx := context.Background()
 
 	t.Run("Create and Get User", func(tt *testing.T) {

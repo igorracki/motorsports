@@ -3,14 +3,181 @@ package services
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/igorracki/motorsports/backend/internal/cache"
 	"github.com/igorracki/motorsports/backend/internal/clients"
 	"github.com/igorracki/motorsports/backend/internal/formatters"
+	"github.com/igorracki/motorsports/backend/internal/mappers"
 	"github.com/igorracki/motorsports/backend/internal/models"
 )
+
+type F1Service interface {
+	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
+	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
+	GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error)
+	GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error)
+	Close()
+}
+
+type f1Service struct {
+	client clients.F1DataClient
+}
+
+func NewF1Service(client clients.F1DataClient) F1Service {
+	return &f1Service{
+		client: client,
+	}
+}
+
+func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
+	schedule, err := service.client.GetScheduleByYear(ctx, year)
+	if err != nil {
+		return nil, fmt.Errorf("fetching schedule: %w", err)
+	}
+
+	filteredSchedule := make([]models.RaceWeekend, 0)
+	for i := range schedule {
+		if schedule[i].Round == 0 {
+			continue
+		}
+		mappers.MapRaceWeekend(&schedule[i])
+		filteredSchedule = append(filteredSchedule, schedule[i])
+	}
+
+	return filteredSchedule, nil
+}
+
+func (service *f1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
+	results, err := service.client.GetSessionResults(ctx, year, round, sessionType)
+	if err != nil {
+		return nil, fmt.Errorf("fetching results: %w", err)
+	}
+
+	if results == nil {
+		return nil, nil
+	}
+
+	if len(results.Results) == 0 {
+		return &models.SessionResults{
+			Year:        year,
+			Round:       round,
+			SessionType: sessionType,
+			Results:     []models.DriverResult{},
+		}, nil
+	}
+
+	mappers.MapSessionResults(results)
+	return results, nil
+}
+
+func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	circuit, err := service.client.GetCircuit(ctx, year, round)
+	if err != nil {
+		return nil, fmt.Errorf("fetching circuit: %w", err)
+	}
+
+	if circuit != nil {
+		mappers.MapCircuit(circuit)
+	}
+
+	return circuit, nil
+}
+
+func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
+	if pastDrivers, found, err := service.getDriversFromPastSessions(ctx, year, round); err == nil && found {
+		for i := range pastDrivers {
+			pastDrivers[i].CountryCode = formatters.GetDriverCountryCode(pastDrivers[i].CountryCode, pastDrivers[i].ID)
+		}
+		return pastDrivers, nil
+	}
+
+	drivers, err := service.client.GetDrivers(ctx, year, round)
+	if err != nil {
+		return nil, fmt.Errorf("fetching drivers: %w", err)
+	}
+
+	if drivers == nil {
+		drivers = []models.DriverInfo{}
+	}
+
+	for i := range drivers {
+		drivers[i].CountryCode = formatters.GetDriverCountryCode(drivers[i].CountryCode, drivers[i].ID)
+	}
+
+	return drivers, nil
+}
+
+func (service *f1Service) getDriversFromPastSessions(ctx context.Context, year int, round int) ([]models.DriverInfo, bool, error) {
+	schedule, err := service.GetScheduleByYear(ctx, year)
+	if err != nil {
+		return nil, false, err
+	}
+
+	relevantWeekend := findWeekendByRound(schedule, round)
+	if relevantWeekend == nil {
+		return nil, false, nil
+	}
+
+	now := time.Now().UnixMilli()
+	sessions := sortSessionsByTimeDescending(relevantWeekend.Sessions)
+
+	for _, session := range sessions {
+		if session.TimeUTCMS >= now {
+			continue
+		}
+
+		sessionCode := getSessionCodeForSearch(session)
+		results, err := service.GetSessionResults(ctx, year, round, sessionCode)
+		if err == nil && results != nil && len(results.Results) > 0 {
+			return extractDriversFromResults(results.Results), true, nil
+		}
+	}
+
+	return nil, false, nil
+}
+
+func findWeekendByRound(schedule []models.RaceWeekend, round int) *models.RaceWeekend {
+	for i := range schedule {
+		if schedule[i].Round == round {
+			return &schedule[i]
+		}
+	}
+	return nil
+}
+
+func sortSessionsByTimeDescending(sessions []models.Session) []models.Session {
+	sorted := make([]models.Session, len(sessions))
+	copy(sorted, sessions)
+
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[i].TimeUTCMS < sorted[j].TimeUTCMS {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+	return sorted
+}
+
+func getSessionCodeForSearch(session models.Session) string {
+	if session.SessionCode != "" {
+		return session.SessionCode
+	}
+	return formatters.GetSessionCode(session.Type)
+}
+
+func extractDriversFromResults(results []models.DriverResult) []models.DriverInfo {
+	drivers := make([]models.DriverInfo, 0, len(results))
+	for _, res := range results {
+		drivers = append(drivers, res.Driver)
+	}
+	return drivers
+}
+
+func (service *f1Service) Close() {}
+
+// --- Caching Decorator ---
 
 const (
 	activeWindowBefore = 30 * time.Minute
@@ -19,140 +186,111 @@ const (
 	futureTTL          = 1 * time.Hour
 )
 
-type F1Service interface {
-	GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error)
-	GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error)
-	GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error)
-	GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error)
-	getDriversFromPastSessions(ctx context.Context, year int, round int) ([]models.DriverInfo, bool, error)
-	Close()
+type f1CachingService struct {
+	base          F1Service
+	scheduleCache cache.Cache[[]models.RaceWeekend]
+	resultsCache  cache.Cache[*models.SessionResults]
+	circuitCache  cache.Cache[*models.Circuit]
+	driversCache  cache.Cache[[]models.DriverInfo]
 }
 
-type f1Service struct {
-	client clients.F1DataClient
-	cache  cache.Cache
-}
-
-func NewF1Service(client clients.F1DataClient, cache cache.Cache) F1Service {
-	return &f1Service{
-		client: client,
-		cache:  cache,
+func NewF1CachingService(base F1Service) F1Service {
+	return &f1CachingService{
+		base:          base,
+		scheduleCache: cache.NewMemoryCache[[]models.RaceWeekend](),
+		resultsCache:  cache.NewMemoryCache[*models.SessionResults](),
+		circuitCache:  cache.NewMemoryCache[*models.Circuit](),
+		driversCache:  cache.NewMemoryCache[[]models.DriverInfo](),
 	}
 }
 
-func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
-	slog.InfoContext(ctx, "Entry: GetScheduleByYear", "year", year)
-
-	if year < 1900 || year > 2050 {
-		slog.WarnContext(ctx, "Invalid year requested", "year", year)
-		return nil, fmt.Errorf("year outside supported Formula 1 range")
-	}
-
+func (service *f1CachingService) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
 	cacheKey := fmt.Sprintf("schedule:%d", year)
-	if cached, found := service.cache.Get(cacheKey); found {
-		if v, ok := cached.([]models.RaceWeekend); ok {
-			slog.InfoContext(ctx, "Cache hit: GetScheduleByYear", "year", year)
-			return v, nil
-		}
-		slog.ErrorContext(ctx, "Cache type mismatch: GetScheduleByYear", "year", year, "expected", "[]models.RaceWeekend", "actual", fmt.Sprintf("%T", cached))
+	if schedule, found := service.scheduleCache.Get(cacheKey); found {
+		return schedule, nil
 	}
 
-	schedule, err := service.client.GetScheduleByYear(ctx, year)
+	schedule, err := service.base.GetScheduleByYear(ctx, year)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch schedule", "error", err)
-		return nil, fmt.Errorf("failed to fetch schedule from external API: %w", err)
+		return nil, err
 	}
 
-	filteredSchedule := []models.RaceWeekend{}
-	for i := range schedule {
-		if schedule[i].Round == 0 {
-			slog.DebugContext(ctx, "Filtering out non-race event", "name", schedule[i].Name)
-			continue
-		}
-		calculateWeekendBoundaries(&schedule[i])
-		formatRaceWeekend(&schedule[i])
-		populateStandardCodes(&schedule[i])
-		filteredSchedule = append(filteredSchedule, schedule[i])
-	}
-
-	service.cache.Set(cacheKey, filteredSchedule, 24*time.Hour)
-
-	slog.InfoContext(ctx, "Exit: GetScheduleByYear", "year", year, "count", len(filteredSchedule))
-	return filteredSchedule, nil
+	service.scheduleCache.Set(cacheKey, schedule, 24*time.Hour)
+	return schedule, nil
 }
 
-func (service *f1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
-	slog.InfoContext(ctx, "Entry: GetSessionResults", "year", year, "round", round, "sessionType", sessionType)
-
+func (service *f1CachingService) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
 	cacheKey := fmt.Sprintf("results:%d:%d:%s", year, round, sessionType)
-	if cached, found := service.cache.Get(cacheKey); found {
-		if v, ok := cached.(*models.SessionResults); ok {
-			slog.InfoContext(ctx, "Cache hit: GetSessionResults", "year", year, "round", round, "sessionType", sessionType)
-			return v, nil
-		}
-		slog.ErrorContext(ctx, "Cache type mismatch: GetSessionResults", "year", year, "round", round, "sessionType", sessionType, "expected", "*models.SessionResults", "actual", fmt.Sprintf("%T", cached))
+	if results, found := service.resultsCache.Get(cacheKey); found {
+		return results, nil
 	}
 
-	results, err := service.client.GetSessionResults(ctx, year, round, sessionType)
+	results, err := service.base.GetSessionResults(ctx, year, round, sessionType)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch session results", "error", err)
-		return nil, fmt.Errorf("failed to fetch results for session %s in round %d (%d): %w", sessionType, round, year, err)
+		return nil, err
 	}
 
-	schedule, scheduleErr := service.GetScheduleByYear(ctx, year)
-	if scheduleErr == nil {
-		roundFound := false
-		for _, rw := range schedule {
-			if rw.Round == round {
-				roundFound = true
-				break
-			}
-		}
-		if !roundFound {
-			slog.WarnContext(ctx, "Round not found in schedule", "year", year, "round", round)
-			return nil, nil
-		}
+	if results == nil {
+		return nil, nil
 	}
 
-	ttl := service.calculateSessionTTL(ctx, year, round, sessionType, results != nil && len(results.Results) > 0)
+	ttl := service.calculateSessionTTL(ctx, year, round, sessionType, len(results.Results) > 0)
+	service.resultsCache.Set(cacheKey, results, ttl)
 
-	if results == nil || len(results.Results) == 0 {
-		slog.WarnContext(ctx, "No results found", "year", year, "round", round)
-		slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "sessionType", sessionType, "count", 0)
-
-		var finalResults *models.SessionResults
-		if results == nil {
-			finalResults = &models.SessionResults{
-				Year:        year,
-				Round:       round,
-				SessionType: sessionType,
-				Results:     []models.DriverResult{},
-			}
-		} else {
-			finalResults = results
-		}
-
-		service.cache.Set(cacheKey, finalResults, ttl)
-		return finalResults, nil
-	}
-
-	formatSessionResults(results)
-
-	service.cache.Set(cacheKey, results, ttl)
-
-	slog.InfoContext(ctx, "Exit: GetSessionResults", "year", year, "round", round, "sessionType", sessionType, "count", len(results.Results))
 	return results, nil
 }
 
-func (service *f1Service) calculateSessionTTL(ctx context.Context, year int, round int, sessionType string, hasResults bool) time.Duration {
+func (service *f1CachingService) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	cacheKey := fmt.Sprintf("circuit:%d:%d", year, round)
+	if circuit, found := service.circuitCache.Get(cacheKey); found {
+		return circuit, nil
+	}
+
+	circuit, err := service.base.GetCircuit(ctx, year, round)
+	if err != nil {
+		return nil, err
+	}
+
+	if circuit != nil {
+		ttl := 30 * 24 * time.Hour
+		service.circuitCache.Set(cacheKey, circuit, ttl)
+	}
+
+	return circuit, nil
+}
+
+func (service *f1CachingService) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
+	cacheKey := fmt.Sprintf("drivers:%d:%d", year, round)
+	if drivers, found := service.driversCache.Get(cacheKey); found {
+		return drivers, nil
+	}
+
+	drivers, err := service.base.GetDrivers(ctx, year, round)
+	if err != nil {
+		return nil, err
+	}
+
+	ttl := service.calculateWeekendTTL(ctx, year, round)
+	service.driversCache.Set(cacheKey, drivers, ttl)
+
+	return drivers, nil
+}
+
+func (service *f1CachingService) Close() {
+	service.scheduleCache.Close()
+	service.resultsCache.Close()
+	service.circuitCache.Close()
+	service.driversCache.Close()
+}
+
+func (service *f1CachingService) calculateSessionTTL(ctx context.Context, year int, round int, sessionType string, hasResults bool) time.Duration {
 	if !hasResults {
 		return 1 * time.Minute
 	}
 
-	// Try to find session start time to determine if it's a current/active session
-	schedule, err := service.GetScheduleByYear(ctx, year)
+	schedule, err := service.base.GetScheduleByYear(ctx, year)
 	if err != nil {
-		return 10 * time.Minute // Fallback
+		return 10 * time.Minute
 	}
 
 	var sessionTimeMS int64
@@ -187,142 +325,8 @@ func (service *f1Service) calculateSessionTTL(ctx context.Context, year int, rou
 	return futureTTL
 }
 
-func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
-	slog.InfoContext(ctx, "Entry: GetCircuit", "year", year, "round", round)
-
-	cacheKey := fmt.Sprintf("circuit:%d:%d", year, round)
-	if cached, found := service.cache.Get(cacheKey); found {
-		if v, ok := cached.(*models.Circuit); ok {
-			slog.InfoContext(ctx, "Cache hit: GetCircuit", "year", year, "round", round)
-			return v, nil
-		}
-		slog.ErrorContext(ctx, "Cache type mismatch: GetCircuit", "year", year, "round", round, "expected", "*models.Circuit", "actual", fmt.Sprintf("%T", cached))
-	}
-
-	circuit, err := service.client.GetCircuit(ctx, year, round)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch circuit", "error", err)
-		return nil, fmt.Errorf("failed to fetch circuit for round %d (%d): %w", round, year, err)
-	}
-
-	if circuit != nil {
-		circuit.EventDate = formatters.FormatTimestamp(circuit.EventDateMS)
-		roundCircuitMetrics(circuit)
-		transformLayout(circuit)
-
-		// Circuits are static, use a very long TTL (30 days)
-		ttl := 30 * 24 * time.Hour
-		service.cache.Set(cacheKey, circuit, ttl)
-		slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "circuit_name", circuit.CircuitName)
-	} else {
-		slog.InfoContext(ctx, "Exit: GetCircuit", "year", year, "round", round, "found", false)
-	}
-
-	return circuit, nil
-}
-
-func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
-	slog.InfoContext(ctx, "Entry: GetDrivers", "year", year, "round", round)
-
-	cacheKey := fmt.Sprintf("drivers:%d:%d", year, round)
-	if cached, found := service.cache.Get(cacheKey); found {
-		if v, ok := cached.([]models.DriverInfo); ok {
-			slog.InfoContext(ctx, "Cache hit: GetDrivers", "year", year, "round", round)
-			return v, nil
-		}
-		slog.ErrorContext(ctx, "Cache type mismatch: GetDrivers", "year", year, "round", round, "expected", "[]models.DriverInfo", "actual", fmt.Sprintf("%T", cached))
-	}
-
-	if pastDrivers, found, err := service.getDriversFromPastSessions(ctx, year, round); err == nil && found {
-		slog.InfoContext(ctx, "Found drivers from past session", "year", year, "round", round, "count", len(pastDrivers))
-		for i := range pastDrivers {
-			pastDrivers[i].CountryCode = formatters.GetDriverCountryCode(pastDrivers[i].CountryCode, pastDrivers[i].ID)
-		}
-		ttl := service.calculateWeekendTTL(ctx, year, round)
-		service.cache.Set(cacheKey, pastDrivers, ttl)
-		return pastDrivers, nil
-	} else if err != nil {
-		slog.WarnContext(ctx, "Error fetching drivers from past sessions", "error", err)
-	}
-
-	drivers, err := service.client.GetDrivers(ctx, year, round)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to fetch drivers from source", "error", err)
-		return nil, fmt.Errorf("failed to fetch drivers for round %d (%d): %w", round, year, err)
-	}
-
-	if drivers == nil {
-		drivers = []models.DriverInfo{}
-	}
-
-	for i := range drivers {
-		drivers[i].CountryCode = formatters.GetDriverCountryCode(drivers[i].CountryCode, drivers[i].ID)
-	}
-
-	ttl := service.calculateWeekendTTL(ctx, year, round)
-	service.cache.Set(cacheKey, drivers, ttl)
-
-	slog.InfoContext(ctx, "Exit: GetDrivers", "year", year, "round", round, "count", len(drivers))
-	return drivers, nil
-}
-
-func (service *f1Service) getDriversFromPastSessions(ctx context.Context, year int, round int) ([]models.DriverInfo, bool, error) {
-	schedule, err := service.GetScheduleByYear(ctx, year)
-	if err != nil {
-		return nil, false, err
-	}
-
-	var relevantWeekend *models.RaceWeekend
-	for i := range schedule {
-		if schedule[i].Round == round {
-			relevantWeekend = &schedule[i]
-			break
-		}
-	}
-
-	if relevantWeekend == nil {
-		return nil, false, nil
-	}
-
-	now := time.Now().UnixMilli()
-	// Sort sessions by start time descending (newest first)
-	sessions := append([]models.Session{}, relevantWeekend.Sessions...)
-	for i := 0; i < len(sessions); i++ {
-		for j := i + 1; j < len(sessions); j++ {
-			if sessions[i].TimeUTCMS < sessions[j].TimeUTCMS {
-				sessions[i], sessions[j] = sessions[j], sessions[i]
-			}
-		}
-	}
-
-	for _, session := range sessions {
-		// Only check sessions that have already started
-		if session.TimeUTCMS < now {
-			sessionCode := session.SessionCode
-			if sessionCode == "" {
-				sessionCode = formatters.GetSessionCode(session.Type)
-			}
-
-			results, err := service.GetSessionResults(ctx, year, round, sessionCode)
-			if err == nil && results != nil && len(results.Results) > 0 {
-				drivers := make([]models.DriverInfo, 0, len(results.Results))
-				for _, res := range results.Results {
-					drivers = append(drivers, res.Driver)
-				}
-				return drivers, true, nil
-			}
-		}
-	}
-
-	return nil, false, nil
-}
-
-func (service *f1Service) Close() {
-	service.cache.Close()
-}
-
-func (service *f1Service) calculateWeekendTTL(ctx context.Context, year int, round int) time.Duration {
-	schedule, err := service.GetScheduleByYear(ctx, year)
+func (service *f1CachingService) calculateWeekendTTL(ctx context.Context, year int, round int) time.Duration {
+	schedule, err := service.base.GetScheduleByYear(ctx, year)
 	if err != nil {
 		return 10 * time.Minute
 	}

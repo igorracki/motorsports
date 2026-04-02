@@ -5,40 +5,41 @@ import (
 	"time"
 )
 
-type Cache interface {
-	Get(key string) (any, bool)
-	Set(key string, value any, duration time.Duration)
+type Cache[T any] interface {
+	Get(key string) (T, bool)
+	Set(key string, value T, duration time.Duration)
 	Delete(key string)
 	Close()
 }
 
-type cacheItem struct {
-	value      any
+type cacheItem[T any] struct {
+	value      T
 	expiration int64
 }
 
-type memoryCache struct {
-	items  map[string]cacheItem
+type memoryCache[T any] struct {
+	items  map[string]cacheItem[T]
 	mu     sync.RWMutex
 	stopCh chan struct{}
 }
 
-func NewMemoryCache() Cache {
-	cache := &memoryCache{
-		items:  make(map[string]cacheItem),
+func NewMemoryCache[T any]() Cache[T] {
+	cache := &memoryCache[T]{
+		items:  make(map[string]cacheItem[T]),
 		stopCh: make(chan struct{}),
 	}
 	go cache.cleanup()
 	return cache
 }
 
-func (cache *memoryCache) Get(key string) (any, bool) {
+func (cache *memoryCache[T]) Get(key string) (T, bool) {
 	cache.mu.RLock()
 	item, found := cache.items[key]
 
 	if !found {
 		cache.mu.RUnlock()
-		return nil, false
+		var zero T
+		return zero, false
 	}
 
 	if item.expiration > 0 && time.Now().UnixNano() > item.expiration {
@@ -46,11 +47,11 @@ func (cache *memoryCache) Get(key string) (any, bool) {
 		cache.mu.Lock()
 		defer cache.mu.Unlock()
 
-		// Re-verify after getting write lock
 		if item, found = cache.items[key]; found && item.expiration > 0 && time.Now().UnixNano() > item.expiration {
 			delete(cache.items, key)
 		}
-		return nil, false
+		var zero T
+		return zero, false
 	}
 
 	value := item.value
@@ -58,7 +59,7 @@ func (cache *memoryCache) Get(key string) (any, bool) {
 	return value, true
 }
 
-func (cache *memoryCache) Set(key string, value any, duration time.Duration) {
+func (cache *memoryCache[T]) Set(key string, value T, duration time.Duration) {
 	var expiration int64
 	if duration > 0 {
 		expiration = time.Now().Add(duration).UnixNano()
@@ -67,23 +68,23 @@ func (cache *memoryCache) Set(key string, value any, duration time.Duration) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	cache.items[key] = cacheItem{
+	cache.items[key] = cacheItem[T]{
 		value:      value,
 		expiration: expiration,
 	}
 }
 
-func (cache *memoryCache) Delete(key string) {
+func (cache *memoryCache[T]) Delete(key string) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	delete(cache.items, key)
 }
 
-func (cache *memoryCache) Close() {
+func (cache *memoryCache[T]) Close() {
 	close(cache.stopCh)
 }
 
-func (cache *memoryCache) cleanup() {
+func (cache *memoryCache[T]) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
