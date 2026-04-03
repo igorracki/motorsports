@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	f1context "github.com/igorracki/motorsports/backend/internal/context"
+	_context "github.com/igorracki/motorsports/backend/internal/context"
 	"github.com/igorracki/motorsports/backend/internal/models"
 	"github.com/igorracki/motorsports/backend/internal/services"
 	"github.com/labstack/echo/v4"
@@ -118,7 +118,7 @@ func (handler *AuthHandler) Logout(context echo.Context) error {
 func (handler *AuthHandler) Me(context echo.Context) error {
 	ctx := context.Request().Context()
 
-	userID, ok := ctx.Value(f1context.UserIDKey).(string)
+	userID, ok := ctx.Value(_context.UserIDKey).(string)
 	if !ok || userID == "" {
 		return models.ErrUnauthorized
 	}
