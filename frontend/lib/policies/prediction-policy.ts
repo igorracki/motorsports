@@ -1,47 +1,49 @@
-import { Session } from "@/types/f1";
+import { Session, PredictionPolicyConfig } from "@/types/f1";
+
+let currentConfig: PredictionPolicyConfig = {
+  lockThresholdMS: 0,
+  preSessionBufferMS: 15 * 60 * 1000,
+  sessionDurationMS: 2 * 60 * 60 * 1000,
+  revalidationWindowMS: 48 * 60 * 60 * 1000,
+};
 
 export const PredictionPolicy = {
-  /**
-   * Defines the window before a session starts during which it is considered "live".
-   */
-  PRE_SESSION_BUFFER_MS: 15 * 60 * 1000, // 15 minutes
 
-  /**
-   * Defines the assumed maximum duration of a session.
-   */
-  SESSION_DURATION_MS: 2 * 60 * 60 * 1000, // 2 hours
+  setConfiguration(config: PredictionPolicyConfig) {
+    currentConfig = config;
+  },
 
-  /**
-   * Determines if a session is currently "live" (ongoing or about to start).
-   */
+  getConfiguration(): PredictionPolicyConfig {
+    return currentConfig;
+  },
+
   isSessionLive(sessionTimeUTCMS: number): boolean {
     const now = Date.now();
     return (
-      now >= sessionTimeUTCMS - this.PRE_SESSION_BUFFER_MS &&
-      now <= sessionTimeUTCMS + this.SESSION_DURATION_MS
+      now >= sessionTimeUTCMS - currentConfig.preSessionBufferMS &&
+      now <= sessionTimeUTCMS + currentConfig.sessionDurationMS
     );
   },
 
-  /**
-   * Determines if a session is "locked" for predictions.
-   * Rules:
-   * 1. A session is locked once it has started.
-   */
-  isLocked(session: Session | { timeUTCMS: number }, now = Date.now()): boolean {
+  isLocked(session: Session | { timeUTCMS: number, isLocked?: boolean }, now = Date.now()): boolean {
+    if ('isLocked' in session && session.isLocked) {
+      return true;
+    }
     return this.hasStarted(session, now);
   },
 
-  /**
-   * Determines if a session has already started or passed.
-   */
   hasStarted(session: Session | { timeUTCMS: number }, now = Date.now()): boolean {
-    return session.timeUTCMS < now;
+    return session.timeUTCMS + currentConfig.lockThresholdMS <= now;
   },
 
-  /**
-   * Determines if a user is allowed to submit or modify a prediction for a session.
-   */
   canPredict(session: Session, now = Date.now()): boolean {
     return !this.isLocked(session, now);
+  },
+
+  isCompleted(session: Session | { timeUTCMS: number, isCompleted?: boolean }, now = Date.now()): boolean {
+    if ('isCompleted' in session && session.isCompleted) {
+      return true;
+    }
+    return now > session.timeUTCMS + currentConfig.sessionDurationMS;
   }
 };

@@ -7,6 +7,9 @@ type Session struct {
 	TimeUTCMS   int64  `json:"time_utc_ms"`
 	TimeUTC     string `json:"time_utc,omitempty"`
 	UTCOffsetMS int64  `json:"utc_offset_ms"`
+	IsLocked    bool   `json:"is_locked"`
+	IsLive      bool   `json:"is_live"`
+	IsCompleted bool   `json:"is_completed"`
 }
 
 type RaceWeekend struct {

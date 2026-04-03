@@ -4,12 +4,21 @@ import {
   PredictionSchema,
   SubmitPredictionRequest,
   SessionScoringRules,
-  SessionScoringRulesSchema
+  SessionScoringRulesSchema,
+  PredictionPolicyConfig,
+  PredictionPolicyConfigSchema,
 } from "@/types/f1";
 import { HttpClient } from "./http-client";
 
 export class PredictionRepository {
   constructor(private client: HttpClient) { }
+
+  async getPredictionPolicy(): Promise<PredictionPolicyConfig> {
+    const data = await this.client.fetchJson<unknown>(`/predictions/policy`, {
+      next: { revalidate: 86400 } // Revalidate every 24 hours
+    });
+    return PredictionPolicyConfigSchema.parse(data);
+  }
 
   async getRoundPredictions(userId: string, year: number, round: number): Promise<Prediction[]> {
     const data = await this.client.fetchJson<unknown[]>(

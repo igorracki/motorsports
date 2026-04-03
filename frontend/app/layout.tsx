@@ -5,6 +5,7 @@ import './globals.css'
 import { AuthProvider } from "@/hooks/useAuth"
 import { SettingsProvider } from "@/hooks/useSettings"
 import { ApiProvider } from "@/components/providers/api-provider"
+import { ConfigProvider } from "@/components/providers/config-provider"
 import { ModalProvider } from "@/components/providers/modal-provider"
 
 const geistSans = Geist({
@@ -30,13 +31,15 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <ApiProvider>
-          <AuthProvider>
-            <SettingsProvider>
-              <ModalProvider>
-                {children}
-              </ModalProvider>
-            </SettingsProvider>
-          </AuthProvider>
+          <ConfigProvider>
+            <AuthProvider>
+              <SettingsProvider>
+                <ModalProvider>
+                  {children}
+                </ModalProvider>
+              </SettingsProvider>
+            </AuthProvider>
+          </ConfigProvider>
         </ApiProvider>
       </body>
     </html>

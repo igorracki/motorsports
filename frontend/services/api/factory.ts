@@ -4,9 +4,9 @@ import { RaceRepository } from "./race-repository";
 import { PredictionRepository } from "./prediction-repository";
 import { FriendRepository } from "./friend-repository";
 import { UserRepository } from "./user-repository";
+import { ConfigRepository } from "./config-repository";
 
 /**
- * Creates and returns all repository instances bound to a single HttpClient.
  * Ensures we do not duplicate dependency injection setup across client and server.
  */
 export function createApiClients(httpClient: HttpClient) {
@@ -16,5 +16,6 @@ export function createApiClients(httpClient: HttpClient) {
     predictionRepo: new PredictionRepository(httpClient),
     friendRepo: new FriendRepository(httpClient),
     userRepo: new UserRepository(httpClient),
+    configRepo: new ConfigRepository(httpClient),
   };
 }

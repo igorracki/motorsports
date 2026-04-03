@@ -21,3 +21,10 @@ type PredictionEntry struct {
 	DriverID     string `json:"driver_id" validate:"required"`
 	Correct      bool   `json:"correct"`
 }
+
+type PredictionPolicyConfig struct {
+	LockThresholdMS      int64 `json:"lock_threshold_ms"`
+	PreSessionBufferMS   int64 `json:"pre_session_buffer_ms"`
+	SessionDurationMS    int64 `json:"session_duration_ms"`
+	RevalidationWindowMS int64 `json:"revalidation_window_ms"`
+}

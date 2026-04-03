@@ -49,12 +49,15 @@ func main() {
 	friendRepository := repository.NewFriendRepository(databaseManager)
 
 	// Services
-	f1BaseService := services.NewF1Service(f1DataClient)
+	predictionPolicy := services.NewPredictionPolicy()
+
+	f1BaseService := services.NewF1Service(f1DataClient, predictionPolicy)
 	f1DataService := services.NewF1CachingService(f1BaseService)
 	defer f1DataService.Close()
 
+	configService := services.NewConfigService()
 	scoringService := services.NewScoringService()
-	predictionService := services.NewPredictionService(predictionRepository, f1DataService, scoringService)
+	predictionService := services.NewPredictionService(predictionRepository, f1DataService, scoringService, predictionPolicy, configService)
 	userService := services.NewUserService(userRepository, predictionService)
 	authService := services.NewAuthService(userRepository, tokenManager)
 	friendService := services.NewFriendService(friendRepository, userRepository)
@@ -67,6 +70,7 @@ func main() {
 	predictionHandler := handlers.NewPredictionHandler(predictionService, scoringService)
 	friendHandler := handlers.NewFriendHandler(friendService)
 	leaderboardHandler := handlers.NewLeaderboardHandler(leaderboardService)
+	configHandler := handlers.NewConfigHandler(configService)
 
 	// API
 	server := api.NewServer(configuration, tokenManager)
@@ -77,6 +81,7 @@ func main() {
 		predictionHandler,
 		friendHandler,
 		leaderboardHandler,
+		configHandler,
 	)
 
 	address := fmt.Sprintf(":%d", configuration.ServerPort)

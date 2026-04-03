@@ -95,16 +95,22 @@ export const SessionSchema = z
     time_utc_ms: z.number(),
     time_utc: z.string().optional().nullable(),
     utc_offset_ms: z.number(),
+    is_locked: z.boolean().default(false),
+    is_live: z.boolean().default(false),
+    is_completed: z.boolean().default(false),
     results: z.array(DriverResultSchema).optional(),
   })
   .transform((data) => ({
     type: data.type,
     sessionCode: data.session_code,
     timeLocal: data.time_local ?? undefined,
-    timeLocalMS: 0, // Fallback for now as backend doesn't provide it yet
+    timeLocalMS: 0, // Fallback for now as backend doesn't provide it
     timeUTCMS: data.time_utc_ms,
     timeUTC: data.time_utc ?? undefined,
     utcOffsetMS: data.utc_offset_ms,
+    isLocked: data.is_locked,
+    isLive: data.is_live,
+    isCompleted: data.is_completed,
     results: data.results,
   }));
 
@@ -339,6 +345,66 @@ export const SessionScoringRulesSchema = z.object({
 }));
 
 export type SessionScoringRules = z.infer<typeof SessionScoringRulesSchema>;
+
+export const PredictionPolicyConfigSchema = z.object({
+  lock_threshold_ms: z.number(),
+  pre_session_buffer_ms: z.number(),
+  session_duration_ms: z.number(),
+  revalidation_window_ms: z.number(),
+}).transform(data => ({
+  lockThresholdMS: data.lock_threshold_ms,
+  preSessionBufferMS: data.pre_session_buffer_ms,
+  sessionDurationMS: data.session_duration_ms,
+  revalidationWindowMS: data.revalidation_window_ms,
+}));
+
+export type PredictionPolicyConfig = z.infer<typeof PredictionPolicyConfigSchema>;
+
+export const DriverMetadataSchema = z.object({
+  id: z.string(),
+  full_name: z.string(),
+  team_name: z.string(),
+  team_color: z.string(),
+  country_code: z.string(),
+}).transform(data => ({
+  id: data.id,
+  fullName: data.full_name,
+  teamName: data.team_name,
+  teamColor: data.team_color,
+  countryCode: data.country_code,
+}));
+
+export type DriverMetadata = z.infer<typeof DriverMetadataSchema>;
+
+export const ValidationConfigSchema = z.object({
+  min_year: z.number(),
+  max_year: z.number(),
+  min_round: z.number(),
+  max_round: z.number(),
+  min_entries: z.number(),
+  max_entries: z.number(),
+}).transform(data => ({
+  minYear: data.min_year,
+  maxYear: data.max_year,
+  minRound: data.min_round,
+  maxRound: data.max_round,
+  minEntries: data.min_entries,
+  maxEntries: data.max_entries,
+}));
+
+export type ValidationConfig = z.infer<typeof ValidationConfigSchema>;
+
+export const AppConfigSchema = z.object({
+  drivers: z.array(DriverMetadataSchema),
+  session_mappings: z.record(z.string()),
+  validation: ValidationConfigSchema,
+}).transform(data => ({
+  drivers: data.drivers,
+  sessionMappings: data.session_mappings,
+  validation: data.validation,
+}));
+
+export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 export interface SubmitPredictionRequest {
   year: number;

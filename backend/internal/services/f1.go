@@ -22,11 +22,13 @@ type F1Service interface {
 
 type f1Service struct {
 	client clients.F1DataClient
+	policy PredictionPolicy
 }
 
-func NewF1Service(client clients.F1DataClient) F1Service {
+func NewF1Service(client clients.F1DataClient, policy PredictionPolicy) F1Service {
 	return &f1Service{
 		client: client,
+		policy: policy,
 	}
 }
 
@@ -42,6 +44,12 @@ func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]mo
 			continue
 		}
 		mappers.MapRaceWeekend(&schedule[i])
+		for j := range schedule[i].Sessions {
+			session := &schedule[i].Sessions[j]
+			session.IsLocked = service.policy.IsLocked(session.TimeUTCMS)
+			session.IsLive = service.policy.IsLive(session.TimeUTCMS)
+			session.IsCompleted = service.policy.IsSessionCompleted(session.TimeUTCMS)
+		}
 		filteredSchedule = append(filteredSchedule, schedule[i])
 	}
 

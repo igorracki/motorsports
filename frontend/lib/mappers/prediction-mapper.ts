@@ -2,21 +2,26 @@ import { DriverInfo, Prediction, SessionScoringRules } from "@/types/f1";
 
 /**
  * Mapping session codes to scoring rule types.
- * Decouples frontend session keys from backend rule identifiers.
  */
 export const PredictionSessionMapper = {
-  /**
-   * Matches a session code to the corresponding scoring rules.
-   */
-  matchRules(rules: SessionScoringRules[], sessionCode: string): SessionScoringRules | undefined {
-    return rules.find(r =>
-      r.sessionType === sessionCode ||
-      (sessionCode === "R" && r.sessionType === "Race") ||
-      (sessionCode === "S" && r.sessionType === "Sprint") ||
-      (sessionCode === "Q" && r.sessionType === "Qualifying") ||
-      (sessionCode === "SQ" && r.sessionType === "Sprint Qualifying") ||
-      (sessionCode.startsWith("FP") && r.sessionType.startsWith("Practice"))
-    );
+
+  matchRules(rules: SessionScoringRules[], sessionCode: string, sessionMappings?: Record<string, string>): SessionScoringRules | undefined {
+    return rules.find(r => {
+      if (r.sessionType === sessionCode) return true;
+
+      if (sessionMappings) {
+        for (const [name, code] of Object.entries(sessionMappings)) {
+          if (code === sessionCode && name === r.sessionType) return true;
+        }
+      }
+
+      // Fallback
+      return (sessionCode === "R" && r.sessionType === "Race") ||
+        (sessionCode === "S" && r.sessionType === "Sprint") ||
+        (sessionCode === "Q" && r.sessionType === "Qualifying") ||
+        (sessionCode === "SQ" && r.sessionType === "Sprint Qualifying") ||
+        (sessionCode.startsWith("FP") && r.sessionType.startsWith("Practice"));
+    });
   },
 
   /**

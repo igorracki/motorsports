@@ -23,7 +23,9 @@ func TestUserService(t *testing.T) {
 
 	f1Mock := &mockF1Service{}
 	scoringService := NewScoringService()
-	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService)
+	predictionPolicy := NewPredictionPolicy()
+	configService := NewConfigService()
+	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService, predictionPolicy, configService)
 
 	userService := NewUserService(userRepo, predictionService)
 

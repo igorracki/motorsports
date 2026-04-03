@@ -7,8 +7,8 @@ export type RaceStatus = "completed" | "ongoing" | "upcoming";
  * Determines the status of a race weekend based on its start and end times.
  */
 export function getRaceStatus(
-  year: number, 
-  round: number, 
+  year: number,
+  round: number,
   raceWeekend?: RaceWeekend,
   now = Date.now()
 ): RaceStatus {
@@ -20,27 +20,21 @@ export function getRaceStatus(
     return "upcoming";
   }
 
-  if (now < raceWeekend.startDateUTCMS - PredictionPolicy.PRE_SESSION_BUFFER_MS) {
+  if (now < raceWeekend.startDateUTCMS - PredictionPolicy.getConfiguration().preSessionBufferMS) {
     return "upcoming";
   }
-  
-  if (now > raceWeekend.endDateUTCMS + PredictionPolicy.SESSION_DURATION_MS) {
+
+  if (now > raceWeekend.endDateUTCMS + PredictionPolicy.getConfiguration().sessionDurationMS) {
     return "completed";
   }
 
   return "ongoing";
 }
 
-/**
- * Checks if a session is currently live (within a reasonable window of its start time).
- */
 export function isSessionLive(sessionTimeUTCMS: number): boolean {
   return PredictionPolicy.isSessionLive(sessionTimeUTCMS);
 }
 
-/**
- * Calculates summary stats for a schedule
- */
 export function getScheduleStats(raceWeekends: RaceWeekend[], year: number, now = Date.now()) {
   const stats = {
     total: raceWeekends.length,

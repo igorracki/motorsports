@@ -47,7 +47,8 @@ func (m *MockF1DataClient) GetDrivers(ctx context.Context, year int, round int) 
 
 func TestGetScheduleByYear(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	baseService := NewF1Service(mockClient)
+	policy := NewPredictionPolicy()
+	baseService := NewF1Service(mockClient, policy)
 	service := NewF1CachingService(baseService)
 	defer service.Close()
 	ctx := context.Background()
@@ -96,7 +97,8 @@ func TestGetScheduleByYear(t *testing.T) {
 
 func TestGetSessionResults_Formatting(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -158,7 +160,8 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 
 func TestGetSessionResults_Qualifying(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -216,7 +219,8 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 
 func TestGetSessionResults_NilCheck(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -256,7 +260,8 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 
 func TestGetCircuit(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -298,7 +303,8 @@ func TestGetCircuit(t *testing.T) {
 
 func TestGetSessionResults_DerivedGaps(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -340,7 +346,8 @@ func TestGetSessionResults_DerivedGaps(t *testing.T) {
 
 func TestGetSessionResults_Sprint(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -387,7 +394,8 @@ func TestGetSessionResults_Sprint(t *testing.T) {
 
 func TestGetSessionResults_QualifyingReference(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -430,7 +438,8 @@ func TestGetSessionResults_QualifyingReference(t *testing.T) {
 
 func TestGetSessionResults_QualifyingGaps(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{
@@ -477,7 +486,8 @@ func TestGetSessionResults_QualifyingGaps(t *testing.T) {
 
 func TestGetSessionResults_QualifyingFallback(t *testing.T) {
 	mockClient := new(MockF1DataClient)
-	service := NewF1CachingService(NewF1Service(mockClient))
+	policy := NewPredictionPolicy()
+	service := NewF1CachingService(NewF1Service(mockClient, policy))
 	ctx := context.Background()
 
 	mockSchedule := []models.RaceWeekend{

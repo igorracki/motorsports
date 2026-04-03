@@ -15,6 +15,7 @@ type PredictionService interface {
 	SubmitPrediction(ctx context.Context, prediction *models.Prediction) error
 	GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error)
 	GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error)
+	GetPolicyConfig() models.PredictionPolicyConfig
 }
 
 type predictionService struct {
@@ -22,14 +23,16 @@ type predictionService struct {
 	f1Service            F1Service
 	scoringService       ScoringService
 	policy               PredictionPolicy
+	configService        ConfigService
 }
 
-func NewPredictionService(repo repository.PredictionRepository, f1 F1Service, scoring ScoringService) PredictionService {
+func NewPredictionService(repo repository.PredictionRepository, f1 F1Service, scoring ScoringService, policy PredictionPolicy, configService ConfigService) PredictionService {
 	return &predictionService{
 		predictionRepository: repo,
 		f1Service:            f1,
 		scoringService:       scoring,
-		policy:               NewPredictionPolicy(),
+		policy:               policy,
+		configService:        configService,
 	}
 }
 
@@ -86,6 +89,10 @@ func (service *predictionService) GetRoundPredictions(ctx context.Context, userI
 	}
 
 	return predictions, nil
+}
+
+func (service *predictionService) GetPolicyConfig() models.PredictionPolicyConfig {
+	return service.policy.GetConfig()
 }
 
 func (service *predictionService) processPredictionScore(ctx context.Context, prediction *models.Prediction) {
@@ -183,15 +190,19 @@ func (service *predictionService) hasPredictionChanged(prediction *models.Predic
 }
 
 func (service *predictionService) validatePrediction(prediction *models.Prediction) error {
-	if len(prediction.Entries) < 3 || len(prediction.Entries) > 22 {
-		return fmt.Errorf("%w: prediction must have between 3 and 22 entries, got %d", models.ErrInvalidInput, len(prediction.Entries))
+	config := service.configService.GetAppConfig().Validation
+	entryCount := len(prediction.Entries)
+
+	if entryCount < config.MinEntries || entryCount > config.MaxEntries {
+		return fmt.Errorf("%w: prediction must have between %d and %d entries, got %d",
+			models.ErrInvalidInput, config.MinEntries, config.MaxEntries, entryCount)
 	}
 
 	positions := make(map[int]bool)
 	drivers := make(map[string]bool)
 
 	for _, entry := range prediction.Entries {
-		if entry.Position < 1 || entry.Position > 22 {
+		if entry.Position < 1 || entry.Position > config.MaxEntries {
 			return fmt.Errorf("%w: invalid position %d", models.ErrInvalidInput, entry.Position)
 		}
 		if positions[entry.Position] {

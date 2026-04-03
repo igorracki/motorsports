@@ -44,7 +44,8 @@ func setupTestServer(client clients.F1DataClient) *echo.Echo {
 	e.Validator = api.NewCustomValidator()
 	e.HTTPErrorHandler = api.HTTPErrorHandler
 
-	baseService := services.NewF1Service(client)
+	policy := services.NewPredictionPolicy()
+	baseService := services.NewF1Service(client, policy)
 	f1DataService := services.NewF1CachingService(baseService)
 	f1DataHandler := handlers.NewF1Handler(f1DataService)
 

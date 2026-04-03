@@ -31,6 +31,11 @@ func (handler *PredictionHandler) GetScoringRules(context echo.Context) error {
 	return context.JSON(http.StatusOK, rules)
 }
 
+func (handler *PredictionHandler) GetPredictionPolicy(context echo.Context) error {
+	policy := handler.predictionService.GetPolicyConfig()
+	return context.JSON(http.StatusOK, policy)
+}
+
 func (handler *PredictionHandler) SubmitPrediction(context echo.Context) error {
 	ctx := context.Request().Context()
 	userID := context.Param("id")

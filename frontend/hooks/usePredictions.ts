@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import type { DriverInfo, Prediction, SessionScoringRules, SubmitPredictionRequest } from "@/types/f1";
 import { useApi } from "@/components/providers/api-provider";
+import { useConfig } from "@/components/providers/config-provider";
 import { useAuth } from "./useAuth";
 import { PredictionSessionMapper } from "@/lib/mappers/prediction-mapper";
 import { useAsync } from "./useAsync";
@@ -16,6 +17,7 @@ export function usePredictions(
   selectedSession: string | null
 ) {
   const { predictionRepo } = useApi();
+  const { config } = useConfig();
   const { user, isAuthenticated } = useAuth();
   const [scoringRules, setScoringRules] = useState<SessionScoringRules[]>([]);
   const [currentPredictions, setCurrentPredictions] = useState<DriverInfo[]>(
@@ -73,14 +75,14 @@ export function usePredictions(
 
   const getDriverListWithPredictions = useCallback((sessionCode: string) => {
     const saved = savedPredictions[sessionCode];
-    const sessionRules = PredictionSessionMapper.matchRules(scoringRules, sessionCode);
+    const sessionRules = PredictionSessionMapper.matchRules(scoringRules, sessionCode, config?.sessionMappings);
     
     return PredictionSessionMapper.mapDriversWithPredictions(
       initialDrivers,
       saved,
       sessionRules
     );
-  }, [initialDrivers, savedPredictions, scoringRules]);
+  }, [initialDrivers, savedPredictions, scoringRules, config?.sessionMappings]);
 
   // Sync currentPredictions when savedPredictions are loaded or session changes while in prediction mode
   useEffect(() => {

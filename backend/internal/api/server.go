@@ -67,10 +67,13 @@ func (server *Server) RegisterRoutes(
 	predictionHandler *handlers.PredictionHandler,
 	friendHandler *handlers.FriendHandler,
 	leaderboardHandler *handlers.LeaderboardHandler,
+	configHandler *handlers.ConfigHandler,
 ) {
 	apiGroup := server.echo.Group("/api")
 	authMiddleware := f1middleware.AuthMiddleware(server.tokenManager)
 	ownerMiddleware := f1middleware.RequireResourceOwnerMiddleware()
+
+	apiGroup.GET("/config", configHandler.GetConfig)
 
 	apiGroup.GET("/schedule/:year", f1Handler.GetSchedule)
 	apiGroup.GET("/schedule/:year/:round/:session/results", f1Handler.GetSessionResults)
@@ -86,6 +89,7 @@ func (server *Server) RegisterRoutes(
 	apiGroup.POST("/users/:id/predictions", predictionHandler.SubmitPrediction, authMiddleware, ownerMiddleware)
 	apiGroup.GET("/users/:id/predictions/:year/:round", predictionHandler.GetRoundPredictions, authMiddleware, ownerMiddleware)
 	apiGroup.GET("/predictions/scoring-rules", predictionHandler.GetScoringRules)
+	apiGroup.GET("/predictions/policy", predictionHandler.GetPredictionPolicy)
 
 	apiGroup.POST("/users/friends/request", friendHandler.SendFriendRequest, authMiddleware)
 	apiGroup.GET("/users/friends/requests", friendHandler.GetPendingRequests, authMiddleware)
