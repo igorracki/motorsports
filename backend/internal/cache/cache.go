@@ -18,34 +18,34 @@ type cacheItem[T any] struct {
 }
 
 type memoryCache[T any] struct {
-	items  map[string]cacheItem[T]
-	mu     sync.RWMutex
-	stopCh chan struct{}
+	items       map[string]cacheItem[T]
+	mutex       sync.RWMutex
+	stopChannel chan struct{}
 }
 
 func NewMemoryCache[T any]() Cache[T] {
 	cache := &memoryCache[T]{
-		items:  make(map[string]cacheItem[T]),
-		stopCh: make(chan struct{}),
+		items:       make(map[string]cacheItem[T]),
+		stopChannel: make(chan struct{}),
 	}
 	go cache.cleanup()
 	return cache
 }
 
 func (cache *memoryCache[T]) Get(key string) (T, bool) {
-	cache.mu.RLock()
+	cache.mutex.RLock()
 	item, found := cache.items[key]
 
 	if !found {
-		cache.mu.RUnlock()
+		cache.mutex.RUnlock()
 		var zero T
 		return zero, false
 	}
 
 	if item.expiration > 0 && time.Now().UnixNano() > item.expiration {
-		cache.mu.RUnlock()
-		cache.mu.Lock()
-		defer cache.mu.Unlock()
+		cache.mutex.RUnlock()
+		cache.mutex.Lock()
+		defer cache.mutex.Unlock()
 
 		if item, found = cache.items[key]; found && item.expiration > 0 && time.Now().UnixNano() > item.expiration {
 			delete(cache.items, key)
@@ -55,7 +55,7 @@ func (cache *memoryCache[T]) Get(key string) (T, bool) {
 	}
 
 	value := item.value
-	cache.mu.RUnlock()
+	cache.mutex.RUnlock()
 	return value, true
 }
 
@@ -65,8 +65,8 @@ func (cache *memoryCache[T]) Set(key string, value T, duration time.Duration) {
 		expiration = time.Now().Add(duration).UnixNano()
 	}
 
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 
 	cache.items[key] = cacheItem[T]{
 		value:      value,
@@ -75,13 +75,13 @@ func (cache *memoryCache[T]) Set(key string, value T, duration time.Duration) {
 }
 
 func (cache *memoryCache[T]) Delete(key string) {
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	delete(cache.items, key)
 }
 
 func (cache *memoryCache[T]) Close() {
-	close(cache.stopCh)
+	close(cache.stopChannel)
 }
 
 func (cache *memoryCache[T]) cleanup() {
@@ -91,15 +91,15 @@ func (cache *memoryCache[T]) cleanup() {
 	for {
 		select {
 		case <-ticker.C:
-			cache.mu.Lock()
+			cache.mutex.Lock()
 			now := time.Now().UnixNano()
 			for key, item := range cache.items {
 				if item.expiration > 0 && now > item.expiration {
 					delete(cache.items, key)
 				}
 			}
-			cache.mu.Unlock()
-		case <-cache.stopCh:
+			cache.mutex.Unlock()
+		case <-cache.stopChannel:
 			return
 		}
 	}
