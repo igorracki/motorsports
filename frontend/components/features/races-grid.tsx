@@ -10,12 +10,19 @@ interface RacesGridProps {
   year: number;
 }
 
-export function RacesGrid({ raceWeekends, year }: RacesGridProps) {
-  const [isMounted, setIsMounted] = useState(false);
+interface RacesGridProps {
+  raceWeekends: RaceWeekend[];
+  year: number;
+  serverTime?: number;
+}
+
+export function RacesGrid({ raceWeekends, year, serverTime = 0 }: RacesGridProps) {
+  const [now, setNow] = useState(serverTime);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsMounted(true);
+    // Sync with local clock after mount to avoid hydration mismatch
+    const handle = requestAnimationFrame(() => setNow(Date.now()));
+    return () => cancelAnimationFrame(handle);
   }, []);
 
   if (raceWeekends.length === 0) {
@@ -31,11 +38,7 @@ export function RacesGrid({ raceWeekends, year }: RacesGridProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {raceWeekends.map((raceWeekend) => {
-        // Hydration guard: Force all races to "upcoming" status on the server
-        // and initial client render to match the server perfectly.
-        const status = isMounted
-          ? getRaceStatus(year, raceWeekend.round, raceWeekend)
-          : "upcoming";
+        const status = getRaceStatus(year, raceWeekend.round, raceWeekend, now);
 
         return (
           <RaceCard

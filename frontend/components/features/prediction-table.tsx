@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import Image from "next/image";
 import { GripVertical, Trophy } from "lucide-react";
 import {
@@ -40,7 +40,6 @@ interface SortableDriverRowProps {
   onToggle: (index: number) => void;
 }
 
-// Fixed grid layout for consistency between header and rows
 const GRID_LAYOUT = "grid grid-cols-[48px_48px_minmax(150px,1fr)_48px_minmax(150px,1fr)_80px_40px]";
 
 function DriverRowContent({
@@ -58,8 +57,8 @@ function DriverRowContent({
             "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
             !driver.isPredicted && "text-muted-foreground/30",
             driver.isPredicted &&
-              index === 0 &&
-              "bg-yellow-500/20 text-yellow-500",
+            index === 0 &&
+            "bg-yellow-500/20 text-yellow-500",
             driver.isPredicted && index === 1 && "bg-gray-400/20 text-gray-400",
             driver.isPredicted && index === 2 && "bg-amber-600/20 text-amber-600",
             driver.isPredicted && index > 2 && "text-muted-foreground"
@@ -142,8 +141,8 @@ function SortableDriverRow({
         "cursor-grab border-b border-border/30 transition-colors duration-150 active:cursor-grabbing bg-card",
         isDragging && "shadow-2xl scale-[1.02] border-primary/50 z-50 backdrop-blur-sm",
         driver.isPredicted &&
-          !driver.correct &&
-          "bg-blue-500/5 border-blue-500/20",
+        !driver.correct &&
+        "bg-blue-500/5 border-blue-500/20",
         driver.correct && "bg-success/10 border-success/30",
         !isDragging && "hover:bg-secondary/30"
       )}
@@ -242,7 +241,6 @@ export function PredictionTable({
             onDragEnd={handleDragEnd}
             modifiers={[restrictToVerticalAxis]}
           >
-            {/* Header */}
             <div className={cn(GRID_LAYOUT, "border-b border-border/50 bg-secondary/50")}>
               <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pos</div>
               <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flag</div>
@@ -263,7 +261,6 @@ export function PredictionTable({
               <div className="px-2 py-3"></div>
             </div>
 
-            {/* List */}
             <SortableContext items={driverIds} strategy={verticalListSortingStrategy}>
               <div className="flex flex-col">
                 {drivers.map((driver, index) => (

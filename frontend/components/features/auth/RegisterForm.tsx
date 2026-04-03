@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RegisterRequest, RegisterRequestSchema } from "@/types/auth";
 import { useAuth } from "@/hooks/useAuth";
+import { useAsync } from "@/hooks/useAsync";
 import { AlertCircle, Loader2, Mail, Lock, User } from "lucide-react";
 import Link from "next/link";
+
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 interface RegisterFormProps {
   onSuccess?: () => void;
@@ -14,8 +17,17 @@ interface RegisterFormProps {
 
 export function RegisterForm({ onSuccess }: RegisterFormProps) {
   const { register: registerUser } = useAuth();
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { execute: performRegister, loading: isSubmitting, error: serverError } = useAsync(
+    async (data: RegisterRequest) => {
+      await registerUser(data);
+    },
+    {
+      onSuccess: () => {
+        if (onSuccess) onSuccess();
+      },
+    }
+  );
 
   const {
     register,
@@ -31,16 +43,10 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
   });
 
   const onSubmit = async (data: RegisterRequest) => {
-    setIsSubmitting(true);
-    setServerError(null);
     try {
-      await registerUser(data);
-      if (onSuccess) onSuccess();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Registration failed. Please try again.";
-      setServerError(message);
-    } finally {
-      setIsSubmitting(false);
+      await performRegister(data);
+    } catch {
+      // Error handled by useAsync and displayed via serverError
     }
   };
 
@@ -63,16 +69,13 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           <label className="text-sm font-medium text-slate-300" htmlFor="display_name">
             Display Name
           </label>
-          <div className="relative">
-            <User className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-            <input
-              {...register("display_name")}
-              id="display_name"
-              type="text"
-              placeholder="jimmy_v"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-            />
-          </div>
+          <Input
+            {...register("display_name")}
+            id="display_name"
+            type="text"
+            placeholder="jimmy_v"
+            icon={<User className="h-4 w-4" />}
+          />
           {errors.display_name && <p className="text-xs text-red-500">{errors.display_name.message}</p>}
         </div>
 
@@ -80,16 +83,13 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           <label className="text-sm font-medium text-slate-300" htmlFor="email">
             Email
           </label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-            <input
-              {...register("email")}
-              id="email"
-              type="email"
-              placeholder="name@example.com"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-            />
-          </div>
+          <Input
+            {...register("email")}
+            id="email"
+            type="email"
+            placeholder="name@example.com"
+            icon={<Mail className="h-4 w-4" />}
+          />
           {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
         </div>
 
@@ -97,27 +97,25 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           <label className="text-sm font-medium text-slate-300" htmlFor="password">
             Password
           </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-            <input
-              {...register("password")}
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-            />
-          </div>
+          <Input
+            {...register("password")}
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            icon={<Lock className="h-4 w-4" />}
+          />
           {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          fullWidth
+          className="mt-2"
         >
           {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isSubmitting ? "Creating account..." : "Register"}
-        </button>
+        </Button>
       </form>
 
       <div className="text-center text-sm text-slate-400">

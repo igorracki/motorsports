@@ -1,12 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Trophy, Radio } from "lucide-react";
-import type { Session, DriverInfo, DriverResult, Prediction } from "@/types/f1";
+import { Trophy } from "lucide-react";
+import type { Session, DriverResult, Prediction } from "@/types/f1";
 import { formatSessionTime } from "@/lib/date-utils";
-import { isSessionLive } from "@/lib/race-utils";
-import { useState, useEffect } from "react";
+import { PredictionPolicy } from "@/lib/policies/prediction-policy";
 import { useSettings } from "@/hooks/useSettings";
+import { useCurrentTime } from "@/hooks/useCurrentTime";
 
 interface SessionSelectorProps {
   sessions: Session[];
@@ -15,6 +15,39 @@ interface SessionSelectorProps {
   isPredictionMode: boolean;
   savedPredictions: Record<string, Prediction>;
   sessionResults?: Record<string, DriverResult[]>;
+  currentTime?: number;
+}
+
+function getButtonStyles(state: {
+  isPredictionMode: boolean;
+  isSelected: boolean;
+  isStarted: boolean;
+  hasPrediction: boolean;
+}) {
+  const { isPredictionMode, isSelected, isStarted, hasPrediction } = state;
+
+  if (isPredictionMode) {
+    if (isSelected) {
+      if (isStarted) {
+        return hasPrediction
+          ? "border-success bg-success/20 text-foreground shadow-sm shadow-success/10"
+          : "border-green-500 bg-green-500/20 text-foreground shadow-sm shadow-green-500/10";
+      }
+      return "border-accent bg-accent/20 text-foreground shadow-sm shadow-accent/10";
+    }
+
+    if (isStarted) {
+      return hasPrediction
+        ? "border-success/50 bg-success/10 text-foreground hover:border-success hover:bg-success/20"
+        : "border-green-500/50 bg-green-500/10 text-foreground hover:border-green-500 hover:bg-green-500/20";
+    }
+    return "border-accent/50 bg-accent/10 text-foreground hover:border-accent hover:bg-accent/20";
+  }
+
+  if (isSelected) {
+    return "border-primary/50 bg-primary/10 text-primary shadow-sm shadow-primary/10";
+  }
+  return "border-border/50 bg-card text-foreground hover:border-primary/50 hover:bg-primary/10";
 }
 
 export function SessionSelector({
@@ -24,17 +57,11 @@ export function SessionSelector({
   isPredictionMode,
   savedPredictions,
   sessionResults = {},
+  currentTime,
 }: SessionSelectorProps) {
   const { useBrowserTime } = useSettings();
-  const [now, setNow] = useState<number>(0);
-
-  useEffect(() => {
-    // Avoid sync setState in effect to satisfy React 19 rules
-    const handle = requestAnimationFrame(() => {
-      setNow(Date.now());
-    });
-    return () => cancelAnimationFrame(handle);
-  }, []);
+  const hookTime = useCurrentTime();
+  const now = currentTime !== undefined ? currentTime : hookTime;
 
   return (
     <div className="grid grid-cols-5 gap-2">
@@ -43,11 +70,18 @@ export function SessionSelector({
         const results = sessionResults[session.type] || session.results;
         const hasResults = results && results.length > 0;
         const hasPrediction = !!savedPredictions[session.type];
-        
-        const isStarted = now > 0 && session.timeUTCMS < now;
-        const isLive = now > 0 && isSessionLive(session.timeUTCMS);
-        
-        const isClickable = true
+
+        const isStarted = now > 0 && PredictionPolicy.hasStarted(session, now);
+        const isLive = now > 0 && PredictionPolicy.isSessionLive(session.timeUTCMS);
+
+        const isClickable = true;
+
+        const buttonStyles = getButtonStyles({
+          isPredictionMode,
+          isSelected,
+          isStarted,
+          hasPrediction,
+        });
 
         return (
           <button
@@ -60,21 +94,7 @@ export function SessionSelector({
             type="button"
             className={cn(
               "group relative flex flex-col items-center justify-center rounded-xl border px-2 py-3 transition-all duration-200 sm:px-4",
-              isPredictionMode
-                ? isSelected
-                  ? isStarted
-                    ? hasPrediction
-                      ? "border-success bg-success/20 text-foreground shadow-sm shadow-success/10"
-                      : "border-green-500 bg-green-500/20 text-foreground shadow-sm shadow-green-500/10"
-                    : "border-accent bg-accent/20 text-foreground shadow-sm shadow-accent/10"
-                  : isStarted
-                    ? hasPrediction
-                      ? "border-success/50 bg-success/10 text-foreground hover:border-success hover:bg-success/20"
-                      : "border-green-500/50 bg-green-500/10 text-foreground hover:border-green-500 hover:bg-green-500/20"
-                    : "border-accent/50 bg-accent/10 text-foreground hover:border-accent hover:bg-accent/20"
-                : isSelected
-                  ? "border-primary/50 bg-primary/10 text-primary shadow-sm shadow-primary/10"
-                  : "border-border/50 bg-card text-foreground hover:border-primary/50 hover:bg-primary/10"
+              buttonStyles
             )}
             disabled={!isClickable}
           >
@@ -106,7 +126,7 @@ export function SessionSelector({
             >
               {formatSessionTime(useBrowserTime ? session.timeUTCMS : (session.timeLocal || session.timeUTCMS))}
             </span>
-            
+
             <span
               className={cn(
                 "mt-1 text-[10px] uppercase tracking-wider font-bold",
@@ -127,8 +147,8 @@ export function SessionSelector({
                 ? hasPrediction ? "Predicted" : (isStarted ? "Locked" : "Predict")
                 : isLive
                   ? "Live"
-                  : isStarted 
-                    ? (sessionResults[session.type] && !hasResults ? "No data" : "Results") 
+                  : isStarted
+                    ? (sessionResults[session.type] && !hasResults ? "No data" : "Results")
                     : "Upcoming"}
             </span>
           </button>

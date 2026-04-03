@@ -3,18 +3,21 @@ import { MainNav } from "@/components/ui/main-nav";
 import { Footer } from "@/components/ui/Footer";
 import { YearSelector } from "@/components/features/year-selector";
 import { RacesGrid } from "@/components/features/races-grid";
-import { f1Api } from "@/services/f1-api";
+import { getServerApi } from "@/services/server-api";
 import { Calendar, Flag, Zap } from "lucide-react";
 import { getScheduleStats } from "@/lib/race-utils";
 import { EventCardSkeleton, Skeleton } from "@/components/ui/Skeleton";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 interface CalendarPageProps {
   params: Promise<{ year: string }>;
 }
 
 async function CalendarContent({ year }: { year: number }) {
-  const raceWeekends = await f1Api.getSchedule(year);
-  const stats = getScheduleStats(raceWeekends, year);
+  const { raceRepo } = getServerApi();
+  const raceWeekends = await raceRepo.getSchedule(year);
+  const now = new Date().getTime();
+  const stats = getScheduleStats(raceWeekends, year, now);
 
   return (
     <>
@@ -43,7 +46,9 @@ async function CalendarContent({ year }: { year: number }) {
         </div>
       </div>
 
-      <RacesGrid raceWeekends={raceWeekends} year={year} />
+      <ErrorBoundary name="Races Grid">
+        <RacesGrid raceWeekends={raceWeekends} year={year} serverTime={now} />
+      </ErrorBoundary>
     </>
   );
 }

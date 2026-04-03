@@ -15,10 +15,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     const saved = localStorage.getItem("useBrowserTime");
-    if (saved !== null) {
-      setUseBrowserTime(JSON.parse(saved));
-    }
-    setIsLoaded(true);
+    // Use timeout to prevent synchronous state updates during effect phase
+    const handle = setTimeout(() => {
+      if (saved !== null) {
+        setUseBrowserTime(JSON.parse(saved));
+      }
+      setIsLoaded(true);
+    }, 0);
+    return () => clearTimeout(handle);
   }, []);
 
   useEffect(() => {

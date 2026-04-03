@@ -1,9 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Profile } from "@/types/f1";
 import { LoginRequest, RegisterRequest } from "@/types/auth";
-import { f1Api, ApiError } from "@/services/f1-api";
+import { useApi } from "@/components/providers/api-provider";
+import { ErrorTranslator } from "@/lib/error-translator";
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { authRepo } = useApi();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,31 +29,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function checkSession() {
       try {
-        const response = await f1Api.getMe();
+        const response = await authRepo.getMe();
         
         if (response.user && response.user.id) {
             setUser(response.user);
             setProfile(response.profile);
         }
       } catch (err) {
-        // Not logged in or error
-        console.debug("No active session");
+        if (!ErrorTranslator.isSilent(err)) {
+          console.debug("Session check failed", err);
+        }
       } finally {
         setIsLoading(false);
       }
     }
 
     checkSession();
-  }, []);
+  }, [authRepo]);
 
   const login = async (request: LoginRequest) => {
     setError(null);
     try {
-      const response = await f1Api.login(request);
+      const response = await authRepo.login(request);
       setUser(response.user);
       setProfile(response.profile);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Login failed";
+      const message = ErrorTranslator.toDisplayMessage(err);
       setError(message);
       throw err;
     }
@@ -60,11 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (request: RegisterRequest) => {
     setError(null);
     try {
-      const response = await f1Api.register(request);
+      const response = await authRepo.register(request);
       setUser(response.user);
       setProfile(response.profile);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Registration failed";
+      const message = ErrorTranslator.toDisplayMessage(err);
       setError(message);
       throw err;
     }
@@ -72,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await f1Api.logout();
+      await authRepo.logout();
     } catch (err) {
       console.error("Logout failed", err);
     } finally {

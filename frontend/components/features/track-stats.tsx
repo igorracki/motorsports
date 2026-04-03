@@ -34,8 +34,8 @@ export function TrackStats({ stats }: TrackStatsProps) {
         {gridItems.map((item, idx) => {
           const isPlaceholder = item.isPlaceholder;
           return (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className={cn(
                 "flex flex-col justify-center gap-1 p-6 transition-colors hover:bg-secondary/5 border-border/30",
                 // Right border logic

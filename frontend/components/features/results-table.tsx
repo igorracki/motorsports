@@ -25,7 +25,6 @@ export function ResultsTable({ results, sessionName }: ResultsTableProps) {
   const isPractice = normalizedSession.includes("practice") || normalizedSession.includes("fp");
   const isRace = normalizedSession === "race" || normalizedSession === "sprint" || normalizedSession === "s" || (normalizedSession.includes("race") && !normalizedSession.includes("practice"));
 
-  // Find the overall fastest lap in the session for highlighting
   const sessionBestLapMS = results.reduce((min, result) => {
     if (result.fastestLapMS && (min === null || result.fastestLapMS < min)) {
       return result.fastestLapMS;

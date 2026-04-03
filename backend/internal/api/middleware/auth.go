@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/igorracki/motorsports/backend/internal/auth"
-	f1context "github.com/igorracki/motorsports/backend/internal/context"
+	_context "github.com/igorracki/motorsports/backend/internal/context"
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,7 +24,7 @@ func AuthMiddleware(tokenManager auth.TokenManager) echo.MiddlewareFunc {
 
 			contextObj.Set("user_id", claims.UserID)
 
-			ctx := context.WithValue(contextObj.Request().Context(), f1context.UserIDKey, claims.UserID)
+			ctx := context.WithValue(contextObj.Request().Context(), _context.UserIDKey, claims.UserID)
 			contextObj.SetRequest(contextObj.Request().WithContext(ctx))
 
 			return next(contextObj)
