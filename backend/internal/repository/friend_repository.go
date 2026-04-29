@@ -31,7 +31,6 @@ type FriendRepository interface {
 	GetFriendRequestByID(ctx context.Context, id string) (*models.FriendRequest, error)
 	GetPendingFriendRequestsByReceiverID(ctx context.Context, receiverID string) ([]models.FriendRequest, error)
 	UpdateFriendRequestStatus(ctx context.Context, id string, status models.FriendRequestStatus) error
-	CreateFriendship(ctx context.Context, friendship *models.Friendship) error
 	GetFriendsByUserID(ctx context.Context, userID string) ([]string, error)
 	AreFriends(ctx context.Context, user1ID, user2ID string) (bool, error)
 	HasPendingRequest(ctx context.Context, user1ID, user2ID string) (bool, error)
@@ -97,18 +96,6 @@ func (repo *friendRepository) UpdateFriendRequestStatus(ctx context.Context, id 
 		return fmt.Errorf("updating friend request status: %w", err)
 	}
 	return nil
-}
-
-func (repo *friendRepository) CreateFriendship(ctx context.Context, friendship *models.Friendship) error {
-	return repo.manager.Transaction(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, insertFriendshipSQL, friendship.UserID, friendship.FriendID, friendship.CreatedAt); err != nil {
-			return fmt.Errorf("inserting friendship direction 1: %w", err)
-		}
-		if _, err := tx.ExecContext(ctx, insertFriendshipSQL, friendship.FriendID, friendship.UserID, friendship.CreatedAt); err != nil {
-			return fmt.Errorf("inserting friendship direction 2: %w", err)
-		}
-		return nil
-	})
 }
 
 func (repo *friendRepository) GetFriendsByUserID(ctx context.Context, userID string) ([]string, error) {

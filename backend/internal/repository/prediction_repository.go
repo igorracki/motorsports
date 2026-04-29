@@ -42,6 +42,17 @@ const (
 		FROM predictions 
 		WHERE user_id = ? AND year = ? AND round = ?
 		ORDER BY session_type ASC`
+	getPredictionsByUserIDsSQL = `
+		SELECT id, user_id, year, round, session_type, score, revalidate_until, created_at, updated_at 
+		FROM predictions 
+		WHERE year = ? AND user_id IN (%s)
+		ORDER BY round DESC, session_type ASC`
+	getSeasonScoresByUserIDsSQL   = "SELECT user_id, COALESCE(SUM(score), 0) FROM predictions WHERE year = ? AND user_id IN (%s) GROUP BY user_id"
+	fetchEntriesForPredictionsSQL = `
+		SELECT prediction_id, position, driver_id, correct 
+		FROM prediction_entries 
+		WHERE prediction_id IN (%s) 
+		ORDER BY prediction_id, position ASC`
 )
 
 type PredictionRepository interface {
@@ -49,6 +60,7 @@ type PredictionRepository interface {
 	GetPrediction(ctx context.Context, userID string, year, round int, sessionType string) (*models.Prediction, error)
 	GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error)
 	GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error)
+	GetPredictionsByUserIDs(ctx context.Context, userIDs []string, year int) ([]models.Prediction, error)
 	GetSeasonScoresByUserIDs(ctx context.Context, userIDs []string, season int) (map[string]int, error)
 }
 
@@ -151,6 +163,41 @@ func (repo *predictionRepository) GetUserPredictions(ctx context.Context, userID
 	return predictions, nil
 }
 
+func (repo *predictionRepository) GetPredictionsByUserIDs(ctx context.Context, userIDs []string, year int) ([]models.Prediction, error) {
+	if len(userIDs) == 0 {
+		return []models.Prediction{}, nil
+	}
+
+	placeholders := database.GeneratePlaceholders(len(userIDs))
+	query := fmt.Sprintf(getPredictionsByUserIDsSQL, placeholders)
+
+	args := make([]any, 0, len(userIDs)+1)
+	args = append(args, year)
+	args = append(args, database.ToAnySlice(userIDs)...)
+
+	rows, err := repo.manager.DB().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying predictions by user IDs: %w", err)
+	}
+	defer rows.Close()
+
+	predictions := make([]models.Prediction, 0)
+	for rows.Next() {
+		var p models.Prediction
+		p.Entries = []models.PredictionEntry{}
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Year, &p.Round, &p.SessionType, &p.Score, &p.RevalidateUntil, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning prediction: %w", err)
+		}
+		predictions = append(predictions, p)
+	}
+
+	if err := repo.fetchEntriesForPredictions(ctx, predictions); err != nil {
+		return nil, fmt.Errorf("fetching entries: %w", err)
+	}
+
+	return predictions, nil
+}
+
 func (repo *predictionRepository) GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error) {
 	rows, err := repo.manager.DB().QueryContext(ctx, getRoundPredictionsSQL, userID, year, round)
 	if err != nil {
@@ -193,7 +240,7 @@ func (repo *predictionRepository) GetSeasonScoresByUserIDs(ctx context.Context, 
 	}
 
 	placeholders := database.GeneratePlaceholders(len(uniqueIDs))
-	query := fmt.Sprintf("SELECT user_id, COALESCE(SUM(score), 0) FROM predictions WHERE year = ? AND user_id IN (%s) GROUP BY user_id", placeholders)
+	query := fmt.Sprintf(getSeasonScoresByUserIDsSQL, placeholders)
 
 	args := make([]any, 0, len(uniqueIDs)+1)
 	args = append(args, season)
@@ -223,22 +270,36 @@ func (repo *predictionRepository) fetchEntriesForPredictions(ctx context.Context
 		return nil
 	}
 
+	predictionIDs := make([]string, len(predictions))
+	predictionMap := make(map[string]*models.Prediction)
 	for i := range predictions {
-		rows, err := repo.manager.DB().QueryContext(ctx, getPredictionEntriesSQL, predictions[i].ID)
-		if err != nil {
-			return fmt.Errorf("querying entries for prediction %s: %w", predictions[i].ID, err)
+		predictionIDs[i] = predictions[i].ID
+		predictionMap[predictions[i].ID] = &predictions[i]
+	}
+
+	placeholders := database.GeneratePlaceholders(len(predictionIDs))
+	query := fmt.Sprintf(fetchEntriesForPredictionsSQL, placeholders)
+
+	rows, err := repo.manager.DB().QueryContext(ctx, query, database.ToAnySlice(predictionIDs)...)
+	if err != nil {
+		return fmt.Errorf("batch querying prediction entries: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry models.PredictionEntry
+		if err := rows.Scan(&entry.PredictionID, &entry.Position, &entry.DriverID, &entry.Correct); err != nil {
+			return fmt.Errorf("scanning batched prediction entry: %w", err)
 		}
 
-		for rows.Next() {
-			var entry models.PredictionEntry
-			entry.PredictionID = predictions[i].ID
-			if err := rows.Scan(&entry.Position, &entry.DriverID, &entry.Correct); err != nil {
-				rows.Close()
-				return fmt.Errorf("scanning entry for prediction %s: %w", predictions[i].ID, err)
-			}
-			predictions[i].Entries = append(predictions[i].Entries, entry)
+		if p, ok := predictionMap[entry.PredictionID]; ok {
+			p.Entries = append(p.Entries, entry)
 		}
-		rows.Close()
 	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterating batched prediction entries: %w", err)
+	}
+
 	return nil
 }

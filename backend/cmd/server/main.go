@@ -57,17 +57,17 @@ func main() {
 
 	configService := services.NewConfigService()
 	scoringService := services.NewScoringService()
-	predictionService := services.NewPredictionService(predictionRepository, f1DataService, scoringService, predictionPolicy, configService)
+	predictionService := services.NewPredictionService(predictionRepository, f1DataService, scoringService, predictionPolicy)
 	userService := services.NewUserService(userRepository, predictionService)
 	authService := services.NewAuthService(userRepository, tokenManager)
 	friendService := services.NewFriendService(friendRepository, userRepository)
-	leaderboardService := services.NewLeaderboardService(friendRepository, userRepository, predictionRepository)
+	leaderboardService := services.NewLeaderboardService(friendRepository, userRepository, predictionRepository, predictionService)
 
 	// Handlers
 	f1DataHandler := handlers.NewF1Handler(f1DataService)
 	userHandler := handlers.NewUserHandler(userService)
 	authHandler := handlers.NewAuthHandler(authService, userService, handlers.WithCookieSecure(configuration.CookieSecure))
-	predictionHandler := handlers.NewPredictionHandler(predictionService, scoringService)
+	predictionHandler := handlers.NewPredictionHandler(predictionService, scoringService, configService)
 	friendHandler := handlers.NewFriendHandler(friendService)
 	leaderboardHandler := handlers.NewLeaderboardHandler(leaderboardService)
 	configHandler := handlers.NewConfigHandler(configService)

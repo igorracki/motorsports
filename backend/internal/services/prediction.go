@@ -15,6 +15,7 @@ type PredictionService interface {
 	SubmitPrediction(ctx context.Context, prediction *models.Prediction) error
 	GetUserPredictions(ctx context.Context, userID string) ([]models.Prediction, error)
 	GetRoundPredictions(ctx context.Context, userID string, year, round int) ([]models.Prediction, error)
+	SyncUsersScores(ctx context.Context, userIDs []string, year int) error
 	GetPolicyConfig() models.PredictionPolicyConfig
 }
 
@@ -23,31 +24,25 @@ type predictionService struct {
 	f1Service            F1Service
 	scoringService       ScoringService
 	policy               PredictionPolicy
-	configService        ConfigService
 }
 
-func NewPredictionService(repo repository.PredictionRepository, f1 F1Service, scoring ScoringService, policy PredictionPolicy, configService ConfigService) PredictionService {
+func NewPredictionService(repo repository.PredictionRepository, f1 F1Service, scoring ScoringService, policy PredictionPolicy) PredictionService {
 	return &predictionService{
 		predictionRepository: repo,
 		f1Service:            f1,
 		scoringService:       scoring,
 		policy:               policy,
-		configService:        configService,
 	}
 }
 
 func (service *predictionService) SubmitPrediction(ctx context.Context, prediction *models.Prediction) error {
-	if err := service.validatePrediction(prediction); err != nil {
+	sessionTimeMS, err := service.getSessionStartTimeMS(ctx, prediction.Year, prediction.Round, prediction.SessionType)
+	if err != nil {
 		return err
 	}
 
-	sessionTimeMS, err := service.getSessionStartTimeMS(ctx, prediction.Year, prediction.Round, prediction.SessionType)
-	if err != nil {
-		return fmt.Errorf("getting session start time: %w", err)
-	}
-
 	if service.policy.IsLocked(sessionTimeMS) {
-		return fmt.Errorf("%w: prediction period has closed", models.ErrForbidden)
+		return models.ErrPredictionLocked
 	}
 
 	now := time.Now().UTC()
@@ -89,6 +84,19 @@ func (service *predictionService) GetRoundPredictions(ctx context.Context, userI
 	}
 
 	return predictions, nil
+}
+
+func (service *predictionService) SyncUsersScores(ctx context.Context, userIDs []string, year int) error {
+	predictions, err := service.predictionRepository.GetPredictionsByUserIDs(ctx, userIDs, year)
+	if err != nil {
+		return fmt.Errorf("fetching predictions for sync: %w", err)
+	}
+
+	for i := range predictions {
+		service.processPredictionScore(ctx, &predictions[i])
+	}
+
+	return nil
 }
 
 func (service *predictionService) GetPolicyConfig() models.PredictionPolicyConfig {
@@ -136,7 +144,7 @@ func (service *predictionService) getSessionStartTimeMS(ctx context.Context, yea
 		}
 	}
 
-	return 0, fmt.Errorf("%w: session %s not found", models.ErrNotFound, sessionType)
+	return 0, models.ErrSessionNotFound
 }
 
 func (service *predictionService) syncScoreWithResults(ctx context.Context, prediction *models.Prediction) {
@@ -187,37 +195,4 @@ func (service *predictionService) hasPredictionChanged(prediction *models.Predic
 	}
 
 	return false
-}
-
-func (service *predictionService) validatePrediction(prediction *models.Prediction) error {
-	config := service.configService.GetAppConfig().Validation
-	entryCount := len(prediction.Entries)
-
-	if entryCount < config.MinEntries || entryCount > config.MaxEntries {
-		return fmt.Errorf("%w: prediction must have between %d and %d entries, got %d",
-			models.ErrInvalidInput, config.MinEntries, config.MaxEntries, entryCount)
-	}
-
-	positions := make(map[int]bool)
-	drivers := make(map[string]bool)
-
-	for _, entry := range prediction.Entries {
-		if entry.Position < 1 || entry.Position > config.MaxEntries {
-			return fmt.Errorf("%w: invalid position %d", models.ErrInvalidInput, entry.Position)
-		}
-		if positions[entry.Position] {
-			return fmt.Errorf("%w: duplicate position %d", models.ErrInvalidInput, entry.Position)
-		}
-		positions[entry.Position] = true
-
-		if entry.DriverID == "" {
-			return fmt.Errorf("%w: driver_id cannot be empty", models.ErrInvalidInput)
-		}
-		if drivers[entry.DriverID] {
-			return fmt.Errorf("%w: duplicate driver %s", models.ErrInvalidInput, entry.DriverID)
-		}
-		drivers[entry.DriverID] = true
-	}
-
-	return nil
 }

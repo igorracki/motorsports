@@ -38,6 +38,14 @@ func HTTPErrorHandler(err error, context echo.Context) {
 		code = http.StatusConflict
 		message = err.Error()
 		errorType = "conflict"
+	} else if errors.Is(err, models.ErrPredictionLocked) {
+		code = http.StatusForbidden
+		message = err.Error()
+		errorType = "prediction_locked"
+	} else if errors.Is(err, models.ErrSessionNotFound) {
+		code = http.StatusNotFound
+		message = err.Error()
+		errorType = "session_not_found"
 	} else if echoError, ok := err.(*echo.HTTPError); ok {
 		code = echoError.Code
 		if msg, ok := echoError.Message.(string); ok {

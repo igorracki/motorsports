@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Home, User, Settings, LogIn } from "lucide-react";
+import { Calendar, User, Settings, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useRef, useEffect } from "react";
 import { useSettings } from "@/hooks/useSettings";
@@ -38,10 +38,10 @@ export function MainNav() {
             href="/"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <Home className="h-4 w-4" />
-            <span className="hidden sm:inline">Home</span>
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">Calendar</span>
           </Link>
-          
+
           {isAuthenticated ? (
             <Link
               href="/profile"
@@ -59,8 +59,8 @@ export function MainNav() {
               <span className="hidden sm:inline">Sign In</span>
             </Link>
           )}
-          
-          <div 
+
+          <div
             className="relative"
             ref={containerRef}
           >
@@ -84,7 +84,7 @@ export function MainNav() {
                       Convert session times to your local timezone
                     </p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={useBrowserTime}
                     onCheckedChange={setUseBrowserTime}
                   />

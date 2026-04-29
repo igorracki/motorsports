@@ -38,11 +38,7 @@ func NewManager(databasePath string) (*Manager, error) {
 		return nil, fmt.Errorf("setting up database: %w", err)
 	}
 
-	if err := manager.migrate(); err != nil {
-		return nil, fmt.Errorf("migrating database: %w", err)
-	}
-
-	slog.Info("Database initialized and migrated successfully")
+	slog.Info("Database initialized successfully")
 	return manager, nil
 }
 
@@ -120,13 +116,6 @@ func (manager *Manager) setup() error {
 		return fmt.Errorf("creating schema: %w", err)
 	}
 
-	return nil
-}
-
-func (manager *Manager) migrate() error {
-	if _, err := manager.db.Exec("DROP TABLE IF EXISTS user_scores"); err != nil {
-		return fmt.Errorf("dropping user_scores table: %w", err)
-	}
 	return nil
 }
 

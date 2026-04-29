@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 
 	"github.com/igorracki/motorsports/backend/internal/models"
@@ -14,16 +15,18 @@ type LeaderboardService interface {
 }
 
 type leaderboardService struct {
-	friendRepo     repository.FriendRepository
-	userRepo       repository.UserRepository
-	predictionRepo repository.PredictionRepository
+	friendRepo        repository.FriendRepository
+	userRepo          repository.UserRepository
+	predictionRepo    repository.PredictionRepository
+	predictionService PredictionService
 }
 
-func NewLeaderboardService(friendRepo repository.FriendRepository, userRepo repository.UserRepository, predictionRepo repository.PredictionRepository) LeaderboardService {
+func NewLeaderboardService(friendRepo repository.FriendRepository, userRepo repository.UserRepository, predictionRepo repository.PredictionRepository, predictionService PredictionService) LeaderboardService {
 	return &leaderboardService{
-		friendRepo:     friendRepo,
-		userRepo:       userRepo,
-		predictionRepo: predictionRepo,
+		friendRepo:        friendRepo,
+		userRepo:          userRepo,
+		predictionRepo:    predictionRepo,
+		predictionService: predictionService,
 	}
 }
 
@@ -36,6 +39,10 @@ func (service *leaderboardService) GetLeaderboard(ctx context.Context, userID st
 	allUserIDs := make([]string, len(friendIDs)+1)
 	copy(allUserIDs, friendIDs)
 	allUserIDs[len(friendIDs)] = userID
+
+	if err := service.predictionService.SyncUsersScores(ctx, allUserIDs, season); err != nil {
+		slog.ErrorContext(ctx, "Failed to sync scores for leaderboard", "error", err, "user_id", userID, "season", season)
+	}
 
 	profiles, err := service.userRepo.GetProfilesByUserIDs(ctx, allUserIDs)
 	if err != nil {

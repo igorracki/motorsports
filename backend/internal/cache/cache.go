@@ -8,7 +8,6 @@ import (
 type Cache[T any] interface {
 	Get(key string) (T, bool)
 	Set(key string, value T, duration time.Duration)
-	Delete(key string)
 	Close()
 }
 
@@ -72,12 +71,6 @@ func (cache *memoryCache[T]) Set(key string, value T, duration time.Duration) {
 		value:      value,
 		expiration: expiration,
 	}
-}
-
-func (cache *memoryCache[T]) Delete(key string) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	delete(cache.items, key)
 }
 
 func (cache *memoryCache[T]) Close() {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,13 +16,20 @@ import (
 type mockF1Service struct {
 	F1Service
 	schedule []models.RaceWeekend
+	results  map[string]*models.SessionResults
 }
 
 func (m *mockF1Service) GetScheduleByYear(ctx context.Context, year int) ([]models.RaceWeekend, error) {
 	return m.schedule, nil
 }
 
+func (m *mockF1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
+	key := fmt.Sprintf("%d:%d:%s", year, round, sessionType)
+	return m.results[key], nil
+}
+
 func TestPredictionService(t *testing.T) {
+
 	databaseManager, err := database.NewManager(":memory:")
 	require.NoError(t, err)
 	defer databaseManager.Close()
@@ -41,14 +49,16 @@ func TestPredictionService(t *testing.T) {
 			},
 		},
 	}
-	f1Mock := &mockF1Service{schedule: futureSchedule}
+	f1Mock := &mockF1Service{
+		schedule: futureSchedule,
+		results:  make(map[string]*models.SessionResults),
+	}
 
 	predictionRepo := repository.NewPredictionRepository(databaseManager)
 	userRepo := repository.NewUserRepository(databaseManager)
 	scoringService := NewScoringService()
 	predictionPolicy := NewPredictionPolicy()
-	configService := NewConfigService()
-	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService, predictionPolicy, configService)
+	predictionService := NewPredictionService(predictionRepo, f1Mock, scoringService, predictionPolicy)
 
 	ctx := context.Background()
 
@@ -90,84 +100,6 @@ func TestPredictionService(t *testing.T) {
 		require.NoError(tt, err)
 		assert.NotNil(tt, saved)
 		assert.Equal(tt, 3, len(saved.Entries))
-	})
-
-	t.Run("Submit Prediction - Validation Errors", func(tt *testing.T) {
-		userID := "user-val"
-		createUser(userID)
-		tests := []struct {
-			name       string
-			prediction *models.Prediction
-			wantErr    string
-		}{
-			{
-				name: "Too few entries",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 2024, Round: 1, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 2, DriverID: "PER"},
-					},
-				},
-				wantErr: "between 3 and 22 entries",
-			},
-			{
-				name: "Duplicate position",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 2024, Round: 1, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 1, DriverID: "PER"},
-						{Position: 3, DriverID: "ALO"},
-					},
-				},
-				wantErr: "duplicate position 1",
-			},
-			{
-				name: "Duplicate driver",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 2024, Round: 1, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 2, DriverID: "VER"},
-						{Position: 3, DriverID: "ALO"},
-					},
-				},
-				wantErr: "duplicate driver VER",
-			},
-			{
-				name: "Invalid position (too high)",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 2024, Round: 1, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 2, DriverID: "PER"},
-						{Position: 23, DriverID: "ALO"},
-					},
-				},
-				wantErr: "invalid position 23",
-			},
-			{
-				name: "Empty driver ID",
-				prediction: &models.Prediction{
-					UserID: userID, Year: 2024, Round: 1, SessionType: "Race",
-					Entries: []models.PredictionEntry{
-						{Position: 1, DriverID: "VER"},
-						{Position: 2, DriverID: ""},
-						{Position: 3, DriverID: "ALO"},
-					},
-				},
-				wantErr: "driver_id cannot be empty",
-			},
-		}
-
-		for _, tc := range tests {
-			tt.Run(tc.name, func(ttt *testing.T) {
-				err := predictionService.SubmitPrediction(ctx, tc.prediction)
-				assert.Error(ttt, err)
-				assert.Contains(ttt, err.Error(), tc.wantErr)
-			})
-		}
 	})
 
 	t.Run("Submit Prediction - Update Existing", func(tt *testing.T) {
@@ -234,5 +166,55 @@ func TestPredictionService(t *testing.T) {
 		require.NoError(tt, err)
 		assert.Len(tt, round, 1)
 		assert.Equal(tt, "Race", round[0].SessionType)
+	})
+
+	t.Run("Sync Users Scores", func(tt *testing.T) {
+		// Given: A session that is currently open
+		userID := "user-sync"
+		createUser(userID)
+		futureTime := time.Now().Add(1 * time.Hour).UnixMilli()
+		f1Mock.schedule = append(f1Mock.schedule, models.RaceWeekend{
+			Round: 3,
+			Sessions: []models.Session{
+				{Type: "Race", TimeUTCMS: futureTime},
+			},
+		})
+
+		p1 := &models.Prediction{
+			UserID: userID, Year: 2024, Round: 3, SessionType: "Race",
+			Entries: []models.PredictionEntry{
+				{Position: 1, DriverID: "VER"},
+				{Position: 2, DriverID: "PER"},
+				{Position: 3, DriverID: "ALO"},
+			},
+		}
+		require.NoError(tt, predictionService.SubmitPrediction(ctx, p1))
+
+		// Now make the session locked and provide results
+		pastTime := time.Now().Add(-1 * time.Hour).UnixMilli()
+		f1Mock.schedule[len(f1Mock.schedule)-1].Sessions[0].TimeUTCMS = pastTime
+
+		f1Mock.results["2024:3:Race"] = &models.SessionResults{
+			SessionType: "Race",
+			Results: []models.DriverResult{
+				{Driver: models.DriverInfo{ID: "VER"}, Position: 1},
+				{Driver: models.DriverInfo{ID: "PER"}, Position: 2},
+				{Driver: models.DriverInfo{ID: "ALO"}, Position: 3},
+			},
+		}
+
+		// Initially score is nil
+		saved, _ := predictionRepo.GetPrediction(ctx, userID, 2024, 3, "Race")
+		assert.Nil(tt, saved.Score)
+
+		// When: Syncing scores
+		err := predictionService.SyncUsersScores(ctx, []string{userID}, 2024)
+		require.NoError(tt, err)
+
+		// Then: Score should be updated
+		updated, _ := predictionRepo.GetPrediction(ctx, userID, 2024, 3, "Race")
+		assert.NotNil(tt, updated.Score)
+		assert.Greater(tt, *updated.Score, 0)
+		assert.True(tt, updated.Entries[0].Correct)
 	})
 }

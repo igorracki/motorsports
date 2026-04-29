@@ -143,4 +143,48 @@ func TestPredictionRepository(t *testing.T) {
 		}
 		assert.True(tt, foundP1)
 	})
+
+	t.Run("Get Predictions By User IDs", func(tt *testing.T) {
+		// Given: Predictions for multiple users
+		user2ID := uuid.New().String()
+		err = userRepo.CreateUser(ctx, &models.User{
+			ID: user2ID, Email: "lewis@mercedes.com", CreatedAt: time.Now(),
+		}, "hash", &models.Profile{UserID: user2ID, DisplayName: "Lewis"})
+		require.NoError(tt, err)
+
+		p1 := &models.Prediction{
+			ID: uuid.New().String(), UserID: userID, Year: 2024, Round: 3, SessionType: "Race",
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+			Entries: []models.PredictionEntry{{Position: 1, DriverID: "VER"}},
+		}
+		p2 := &models.Prediction{
+			ID: uuid.New().String(), UserID: user2ID, Year: 2024, Round: 3, SessionType: "Race",
+			CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+			Entries: []models.PredictionEntry{{Position: 1, DriverID: "HAM"}},
+		}
+		require.NoError(tt, predictionRepo.SavePrediction(ctx, p1))
+		require.NoError(tt, predictionRepo.SavePrediction(ctx, p2))
+
+		// When: Fetching predictions for both users
+		preds, err := predictionRepo.GetPredictionsByUserIDs(ctx, []string{userID, user2ID}, 2024)
+		require.NoError(tt, err)
+
+		// Then: Should find both predictions with entries
+		foundP1 := false
+		foundP2 := false
+		for _, p := range preds {
+			if p.ID == p1.ID {
+				foundP1 = true
+				assert.Len(tt, p.Entries, 1)
+				assert.Equal(tt, "VER", p.Entries[0].DriverID)
+			}
+			if p.ID == p2.ID {
+				foundP2 = true
+				assert.Len(tt, p.Entries, 1)
+				assert.Equal(tt, "HAM", p.Entries[0].DriverID)
+			}
+		}
+		assert.True(tt, foundP1)
+		assert.True(tt, foundP2)
+	})
 }
