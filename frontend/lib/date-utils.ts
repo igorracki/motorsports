@@ -4,16 +4,16 @@ const MONTHS = [
 ];
 
 /**
- * Formats a date (UTC ms or local string) to the standard session time format.
+ * Formats a date (UTC ms) to the standard session time format.
  * Format: "March 14, 15:00"
  */
-export function formatSessionTime(value: number | string): string {
-  if (!value) return "TBC";
+export function formatSessionTime(
+  utcMs: number,
+  timeZone: string = "UTC"
+): string {
+  if (!utcMs) return "TBC";
   
-  // Per the ECMAScript specification, when a date-time string lacks an offset (no Z or +00:00),
-  // it is interpreted as local time. By passing this "offset-less" string into the Date constructor,
-  // we essentially trick the browser into treating the track's local hours as if they were the browser's local hours
-  const date = new Date(value);
+  const date = new Date(utcMs);
   
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -21,7 +21,7 @@ export function formatSessionTime(value: number | string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "UTC", // Standardize on UTC for the underlying date object we "tricked"
+    timeZone: timeZone,
   }).format(date);
 }
 

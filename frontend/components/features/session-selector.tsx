@@ -7,6 +7,7 @@ import { formatSessionTime } from "@/lib/date-utils";
 import { PredictionPolicy } from "@/lib/policies/prediction-policy";
 import { useSettings } from "@/hooks/useSettings";
 import { useCurrentTime } from "@/hooks/useCurrentTime";
+import { useState, useEffect } from "react";
 
 interface SessionSelectorProps {
   sessions: Session[];
@@ -62,6 +63,11 @@ export function SessionSelector({
   const { useBrowserTime } = useSettings();
   const hookTime = useCurrentTime();
   const now = currentTime !== undefined ? currentTime : hookTime;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="grid grid-cols-5 gap-2">
@@ -82,6 +88,16 @@ export function SessionSelector({
           isStarted,
           hasPrediction,
         });
+
+        let displayTime = "TBC";
+        if (session.timeUTCMS) {
+          if (useBrowserTime && mounted) {
+            displayTime = formatSessionTime(session.timeUTCMS, Intl.DateTimeFormat().resolvedOptions().timeZone);
+          } else {
+            const trackLocalMs = session.timeUTCMS + session.utcOffsetMS;
+            displayTime = formatSessionTime(trackLocalMs, "UTC");
+          }
+        }
 
         return (
           <button
@@ -124,7 +140,7 @@ export function SessionSelector({
                   : isSelected ? "text-primary" : "text-muted-foreground"
               )}
             >
-              {formatSessionTime(useBrowserTime ? session.timeUTCMS : (session.timeLocal || session.timeUTCMS))}
+              {displayTime}
             </span>
 
             <span
