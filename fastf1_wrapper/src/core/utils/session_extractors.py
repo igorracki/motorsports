@@ -19,8 +19,9 @@ def extract_race_weekend(weekend: pd.Series) -> Optional[RaceWeekend]:
         if isinstance(local_time, datetime) and isinstance(utc_time, datetime):
             utc_ms = datetime_to_ms(utc_time)
             
-            offset = local_time.utcoffset()
-            offset_ms = int(offset.total_seconds() * 1000) if offset else 0
+            # Calculate offset by difference between local wall clock and UTC wall clock
+            diff = local_time - utc_time
+            offset_ms = int(diff.total_seconds() * 1000)
             
             if utc_ms is not None:
                 sessions.append(Session(

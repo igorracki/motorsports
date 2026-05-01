@@ -49,6 +49,9 @@ def datetime_to_ms(date_time: Optional[datetime]) -> Optional[int]:
         return None
     
     try:
+        # If naive, assume UTC. If aware, timestamp() already handles it correctly.
+        if date_time.tzinfo is None:
+            date_time = date_time.replace(tzinfo=timezone.utc)
         return int(date_time.timestamp() * 1000)
     except (ValueError, AttributeError):
         return None
