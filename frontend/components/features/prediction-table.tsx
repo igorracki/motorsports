@@ -11,8 +11,6 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DraggableAttributes,
-  DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -46,24 +44,13 @@ const GRID_LAYOUT = "grid grid-cols-[40px_48px_48px_minmax(150px,1fr)_48px_minma
 function DriverRowContent({
   driver,
   index,
-  listeners,
-  attributes,
 }: {
   driver: DriverInfo;
   index: number;
-  listeners?: DraggableSyntheticListeners;
-  attributes?: DraggableAttributes;
 }) {
   return (
     <>
-      <div 
-        className={cn(
-          "flex items-center justify-center px-2 py-3 touch-none",
-          listeners ? "cursor-grab active:cursor-grabbing" : "cursor-default"
-        )}
-        {...attributes}
-        {...listeners}
-      >
+      <div className="flex items-center justify-center px-2 py-3">
         <GripVertical className="h-5 w-5 text-muted-foreground/30" />
       </div>
       <div className="flex items-center justify-center px-3 py-3">
@@ -145,23 +132,23 @@ function SortableDriverRow({
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       onDoubleClick={() => onToggle(index)}
       className={cn(
         GRID_LAYOUT,
-        "border-b border-border/30 transition-colors duration-150 bg-card",
+        "border-b border-border/30 transition-colors duration-150 bg-card select-none touch-none",
         isDragging && "shadow-2xl scale-[1.02] border-primary/50 z-50 backdrop-blur-sm",
+        !isDragging && "cursor-grab active:cursor-grabbing hover:bg-secondary/30",
         driver.isPredicted &&
         !driver.correct &&
         "bg-blue-500/5 border-blue-500/20",
-        driver.correct && "bg-success/10 border-success/30",
-        !isDragging && "hover:bg-secondary/30"
+        driver.correct && "bg-success/10 border-success/30"
       )}
     >
       <DriverRowContent 
         driver={driver} 
         index={index} 
-        listeners={listeners}
-        attributes={attributes}
       />
     </div>
   );
@@ -191,7 +178,8 @@ export function PredictionTable({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        delay: 250,
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
