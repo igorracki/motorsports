@@ -20,7 +20,7 @@ def extract_race_weekend(weekend: pd.Series) -> Optional[RaceWeekend]:
             utc_ms = datetime_to_ms(utc_time)
             
             # Calculate offset by difference between local wall clock and UTC wall clock
-            diff = local_time - utc_time
+            diff = local_time.replace(tzinfo=None) - utc_time.replace(tzinfo=None)
             offset_ms = int(diff.total_seconds() * 1000)
             
             if utc_ms is not None:

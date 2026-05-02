@@ -8,10 +8,11 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
+  DraggableAttributes,
+  DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -40,17 +41,31 @@ interface SortableDriverRowProps {
   onToggle: (index: number) => void;
 }
 
-const GRID_LAYOUT = "grid grid-cols-[48px_48px_minmax(150px,1fr)_48px_minmax(150px,1fr)_80px_40px]";
+const GRID_LAYOUT = "grid grid-cols-[40px_48px_48px_minmax(150px,1fr)_48px_minmax(150px,1fr)_80px]";
 
 function DriverRowContent({
   driver,
   index,
+  listeners,
+  attributes,
 }: {
   driver: DriverInfo;
   index: number;
+  listeners?: DraggableSyntheticListeners;
+  attributes?: DraggableAttributes;
 }) {
   return (
     <>
+      <div 
+        className={cn(
+          "flex items-center justify-center px-2 py-3 touch-none",
+          listeners ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+        )}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5 text-muted-foreground/30" />
+      </div>
       <div className="flex items-center justify-center px-3 py-3">
         <span
           className={cn(
@@ -97,9 +112,6 @@ function DriverRowContent({
           </div>
         )}
       </div>
-      <div className="flex items-center justify-end px-2 py-3">
-        <GripVertical className="h-5 w-5 text-muted-foreground/30" />
-      </div>
     </>
   );
 }
@@ -133,12 +145,10 @@ function SortableDriverRow({
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       onDoubleClick={() => onToggle(index)}
       className={cn(
         GRID_LAYOUT,
-        "cursor-grab border-b border-border/30 transition-colors duration-150 active:cursor-grabbing bg-card",
+        "border-b border-border/30 transition-colors duration-150 bg-card",
         isDragging && "shadow-2xl scale-[1.02] border-primary/50 z-50 backdrop-blur-sm",
         driver.isPredicted &&
         !driver.correct &&
@@ -147,7 +157,12 @@ function SortableDriverRow({
         !isDragging && "hover:bg-secondary/30"
       )}
     >
-      <DriverRowContent driver={driver} index={index} />
+      <DriverRowContent 
+        driver={driver} 
+        index={index} 
+        listeners={listeners}
+        attributes={attributes}
+      />
     </div>
   );
 }
@@ -175,12 +190,8 @@ export function PredictionTable({
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        distance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -242,6 +253,7 @@ export function PredictionTable({
             modifiers={[restrictToVerticalAxis]}
           >
             <div className={cn(GRID_LAYOUT, "border-b border-border/50 bg-secondary/50")}>
+              <div className="px-2 py-3"></div>
               <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pos</div>
               <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flag</div>
               <div className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Driver</div>
@@ -258,7 +270,6 @@ export function PredictionTable({
                   "Points"
                 )}
               </div>
-              <div className="px-2 py-3"></div>
             </div>
 
             <SortableContext items={driverIds} strategy={verticalListSortingStrategy}>
