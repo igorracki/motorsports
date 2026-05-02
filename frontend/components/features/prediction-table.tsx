@@ -7,7 +7,8 @@ import {
   DndContext,
   closestCorners,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -137,9 +138,9 @@ function SortableDriverRow({
       onDoubleClick={() => onToggle(index)}
       className={cn(
         GRID_LAYOUT,
-        "border-b border-border/30 transition-colors duration-150 bg-card select-none touch-none",
+        "border-b border-border/30 transition-colors duration-150 bg-card select-none touch-manipulation",
         isDragging && "shadow-2xl scale-[1.02] border-primary/50 z-50 backdrop-blur-sm",
-        !isDragging && "cursor-grab active:cursor-grabbing hover:bg-secondary/30",
+        !isDragging && "cursor-grab active:bg-secondary/50 hover:bg-secondary/30",
         driver.isPredicted &&
         !driver.correct &&
         "bg-blue-500/5 border-blue-500/20",
@@ -176,7 +177,12 @@ export function PredictionTable({
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
       activationConstraint: {
         delay: 250,
         tolerance: 5,
