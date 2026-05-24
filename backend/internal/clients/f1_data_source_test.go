@@ -20,7 +20,7 @@ func TestF1DataClient_URLEscaping(t *testing.T) {
 	client := NewF1DataClient(server.URL)
 	ctx := context.Background()
 
-	_, err := client.GetSessionResults(ctx, 2024, 1, "race type")
+	_, err := client.GetSessionResults(ctx, 2024, 1, "race type", false)
 
 	assert.NoError(t, err)
 }
