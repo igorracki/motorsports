@@ -6,6 +6,7 @@ from ..models.circuit import CircuitLayoutPoint
 logger = logging.getLogger(__name__)
 
 def extract_circuit_location(ergast_circuits: Any) -> dict:
+    logger.info("Entry: extract_circuit_location")
     location_info = {
         "circuit_name": "Unknown Circuit",
         "location": "Unknown",
@@ -22,9 +23,11 @@ def extract_circuit_location(ergast_circuits: Any) -> dict:
         location_info["latitude"] = float(circuit_row.get('lat', 0.0))
         location_info["longitude"] = float(circuit_row.get('long', 0.0))
     
+    logger.info(f"Exit: extract_circuit_location - Success for {location_info['circuit_name']}")
     return location_info
 
 def extract_circuit_metrics(session: Any) -> dict:
+    logger.info(f"Entry: extract_circuit_metrics(session={session.event.EventName})")
     metrics = {
         "corners": 0,
         "length_km": 0.0,
@@ -56,9 +59,11 @@ def extract_circuit_metrics(session: Any) -> dict:
     except Exception:
         logger.warning("Could not calculate circuit metrics from telemetry - data may not be loaded")
 
+    logger.info(f"Exit: extract_circuit_metrics - {metrics['corners']} corners, {metrics['length_km']:.3f} km, {metrics['max_speed_kmh']} km/h")
     return metrics
 
 def extract_circuit_layout(session: Any) -> List[CircuitLayoutPoint]:
+    logger.info(f"Entry: extract_circuit_layout(session={session.event.EventName})")
     try:
         if not hasattr(session, '_laps') or session._laps is None or session._laps.empty:
             return []
@@ -87,6 +92,7 @@ def extract_circuit_layout(session: Any) -> List[CircuitLayoutPoint]:
                 y=y
             ))
             
+        logger.info(f"Exit: extract_circuit_layout - Extracted {len(layout_points)} points")
         return layout_points
     except Exception:
         logger.exception("Failed to extract circuit layout")

@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 def extract_race_weekend(weekend: pd.Series) -> Optional[RaceWeekend]:
     event_name = str(weekend.get('EventName', "Unknown Event"))
+    logger.info(f"Extracting race weekend: {event_name}")
     sessions = []
     for session_index in range(1, 6):
         session_type = str(weekend.get(f"Session{session_index}", ""))
@@ -43,4 +44,5 @@ def extract_race_weekend(weekend: pd.Series) -> Optional[RaceWeekend]:
         sessions=sessions,
         event_format=str(weekend.get('EventFormat', "conventional"))
     )
+    logger.info(f"Successfully extracted race weekend: {race_weekend.name} with {len(sessions)} sessions")
     return race_weekend

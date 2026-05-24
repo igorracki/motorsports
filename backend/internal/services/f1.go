@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/igorracki/motorsports/backend/internal/cache"
@@ -58,19 +57,9 @@ func (service *f1Service) GetScheduleByYear(ctx context.Context, year int) ([]mo
 }
 
 func (service *f1Service) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
-	results, err := service.client.GetSessionResults(ctx, year, round, sessionType, false)
+	results, err := service.client.GetSessionResults(ctx, year, round, sessionType)
 	if err != nil {
 		return nil, fmt.Errorf("fetching results: %w", err)
-	}
-
-	if (results == nil || len(results.Results) == 0) && service.isSessionCompleted(ctx, year, round, sessionType) {
-		slog.InfoContext(ctx, "Session completed but no results found, attempting force reload",
-			"year", year, "round", round, "session", sessionType)
-
-		results, err = service.client.GetSessionResults(ctx, year, round, sessionType, true)
-		if err != nil {
-			return nil, fmt.Errorf("fetching results after force reload: %w", err)
-		}
 	}
 
 	if results == nil {
@@ -90,26 +79,8 @@ func (service *f1Service) GetSessionResults(ctx context.Context, year int, round
 	return results, nil
 }
 
-func (service *f1Service) isSessionCompleted(ctx context.Context, year int, round int, sessionType string) bool {
-	schedule, err := service.GetScheduleByYear(ctx, year)
-	if err != nil {
-		return false
-	}
-
-	for _, weekend := range schedule {
-		if weekend.Round == round {
-			for _, session := range weekend.Sessions {
-				if session.Type == sessionType || formatters.GetSessionCode(session.Type) == sessionType {
-					return session.IsCompleted
-				}
-			}
-		}
-	}
-	return false
-}
-
 func (service *f1Service) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
-	circuit, err := service.client.GetCircuit(ctx, year, round, false)
+	circuit, err := service.client.GetCircuit(ctx, year, round)
 	if err != nil {
 		return nil, fmt.Errorf("fetching circuit: %w", err)
 	}
@@ -129,7 +100,7 @@ func (service *f1Service) GetDrivers(ctx context.Context, year int, round int) (
 		return pastDrivers, nil
 	}
 
-	drivers, err := service.client.GetDrivers(ctx, year, round, false)
+	drivers, err := service.client.GetDrivers(ctx, year, round)
 	if err != nil {
 		return nil, fmt.Errorf("fetching drivers: %w", err)
 	}

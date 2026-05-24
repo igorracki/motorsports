@@ -21,24 +21,24 @@ func (m *MockF1DataClient) GetScheduleByYear(ctx context.Context, year int) ([]m
 	return args.Get(0).([]models.RaceWeekend), args.Error(1)
 }
 
-func (m *MockF1DataClient) GetSessionResults(ctx context.Context, year int, round int, sessionType string, forceReload bool) (*models.SessionResults, error) {
-	args := m.Called(ctx, year, round, sessionType, forceReload)
+func (m *MockF1DataClient) GetSessionResults(ctx context.Context, year int, round int, sessionType string) (*models.SessionResults, error) {
+	args := m.Called(ctx, year, round, sessionType)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.SessionResults), args.Error(1)
 }
 
-func (m *MockF1DataClient) GetCircuit(ctx context.Context, year int, round int, forceReload bool) (*models.Circuit, error) {
-	args := m.Called(ctx, year, round, forceReload)
+func (m *MockF1DataClient) GetCircuit(ctx context.Context, year int, round int) (*models.Circuit, error) {
+	args := m.Called(ctx, year, round)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.Circuit), args.Error(1)
 }
 
-func (m *MockF1DataClient) GetDrivers(ctx context.Context, year int, round int, forceReload bool) ([]models.DriverInfo, error) {
-	args := m.Called(ctx, year, round, forceReload)
+func (m *MockF1DataClient) GetDrivers(ctx context.Context, year int, round int) ([]models.DriverInfo, error) {
+	args := m.Called(ctx, year, round)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -137,7 +137,7 @@ func TestGetSessionResults_Formatting(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeRaceShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeRaceShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeRaceShort)
@@ -198,7 +198,7 @@ func TestGetSessionResults_Qualifying(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
@@ -245,7 +245,7 @@ func TestGetSessionResults_NilCheck(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeRaceShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeRaceShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeRaceShort)
@@ -287,7 +287,7 @@ func TestGetCircuit(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetCircuit", ctx, 2023, 10, false).Return(mockCircuit, nil)
+	mockClient.On("GetCircuit", ctx, 2023, 10).Return(mockCircuit, nil)
 
 	// When
 	result, err := service.GetCircuit(ctx, 2023, 10)
@@ -333,7 +333,7 @@ func TestGetSessionResults_DerivedGaps(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
@@ -380,7 +380,7 @@ func TestGetSessionResults_Sprint(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeSprintShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeSprintShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeSprintShort)
@@ -424,7 +424,7 @@ func TestGetSessionResults_QualifyingReference(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
@@ -472,7 +472,7 @@ func TestGetSessionResults_QualifyingGaps(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)
@@ -516,7 +516,7 @@ func TestGetSessionResults_QualifyingFallback(t *testing.T) {
 		},
 	}
 
-	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort, false).Return(mockResults, nil)
+	mockClient.On("GetSessionResults", ctx, 2023, 1, models.SessionTypeQualifyingShort).Return(mockResults, nil)
 
 	// When
 	result, err := service.GetSessionResults(ctx, 2023, 1, models.SessionTypeQualifyingShort)

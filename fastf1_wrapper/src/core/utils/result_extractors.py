@@ -23,6 +23,7 @@ QUALIFYING_SESSION_TYPES = {
 
 def extract_driver_info(row: pd.Series) -> DriverInfo:
     id = str(get_scalar_value(row, 'Abbreviation') or "")
+    logger.info(f"Entry: extract_driver_info(driver_id={id})")
     
     raw_number = get_scalar_value(row, 'DriverNumber')
     try:
@@ -40,11 +41,13 @@ def extract_driver_info(row: pd.Series) -> DriverInfo:
         country_code=str(get_scalar_value(row, 'CountryCode') or ""),
         team_name=str(get_scalar_value(row, 'TeamName') or "")
     )
+    logger.info(f"Exit: extract_driver_info(driver_id={id})")
     return driver_info
 
 def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> DriverResult:
     driver_info = extract_driver_info(row)
     id = driver_info.id
+    logger.info(f"Extracting result for driver: {id}")
 
     status = str(get_scalar_value(row, 'Status') or "")
 
@@ -80,8 +83,7 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
         total_time_ms = to_milliseconds(raw_time_delta)
 
     fastest_lap_ms = None
-    # Use internal attribute check to avoid triggering DataNotLoadedError property getter
-    if getattr(session, '_laps', None) is not None:
+    if hasattr(session, 'laps'):
         try:
             driver_laps_any: Any = session.laps.pick_drivers(id)
             if hasattr(driver_laps_any, 'empty') and not driver_laps_any.empty:
@@ -89,7 +91,7 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
                 if fastest_lap is not None and not pd.isna(fastest_lap['LapTime']):
                     fastest_lap_ms = to_milliseconds(fastest_lap['LapTime'])
         except Exception:
-            logger.warning(f"Could not extract fastest lap for driver {id} - data may be incomplete", exc_info=True)
+            logger.exception(f"Could not extract fastest lap for driver {id}")
 
     driver_result = DriverResult(
         position=finish_position,
@@ -134,4 +136,5 @@ def extract_driver_result(row: pd.Series, session: Any, session_type: str) -> Dr
             elif q2_ms is not None: driver_result.fastest_lap_ms = q2_ms
             elif q1_ms is not None: driver_result.fastest_lap_ms = q1_ms
 
+    logger.info(f"Successfully extracted result for driver: {id} (Pos: {finish_position})")
     return driver_result

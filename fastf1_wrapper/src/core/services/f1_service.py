@@ -12,16 +12,26 @@ class F1Service:
         self.provider = provider
 
     def get_weekend_events(self, year: int) -> List[RaceWeekend]:
-        return self.provider.get_weekend_events(year)
+        logger.info(f"Entry: get_weekend_events(year={year})")
+        results = self.provider.get_weekend_events(year)
+        logger.info(f"Exit: get_weekend_events(year={year}) - Found {len(results)} events")
+        return results
 
-    def get_session_results(self, year: int, round_number: int, session_type: str, force_reload: bool = False) -> Optional[SessionResult]:
-        return self.provider.get_session_results(year, round_number, session_type, force_reload=force_reload)
+    def get_session_results(self, year: int, round_number: int, session_type: str) -> Optional[SessionResult]:
+        logger.info(f"Entry: get_session_results(year={year}, round={round_number}, session={session_type})")
+        result = self.provider.get_session_results(year, round_number, session_type)
+        count = len(result.results) if result and result.results else 0
+        logger.info(f"Exit: get_session_results(year={year}, round={round_number}, session={session_type}) - Found {count} results")
+        return result
 
-    def get_circuit_data(self, year: int, round_number: int, force_reload: bool = False) -> Optional[Circuit]:
-        return self.provider.get_circuit_data(year, round_number, force_reload=force_reload)
+    def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
+        logger.info(f"Entry: get_circuit_data(year={year}, round={round_number})")
+        result = self.provider.get_circuit_data(year, round_number)
+        logger.info(f"Exit: get_circuit_data(year={year}, round={round_number}) - Success: {result is not None}")
+        return result
 
-    def get_drivers(self, year: int, round_number: int, force_reload: bool = False) -> List[DriverInfo]:
-        return self.provider.get_drivers(year, round_number, force_reload=force_reload)
-
-    def clear_cache(self) -> bool:
-        return self.provider.clear_cache()
+    def get_drivers(self, year: int, round_number: int) -> List[DriverInfo]:
+        logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
+        results = self.provider.get_drivers(year, round_number)
+        logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(results)} drivers")
+        return results

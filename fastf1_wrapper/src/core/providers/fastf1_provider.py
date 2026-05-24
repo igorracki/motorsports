@@ -82,6 +82,7 @@ class FastF1Provider(Provider):
         if cached is not None:
             return cached
 
+        logger.info(f"Entry: get_weekend_events(year={year})")
         try:
             schedule = fastf1.get_event_schedule(year)
             race_weekends = []
@@ -89,24 +90,24 @@ class FastF1Provider(Provider):
                 race_weekend = extract_race_weekend(weekend)
                 if race_weekend:
                     race_weekends.append(race_weekend)
+            logger.info(f"Exit: get_weekend_events(year={year}) - Found {len(race_weekends)} race weekends")
             self._set_to_cache(cache_key, race_weekends, ttl=3600)
             return race_weekends
         except Exception:
             logger.exception(f"Error fetching weekend events for year {year}")
             return []
 
-    def get_session_results(self, year: int, round_number: int, session_type: str, force_reload: bool = False) -> Optional[SessionResult]:
+    def get_session_results(self, year: int, round_number: int, session_type: str) -> Optional[SessionResult]:
         cache_key = f"results_{year}_{round_number}_{session_type}"
-        if not force_reload:
-            cached = self._get_from_cache(cache_key)
-            if cached is not None:
-                return cached
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
 
+        logger.info(f"Entry: get_session_results(year={year}, round={round_number}, session={session_type})")
         try:
             session = fastf1.get_session(year, round_number, session_type)
             session.load(laps=True, telemetry=False,
-                         weather=False, messages=True,
-                         force_reload=force_reload)
+                         weather=False, messages=True)
 
             if session.results is None or session.results.empty:
                 logger.warning(f"No results found for {year} Round {round_number} ({session_type})")
@@ -117,6 +118,7 @@ class FastF1Provider(Provider):
                 driver_result = extract_driver_result(row, session, session_type)
                 results.append(driver_result)
 
+            logger.info(f"Exit: get_session_results(year={year}, round={round_number}, session={session_type}) - Found {len(results)} drivers")
             res = SessionResult(
                 year=year,
                 round=round_number,
@@ -130,48 +132,54 @@ class FastF1Provider(Provider):
             logger.exception(f"Error fetching session results for {year} round {round_number} {session_type}")
             return None
 
-    def get_drivers(self, year: int, round_number: int, force_reload: bool = False) -> List[DriverInfo]:
+    def get_drivers(self, year: int, round_number: int) -> List[DriverInfo]:
         cache_key = f"drivers_{year}_{round_number}"
-        if not force_reload:
-            cached = self._get_from_cache(cache_key)
-            if cached is not None:
-                return cached
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
+
+        logger.info(f"Entry: get_drivers(year={year}, round={round_number})")
         
         drivers = []
         
         # 1. Try current round FP1 first - it often has the entry list even if no results
-        drivers = self._fetch_from_session(year, round_number, 'FP1', force_reload=force_reload)
+        logger.info(f"Attempting to fetch drivers from current round {year} Round {round_number} FP1")
+        drivers = self._fetch_from_session(year, round_number, 'FP1')
         
         # 2. Look back through previous rounds of the current year
         if not drivers:
             for r in range(round_number - 1, 0, -1):
-                drivers = self._fetch_from_session(year, r, 'R', force_reload=force_reload)
+                logger.info(f"Attempting to fetch drivers from {year} Round {r} R")
+                drivers = self._fetch_from_session(year, r, 'R')
                 if drivers:
                     break
         
         # 3. If still no drivers, try the last round of the previous year
         if not drivers:
+            logger.info(f"No drivers found in {year}, attempting last round of {year-1}")
             try:
                 prev_schedule = fastf1.get_event_schedule(year - 1)
                 if not prev_schedule.empty:
                     last_round = int(prev_schedule.iloc[-1]["RoundNumber"])
-                    drivers = self._fetch_from_session(year - 1, last_round, 'R', force_reload=force_reload)
+                    drivers = self._fetch_from_session(year - 1, last_round, 'R')
             except Exception:
                 logger.exception(f"Error fetching drivers from previous year {year-1}")
             
         if drivers:
+            logger.info(f"Exit: get_drivers(year={year}, round={round_number}) - Found {len(drivers)} drivers")
             self._set_to_cache(cache_key, drivers, ttl=3600)
             return drivers
             
+        logger.warning(f"Exit: get_drivers(year={year}, round={round_number}) - No drivers found")
         return []
 
-    def _fetch_from_session(self, year: int, round_number: int, session_type: str, force_reload: bool = False) -> List[DriverInfo]:
+    def _fetch_from_session(self, year: int, round_number: int, session_type: str) -> List[DriverInfo]:
         """Internal helper to fetch drivers from a specific session."""
+        logger.info(f"Entry: _fetch_from_session(year={year}, round={round_number}, session={session_type})")
         try:
             session = fastf1.get_session(year, round_number, session_type)
             # Load without telemetry/laps to be faster and more resilient
-            session.load(laps=False, telemetry=False, weather=False, messages=False,
-                         force_reload=force_reload)
+            session.load(laps=False, telemetry=False, weather=False, messages=False)
             
             drivers = []
             # Try to get from results first (Ergast)
@@ -182,8 +190,8 @@ class FastF1Provider(Provider):
                         drivers.append(driver_info)
             
             # If no results, try the entry list (F1 API via FastF1)
-            # Use internal attribute check to avoid triggering DataNotLoadedError property getter
-            if not drivers and getattr(session, '_drivers', None) is not None:
+            if not drivers and hasattr(session, 'drivers') and session.drivers:
+                logger.info(f"No results in {session_type}, trying entry list")
                 for driver_number in session.drivers:
                     try:
                         driver_data = session.get_driver(driver_number)
@@ -194,25 +202,27 @@ class FastF1Provider(Provider):
                         continue
 
             if drivers:
+                logger.info(f"Exit: _fetch_from_session(year={year}, round={round_number}, session={session_type}) - Found {len(drivers)} drivers")
                 return drivers
         except Exception as e:
             logger.warning(f"Could not load {session_type} session for drivers: {e}")
         
+        logger.warning(f"Exit: _fetch_from_session(year={year}, round={round_number}, session={session_type}) - No drivers found")
         return []
 
-    def get_circuit_data(self, year: int, round_number: int, force_reload: bool = False) -> Optional[Circuit]:
+    def get_circuit_data(self, year: int, round_number: int) -> Optional[Circuit]:
         cache_key = f"circuit_{year}_{round_number}"
-        if not force_reload:
-            cached = self._get_from_cache(cache_key)
-            if cached is not None:
-                return cached
+        cached = self._get_from_cache(cache_key)
+        if cached is not None:
+            return cached
 
+        logger.info(f"Entry: get_circuit_data(year={year}, round={round_number})")
         try:
             ergast = Ergast()
             ergast_circuits = ergast.get_circuits(season=year, round=round_number)
             location_info = extract_circuit_location(ergast_circuits)
 
-            session = self._fetch_qualifying_session(year, round_number, force_reload=force_reload)
+            session = self._fetch_qualifying_session(year, round_number)
             metrics, layout, rotation = self._extract_circuit_metrics_and_layout(session)
             
             if (metrics["length_km"] == 0 or not layout) and location_info["location"] != "Unknown":
@@ -237,6 +247,7 @@ class FastF1Provider(Provider):
                 max_altitude_m=metrics["max_altitude_m"],
                 min_altitude_m=metrics["min_altitude_m"]
             )
+            logger.info(f"Exit: get_circuit_data(year={year}, round={round_number}) - Success for {circuit.circuit_name}")
             self._set_to_cache(cache_key, circuit, ttl=3600)
             return circuit
 
@@ -244,14 +255,15 @@ class FastF1Provider(Provider):
             logger.exception(f"Error fetching circuit data for {year} Round {round_number}")
             return None
 
-    def _fetch_qualifying_session(self, year: int, round_number: int, force_reload: bool = False) -> Any:
+    def _fetch_qualifying_session(self, year: int, round_number: int) -> Any:
+        logger.info(f"Entry: _fetch_qualifying_session(year={year}, round={round_number})")
         session = fastf1.get_session(year, round_number, 'Q')
         try:
-            session.load(telemetry=True, laps=True, weather=False, messages=False,
-                         force_reload=force_reload)
+            session.load(telemetry=True, laps=True, weather=False, messages=False)
         except Exception:
             logger.exception(f"Could not load telemetry for {year} Round {round_number}")
         
+        logger.info(f"Exit: _fetch_qualifying_session(year={year}, round={round_number})")
         return session
 
     def _extract_circuit_metrics_and_layout(self, session: Any) -> tuple:
@@ -259,26 +271,28 @@ class FastF1Provider(Provider):
         layout = extract_circuit_layout(session)
         rotation = 0.0
         try:
-            # Check if session info is loaded before calling get_circuit_info
-            if getattr(session, '_session_info', None) is not None:
-                circuit_info = session.get_circuit_info()
-                if circuit_info is not None:
-                    rotation = circuit_info.rotation
+            circuit_info = session.get_circuit_info()
+            if circuit_info is not None:
+                rotation = circuit_info.rotation
         except Exception:
-            logger.warning("Error extracting circuit info rotation - data may not be loaded")
+            logger.exception("Error extracting circuit info rotation")
         return metrics, layout, rotation
 
     def _get_fallback_circuit_data(self, location_info: dict, year: int, metrics: dict, layout: list, rotation: float) -> tuple:
+        logger.info(f"Data missing for {year}, attempting historical fallback")
         historical_session = self._get_historical_session(
             location_info["location"], 
             location_info["country"], 
             year
         )
         if historical_session:
+            logger.info(f"Applying historical fallback from {historical_session.event.EventDate.year}")
             return self._extract_circuit_metrics_and_layout(historical_session)
         return metrics, layout, rotation
 
     def _get_historical_session(self, location: str, country: str, current_year: int) -> Optional[Any]:
+        logger.info(f"Entry: _get_historical_session(location={location}, country={country}, current_year={current_year})")
+        
         norm_location = self._normalize_string(location)
         norm_country = self._normalize_string(country)
         
@@ -325,6 +339,7 @@ class FastF1Provider(Provider):
                     
                     # Try Qualifying first, then Race as fallback for circuit data
                     for session_type in ["Q", "R"]:
+                        logger.info(f"Attempting historical {search_year} Round {historical_round_number} ({session_type})")
                         historical_session = fastf1.get_session(search_year, historical_round_number, session_type)
                         
                         try:
@@ -333,13 +348,12 @@ class FastF1Provider(Provider):
                             logger.warning(f"Failed to load historical session {search_year} {session_type}: {e}")
                             continue
                         
-                        if getattr(historical_session, "_laps", None) is not None and not historical_session._laps.empty:
+                        if hasattr(historical_session, "_laps") and historical_session._laps is not None and not historical_session._laps.empty:
+                            logger.info(f"Exit: _get_historical_session - Found valid historical data in {search_year} ({session_type})")
                             return historical_session
             except Exception:
-                logger.warning(f"Error checking historical data for {search_year}", exc_info=True)
+                logger.exception(f"Error checking historical data for {search_year}")
                 continue
         
+        logger.info("Exit: _get_historical_session - No historical data found")
         return None
-
-    def clear_cache(self) -> bool:
-        pass
